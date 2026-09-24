@@ -49,11 +49,11 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#343033]/30 backdrop-blur-sm transition-opacity duration-150"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#343033]/30 backdrop-blur-[6px] animate-in fade-in duration-250 ease-out"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-white border border-[#EBE3E5] rounded-t-[28px] sm:rounded-[24px] p-6 pb-8 shadow-[0_-4px_28px_rgba(0,0,0,0.08)] max-h-[85vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom-4 duration-200"
+        className="w-full max-w-md bg-white border border-[#EBE3E5] rounded-t-[28px] sm:rounded-[24px] p-6 pb-8 shadow-[0_-4px_28px_rgba(0,0,0,0.08)] max-h-[85vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-300 ease-out"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header with dismiss */}

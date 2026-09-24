@@ -60,11 +60,11 @@ export const PremiumScreen: React.FC<PremiumScreenProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#343033]/30 backdrop-blur-[6px] p-0 sm:p-4 overflow-y-auto no-scrollbar animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#343033]/30 backdrop-blur-[6px] p-0 sm:p-4 overflow-y-auto no-scrollbar animate-in fade-in duration-250 ease-out"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md min-h-screen sm:min-h-0 sm:max-h-[92vh] sm:rounded-[32px] bg-[#FFF9FA] border border-[#EBE3E5] shadow-lg flex flex-col justify-between p-6 sm:p-7 relative overflow-y-auto no-scrollbar"
+        className="w-full max-w-md min-h-screen sm:min-h-0 sm:max-h-[92vh] sm:rounded-[32px] bg-[#FFF9FA] border border-[#EBE3E5] shadow-lg flex flex-col justify-between p-6 sm:p-7 relative overflow-y-auto no-scrollbar animate-in fade-in slide-in-from-bottom-3 sm:zoom-in-[0.98] duration-300 ease-out"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header: Logo + Close button */}

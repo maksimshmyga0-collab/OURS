@@ -6,12 +6,13 @@ import {
   resetAppToDefault,
   resetToOnboarding,
 } from './services/mockStorage';
-import { NavigationTab, Moment, AppSettings, MomentPhoto } from './types';
+import { NavigationTab, Moment, AppSettings, MomentPhoto, UserProfile } from './types';
 import { CoupleHeader } from './components/CoupleHeader';
 import { BottomTabBar } from './components/BottomTabBar';
 import { DevControls } from './components/DevControls';
 import { PremiumModal } from './components/PremiumModal';
 import { StreakDetailsModal } from './components/StreakDetailsModal';
+import { EditProfileModal } from './components/EditProfileModal';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { TodayScreen } from './screens/TodayScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
@@ -19,17 +20,34 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { PARTNER_SAMPLE_PHOTOS } from './services/samplePhotos';
 import { playSoftChime, triggerHaptic } from './services/feedback';
 import { calculateCoupleStreak } from './services/streak/streakService';
+import { syncAppStateForDate } from './services/moments/momentTiming';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
   const [activeTab, setActiveTab] = useState<NavigationTab>('today');
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   // Sync state to local storage on changes
   useEffect(() => {
     saveAppState(appState);
   }, [appState]);
+
+  // Check calendar date change periodically and on window focus
+  useEffect(() => {
+    const handleDateSync = () => {
+      setAppState((prev) => syncAppStateForDate(prev));
+    };
+
+    window.addEventListener('focus', handleDateSync);
+    const interval = setInterval(handleDateSync, 30000);
+
+    return () => {
+      window.removeEventListener('focus', handleDateSync);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Joint streak and history statistics
   const streakInfo = useMemo(() => {
@@ -119,6 +137,20 @@ export default function App() {
     triggerHaptic(appState.settings.haptic);
   };
 
+  // Update Current User Profile (Name & Photo)
+  const handleSaveProfile = (updated: Partial<UserProfile>) => {
+    setAppState((prev) => ({
+      ...prev,
+      couple: {
+        ...prev.couple,
+        user: {
+          ...prev.couple.user,
+          ...updated,
+        },
+      },
+    }));
+  };
+
   // Simulate Partner Upload for testing (Moment Duo)
   const handleSimulatePartnerUpload = () => {
     const activeMoment =
@@ -162,6 +194,30 @@ export default function App() {
   };
 
 
+  // Fast forward cooldown by 4 hours for demo and testing
+  const handleFastForwardCooldown = () => {
+    setAppState((prev) => {
+      const completedMoments = prev.todayMoments.filter((m) => m.status === 'COMPLETED');
+      if (completedMoments.length === 0) return prev;
+      const last = completedMoments[completedMoments.length - 1];
+      const shiftedMoments = prev.todayMoments.map((m) => {
+        if (m.id === last.id) {
+          return {
+            ...m,
+            completedTimestamp: Date.now() - 4 * 60 * 60 * 1000 - 2000,
+          };
+        }
+        return m;
+      });
+      return {
+        ...prev,
+        todayMoments: shiftedMoments,
+      };
+    });
+    playSoftChime('tap', appState.settings.sounds);
+    triggerHaptic(appState.settings.haptic);
+  };
+
   // Reset to default
   const handleResetDay = () => {
     const resetState = resetAppToDefault();
@@ -191,53 +247,63 @@ export default function App() {
   const isPartnerUploaded = Boolean(activeMoment?.partnerPhoto);
 
   return (
-    <div className="min-h-screen text-[#343033] flex flex-col justify-between selection:bg-[#F6DCE1]">
+    <div className="min-h-screen bg-[#FFF9FA] text-[#343033] flex flex-col justify-between selection:bg-[#F6DCE1]">
       {/* Mobile-first centered frame container with soft depth */}
       <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative bg-[#FFF9FA]/94 backdrop-blur-[2px] sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70">
         {/* Sticky Header with couple names and avatar pair */}
         <CoupleHeader
           couple={appState.couple}
-          onOpenProfile={() => setActiveTab('profile')}
+          onOpenProfile={() => {
+            if (activeTab === 'profile') {
+              setIsEditProfileOpen(true);
+            } else {
+              setActiveTab('profile');
+            }
+          }}
           currentStreak={streakInfo.currentStreak}
           onOpenStreak={() => setIsStreakModalOpen(true)}
         />
 
         {/* Scrollable Main Viewport */}
         <main className="flex-1 px-4 pt-4 pb-2">
-          {activeTab === 'today' && (
-            <TodayScreen
-              couple={appState.couple}
-              moments={appState.todayMoments}
-              activeMomentId={appState.activeMomentId}
-              onSelectActiveMoment={handleSelectActiveMoment}
-              onUpdateMoment={handleUpdateMoment}
-              soundEnabled={appState.settings.sounds}
-              hapticEnabled={appState.settings.haptic}
-              streakInfo={streakInfo}
-              onOpenStreak={() => setIsStreakModalOpen(true)}
-            />
-          )}
+          <div key={activeTab} className="animate-in fade-in duration-250 ease-out">
+            {activeTab === 'today' && (
+              <TodayScreen
+                couple={appState.couple}
+                moments={appState.todayMoments}
+                activeMomentId={appState.activeMomentId}
+                onSelectActiveMoment={handleSelectActiveMoment}
+                onUpdateMoment={handleUpdateMoment}
+                soundEnabled={appState.settings.sounds}
+                hapticEnabled={appState.settings.haptic}
+                streakInfo={streakInfo}
+                onOpenStreak={() => setIsStreakModalOpen(true)}
+              />
+            )}
 
+            {activeTab === 'history' && (
+              <HistoryScreen
+                history={appState.history}
+                todayMoments={appState.todayMoments}
+                couple={appState.couple}
+                onOpenPremium={() => setIsPremiumModalOpen(true)}
+                onNavigateToToday={() => setActiveTab('today')}
+              />
+            )}
 
-          {activeTab === 'history' && (
-            <HistoryScreen
-              history={appState.history}
-              todayMoments={appState.todayMoments}
-              couple={appState.couple}
-              onOpenPremium={() => setIsPremiumModalOpen(true)}
-              onNavigateToToday={() => setActiveTab('today')}
-            />
-          )}
-
-          {activeTab === 'profile' && (
-            <ProfileScreen
-              couple={appState.couple}
-              settings={appState.settings}
-              onUpdateSettings={handleUpdateSettings}
-              onOpenPremium={() => setIsPremiumModalOpen(true)}
-              onResetApp={handleResetDay}
-            />
-          )}
+            {activeTab === 'profile' && (
+              <ProfileScreen
+                couple={appState.couple}
+                settings={appState.settings}
+                onUpdateSettings={handleUpdateSettings}
+                onOpenPremium={() => setIsPremiumModalOpen(true)}
+                onResetApp={handleResetDay}
+                streakInfo={streakInfo}
+                onOpenEditProfile={() => setIsEditProfileOpen(true)}
+                onOpenThread={() => setIsStreakModalOpen(true)}
+              />
+            )}
+          </div>
         </main>
 
         {/* Fixed Bottom Tab Bar */}
@@ -256,6 +322,7 @@ export default function App() {
           onResetDay={handleResetDay}
           onRestartOnboarding={handleRestartOnboarding}
           onOpenPremium={() => setIsPremiumModalOpen(true)}
+          onFastForward={handleFastForwardCooldown}
           isPartnerUploaded={isPartnerUploaded}
           canSimulate={Boolean(activeMoment)}
         />
@@ -278,6 +345,19 @@ export default function App() {
           partnerAName={appState.couple.user.name}
           partnerBName={appState.couple.partner.name}
           pairSeed={appState.couple.id || 'pair-default-1'}
+        />
+
+        {/* User Profile Editor Modal */}
+        <EditProfileModal
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          user={appState.couple.user}
+          daysTogether={appState.couple.daysTogether}
+          streakInfo={streakInfo}
+          onSaveProfile={handleSaveProfile}
+          onOpenThread={() => setIsStreakModalOpen(true)}
+          soundEnabled={appState.settings.sounds}
+          hapticEnabled={appState.settings.haptic}
         />
 
       </div>

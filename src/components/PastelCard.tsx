@@ -28,7 +28,7 @@ export const PastelCard: React.FC<PastelCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`rounded-[24px] p-5 md:p-6 transition-all duration-150 ${bgColors[color]} ${
+      className={`rounded-[24px] p-5 md:p-6 transition-all duration-200 ease-out ${bgColors[color]} ${
         onClick ? 'cursor-pointer active:scale-[0.99] active:opacity-95' : ''
       } ${className}`}
     >

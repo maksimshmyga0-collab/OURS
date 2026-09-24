@@ -5,6 +5,7 @@ export interface UserProfile {
   id?: string;
   name: string;
   avatarColor: string;
+  avatarUrl?: string | null;
 }
 
 

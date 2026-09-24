@@ -86,6 +86,7 @@ export interface Moment {
   userReaction: ReactionEmoji | null;
   partnerReaction: ReactionEmoji | null;
   completedAt?: string;
+  completedTimestamp?: number;
 }
 
 /**

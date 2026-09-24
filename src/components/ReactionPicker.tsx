@@ -29,9 +29,9 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
               type="button"
               disabled={disabled}
               onClick={() => onSelectReaction(emoji)}
-              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-150 cursor-pointer active:scale-95 select-none ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-200 ease-out cursor-pointer active:scale-95 select-none ${
                 isSelected
-                  ? 'bg-[#FAF0F2] border-2 border-[#E98787] scale-105 shadow-xs'
+                  ? 'bg-[#FAF0F2] border-2 border-[#E98787] scale-[1.04] shadow-xs'
                   : 'bg-white/85 hover:bg-white border border-[#EBE3E5] shadow-2xs'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
               aria-label={`Реакция ${emoji}`}

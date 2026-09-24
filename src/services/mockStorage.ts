@@ -1,6 +1,11 @@
 import { CoupleState, HistoryDay, Moment, AppSettings } from '../types';
 import { PRESET_PHOTOS } from './samplePhotos';
 import { appStorage } from './storage/keyValueStorage';
+import {
+  syncAppStateForDate,
+  getLocalDateKey,
+  createFreshDayMoments,
+} from './moments/momentTiming';
 
 const STORAGE_KEY = 'ours_app_state_v1';
 const ONBOARDING_KEY = 'ours_onboarding_completed_v1';
@@ -14,65 +19,7 @@ export interface AppState {
   settings: AppSettings;
 }
 
-const DEFAULT_TODAY_MOMENTS: Moment[] = [
-  {
-    id: 'moment-today-1',
-    pairId: 'pair-default-1',
-    createdBy: 'user-a-default',
-    createdAt: '2026-09-23T08:00:00.000Z',
-    dateKey: '2026-09-23',
-    imageUrl: null,
-    caption: null,
-    order: 1,
-    label: 'МОМЕНТ 1',
-    prompt: 'Что сегодня заставило тебя улыбнуться?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    status: 'EMPTY',
-    themeColor: 'peach',
-    userPhoto: null,
-    partnerPhoto: null,
-    userReaction: null,
-    partnerReaction: null,
-  },
-  {
-    id: 'moment-today-2',
-    pairId: 'pair-default-1',
-    createdBy: 'user-a-default',
-    createdAt: '2026-09-23T08:00:00.000Z',
-    dateKey: '2026-09-23',
-    imageUrl: null,
-    caption: null,
-    order: 2,
-    label: 'МОМЕНТ 2',
-    prompt: 'Покажи место, где тебе сейчас хорошо.',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    status: 'EMPTY',
-    themeColor: 'pink',
-    userPhoto: null,
-    partnerPhoto: null,
-    userReaction: null,
-    partnerReaction: null,
-  },
-  {
-    id: 'moment-today-3',
-    pairId: 'pair-default-1',
-    createdBy: 'user-a-default',
-    createdAt: '2026-09-23T08:00:00.000Z',
-    dateKey: '2026-09-23',
-    imageUrl: null,
-    caption: null,
-    order: 3,
-    label: 'МОМЕНТ 3',
-    prompt: 'Что ты хочешь запомнить из сегодняшнего дня?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    status: 'EMPTY',
-    themeColor: 'peach',
-    userPhoto: null,
-    partnerPhoto: null,
-    userReaction: null,
-    partnerReaction: null,
-  },
-];
+const DEFAULT_TODAY_MOMENTS: Moment[] = createFreshDayMoments('OURS-4821', getLocalDateKey());
 
 
 const DEFAULT_HISTORY: HistoryDay[] = [
@@ -315,7 +262,7 @@ export function getInitialAppState(): AppState {
         parsed.couple &&
         parsed.couple.user
       ) {
-        return parsed;
+        return syncAppStateForDate(parsed);
       }
     }
   } catch {
@@ -334,7 +281,7 @@ export function getInitialAppState(): AppState {
       subscription: 'free',
     },
     todayMoments: JSON.parse(JSON.stringify(DEFAULT_TODAY_MOMENTS)),
-    activeMomentId: 'moment-today-1',
+    activeMomentId: DEFAULT_TODAY_MOMENTS[0]?.id || 'moment-today-1',
     history: JSON.parse(JSON.stringify(DEFAULT_HISTORY)),
     settings: {
       notifications: true,

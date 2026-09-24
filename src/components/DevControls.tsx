@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { SlidersHorizontal, RefreshCw, Sparkles, UserCheck } from 'lucide-react';
+import { SlidersHorizontal, RefreshCw, Sparkles, UserCheck, FastForward } from 'lucide-react';
 
 interface DevControlsProps {
   onSimulatePartnerUpload: () => void;
   onResetDay: () => void;
   onRestartOnboarding: () => void;
   onOpenPremium?: () => void;
+  onFastForward?: () => void;
   isPartnerUploaded: boolean;
   canSimulate: boolean;
 }
@@ -15,6 +16,7 @@ export const DevControls: React.FC<DevControlsProps> = ({
   onResetDay,
   onRestartOnboarding,
   onOpenPremium,
+  onFastForward,
   isPartnerUploaded,
   canSimulate,
 }) => {
@@ -71,6 +73,18 @@ export const DevControls: React.FC<DevControlsProps> = ({
               {isPartnerUploaded ? 'Партнёр уже загрузил' : 'Загрузить за Макса'}
             </span>
           </button>
+
+          {/* Fast forward 4 hours */}
+          {onFastForward && (
+            <button
+              type="button"
+              onClick={onFastForward}
+              className="w-full py-2 px-3 rounded-xl bg-slate-50/80 hover:bg-slate-100 text-[#343033] text-xs font-medium flex items-center gap-2 transition-all cursor-pointer active:scale-98"
+            >
+              <FastForward size={14} className="text-[#E2765A]" />
+              <span>Промотать 4 часа (Разблокировать)</span>
+            </button>
+          )}
 
           {/* Reset today's moments */}
           <button

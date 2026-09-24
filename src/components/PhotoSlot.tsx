@@ -23,25 +23,25 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   reaction,
   className = '',
 }) => {
-  // If revealed, show the actual photo
+  // If revealed, show the actual photo with smooth entrance
   if (isRevealed && photoUrl) {
     return (
-      <div className={`flex-1 flex flex-col items-center ${className}`}>
+      <div className={`flex-1 flex flex-col items-center ${className} animate-in fade-in zoom-in-[0.98] duration-350 ease-out`}>
         <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] border border-[#EBE3E5] soft-card-shadow group">
           <img
             src={photoUrl}
             alt={title}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-102"
+            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-102"
           />
           {/* Reaction badge if reacted */}
           {reaction && (
-            <div className="absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 border border-[#EBE3E5] shadow-xs flex items-center justify-center text-lg animate-in zoom-in-75 duration-150">
+            <div className="absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 border border-[#EBE3E5] shadow-xs flex items-center justify-center text-lg animate-in zoom-in-75 fade-in duration-200 ease-out">
               {reaction}
             </div>
           )}
         </div>
-        <span className="text-xs font-semibold text-[#343033] mt-2 tracking-tight">
+        <span className="text-xs font-semibold text-[#343033] mt-2 tracking-tight transition-colors duration-200">
           {title}
         </span>
       </div>
@@ -51,7 +51,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   // User uploaded, waiting or ready
   if (type === 'user' && photoUrl) {
     return (
-      <div className={`flex-1 flex flex-col items-center ${className}`}>
+      <div className={`flex-1 flex flex-col items-center ${className} animate-in fade-in duration-250 ease-out`}>
         <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] border border-[#E9C3CB] soft-card-shadow">
           <img
             src={photoUrl}
@@ -59,20 +59,20 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover"
           />
-          <div className="absolute top-2.5 right-2.5 bg-white/95 rounded-full p-1 border border-[#EBE3E5] text-[#E98787] shadow-xs">
+          <div className="absolute top-2.5 right-2.5 bg-white/95 rounded-full p-1 border border-[#EBE3E5] text-[#E98787] shadow-xs animate-in zoom-in-75 duration-200 ease-out">
             <CheckCircle2 size={17} />
           </div>
           {onAddPhoto && (
             <button
               type="button"
               onClick={onAddPhoto}
-              className="absolute inset-x-3 bottom-2.5 bg-white/95 border border-[#EBE3E5] shadow-xs py-1.5 rounded-xl text-[11px] font-semibold text-[#343033] text-center transition-all hover:bg-white active:scale-97 cursor-pointer"
+              className="absolute inset-x-3 bottom-2.5 bg-white/95 border border-[#EBE3E5] shadow-xs py-1.5 rounded-xl text-[11px] font-semibold text-[#343033] text-center transition-all duration-200 ease-out hover:bg-white active:scale-97 cursor-pointer"
             >
               Заменить
             </button>
           )}
         </div>
-        <span className="text-xs font-semibold text-[#343033] mt-2 tracking-tight">
+        <span className="text-xs font-semibold text-[#343033] mt-2 tracking-tight transition-colors duration-200">
           {title} · Готово
         </span>
       </div>
@@ -86,9 +86,9 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
         <button
           type="button"
           onClick={onAddPhoto}
-          className="w-full aspect-square rounded-[22px] bg-white border-2 border-dashed border-[#E5D7DA] hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-150 active:scale-98 cursor-pointer group shadow-2xs"
+          className="w-full aspect-square rounded-[22px] bg-white border-2 border-dashed border-[#E5D7DA] hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-200 ease-out active:scale-98 cursor-pointer group shadow-2xs"
         >
-          <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] group-hover:bg-[#F6DCE1] flex items-center justify-center text-[#E98787] mb-2 transition-colors">
+          <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] group-hover:bg-[#F6DCE1] flex items-center justify-center text-[#E98787] mb-2 transition-colors duration-200 ease-out">
             <Camera size={20} />
           </div>
           <span className="text-xs font-semibold text-[#343033]">
@@ -109,7 +109,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   return (
     <div className={`flex-1 flex flex-col items-center ${className}`}>
       {isPartnerUploaded ? (
-        <div className="w-full aspect-square rounded-[22px] bg-white border border-[#EBE3E5] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden">
+        <div className="w-full aspect-square rounded-[22px] bg-white border border-[#EBE3E5] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden animate-in fade-in duration-250 ease-out">
           <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] flex items-center justify-center text-[#E98787] mb-2">
             <CheckCircle2 size={20} />
           </div>
@@ -127,9 +127,9 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
         <button
           type="button"
           onClick={onAddPhoto}
-          className="w-full aspect-square rounded-[22px] bg-white border-2 border-dashed border-[#E5D7DA] hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-150 active:scale-98 cursor-pointer group shadow-2xs"
+          className="w-full aspect-square rounded-[22px] bg-white border-2 border-dashed border-[#E5D7DA] hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-200 ease-out active:scale-98 cursor-pointer group shadow-2xs"
         >
-          <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] group-hover:bg-[#F6DCE1] flex items-center justify-center text-[#E98787] mb-2 transition-colors">
+          <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] group-hover:bg-[#F6DCE1] flex items-center justify-center text-[#E98787] mb-2 transition-colors duration-200 ease-out">
             <Camera size={20} />
           </div>
           <span className="text-xs font-semibold text-[#343033]">

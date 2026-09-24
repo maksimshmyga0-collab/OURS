@@ -32,7 +32,7 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
         <button
           type="button"
           onClick={onOpenStreak}
-          className="min-h-[34px] flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-white/85 border border-[#EBE3E5] text-xs font-semibold text-[#343033] transition-all hover:bg-white active:scale-95 cursor-pointer shadow-2xs"
+          className="min-h-[34px] flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-white/85 border border-[#EBE3E5] text-xs font-semibold text-[#343033] transition-all duration-200 ease-out hover:bg-white active:scale-[0.97] cursor-pointer shadow-2xs"
           title="Ваша серия и нить"
         >
           <Flame size={14} className="text-[#E2765A] fill-[#E2765A]/25" />
@@ -43,12 +43,22 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
         <button
           type="button"
           onClick={onOpenProfile}
-          className="min-h-[34px] flex items-center gap-2 py-1 px-2.5 rounded-full bg-white/85 border border-[#EBE3E5] transition-all hover:bg-white active:scale-95 cursor-pointer shadow-2xs"
+          className="min-h-[34px] flex items-center gap-2 py-1 px-2.5 rounded-full bg-white/85 border border-[#EBE3E5] transition-all duration-200 ease-out hover:bg-white active:scale-[0.97] cursor-pointer shadow-2xs"
           title="Профиль пары"
         >
           <div className="flex items-center -space-x-2">
-            <Avatar name={couple.user.name} size="sm" bgColor={couple.user.avatarColor} />
-            <Avatar name={couple.partner.name} size="sm" bgColor={couple.partner.avatarColor} />
+            <Avatar
+              name={couple.user.name}
+              size="sm"
+              bgColor={couple.user.avatarColor}
+              imageUrl={couple.user.avatarUrl}
+            />
+            <Avatar
+              name={couple.partner.name}
+              size="sm"
+              bgColor={couple.partner.avatarColor}
+              imageUrl={couple.partner.avatarUrl}
+            />
           </div>
           <span className="text-xs font-medium text-[#343033] tracking-tight">
             {couple.user.name} + {couple.partner.name}
