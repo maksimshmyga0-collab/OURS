@@ -9,23 +9,23 @@ export interface SupabaseConfig {
 
 export function getSupabaseConfig(): SupabaseConfig {
   const isBrowser = typeof window !== 'undefined';
-  const shouldUseProxy = isBrowser && (env.isDevelopment || window.location.hostname.includes('run.app') || window.location.hostname === 'localhost');
-  const targetUrl = shouldUseProxy
+  // All browser requests are routed safely through same-origin proxy /supabase-api
+  const targetUrl = isBrowser
     ? `${window.location.origin}/supabase-api`
-    : env.supabaseUrl;
+    : (env.supabaseUrl || 'http://localhost:3000/supabase-api');
 
   return {
     url: targetUrl,
-    anonKey: env.supabaseAnonKey,
-    isConfigured: Boolean(env.supabaseUrl && env.supabaseAnonKey),
+    anonKey: env.supabaseAnonKey || 'public-anon-key',
+    isConfigured: Boolean(env.supabaseUrl),
   };
 }
 
 export const supabaseConfig = getSupabaseConfig();
 
 export const supabase: SupabaseClient = createClient(
-  supabaseConfig.url || 'https://placeholder.supabase.co',
-  supabaseConfig.anonKey || 'placeholder-anon-key',
+  supabaseConfig.url,
+  supabaseConfig.anonKey,
   {
     auth: {
       persistSession: true,
