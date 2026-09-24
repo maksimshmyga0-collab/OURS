@@ -53,7 +53,7 @@ export class AppAuthService implements IAuthService {
             .maybeSingle();
 
           if (profile) {
-            displayName = profile.display_name || profile.name || '';
+            displayName = profile.name || profile.display_name || '';
             avatarUrl = profile.avatar_url || null;
             avatarColor = profile.avatar_color || '#F6DCE1';
           }
@@ -87,7 +87,7 @@ export class AppAuthService implements IAuthService {
       await supabase.from('profiles').upsert(
         {
           id: userId,
-          display_name: displayName,
+          name: displayName,
           avatar_color: '#F6DCE1',
           created_at: new Date().toISOString(),
         },
@@ -119,14 +119,13 @@ export class AppAuthService implements IAuthService {
     this.currentUser = updated;
 
     if (supabaseConfig.isConfigured) {
-      const dbUpdates: Record<string, any> = {
-        updated_at: new Date().toISOString(),
-      };
-      if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
+      const dbUpdates: Record<string, any> = {};
+      if (updates.displayName !== undefined) dbUpdates.name = updates.displayName;
       if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
-      if (updates.avatarColor !== undefined) dbUpdates.avatar_color = updates.avatarColor;
 
-      await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
+      if (Object.keys(dbUpdates).length > 0) {
+        await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
+      }
     }
 
     this.notifyListeners();

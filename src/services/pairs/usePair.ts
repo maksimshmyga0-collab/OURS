@@ -3,18 +3,22 @@ import { Pair } from '../../types/models';
 import { CoupleState } from '../../types';
 import { pairService } from './pairService';
 
-export function usePair(userId: string = 'user-a-default') {
+export function usePair(userId: string = '') {
   const [pair, setPair] = useState<Pair | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
-    pairService.getCurrentPair(userId).then((p) => {
-      if (isMounted) {
-        setPair(p);
-        setIsLoading(false);
-      }
-    });
+    if (userId) {
+      pairService.getCurrentPair(userId).then((p) => {
+        if (isMounted) {
+          setPair(p);
+          setIsLoading(false);
+        }
+      });
+    } else {
+      setIsLoading(false);
+    }
 
     const unsubscribe = pairService.subscribeToPair('pair-default-1', (updated: Pair) => {
       if (isMounted) {
@@ -50,12 +54,12 @@ export function usePair(userId: string = 'user-a-default') {
   const coupleState: CoupleState = useMemo(() => {
     if (!pair) {
       return {
-        user: { name: 'Аня', avatarColor: '#F6DCE1' },
-        partner: { name: 'Макс', avatarColor: '#DDEAF7' },
-        inviteCode: 'OURS-4821',
-        connected: true,
-        startDate: '12 сентября 2026',
-        daysTogether: 12,
+        user: { name: '', avatarColor: '#F6DCE1' },
+        partner: { name: 'Партнёр', avatarColor: '#DDEAF7' },
+        inviteCode: '',
+        connected: false,
+        startDate: '',
+        daysTogether: 1,
         isLovely: false,
         subscription: 'free',
       };
@@ -64,12 +68,16 @@ export function usePair(userId: string = 'user-a-default') {
     return {
       id: pair.id,
       user: {
+        id: pair.userA.id,
         name: pair.userA.displayName,
         avatarColor: pair.userA.avatarColor || '#F6DCE1',
+        avatarUrl: pair.userA.avatarUrl,
       },
       partner: {
+        id: pair.userB?.id || '',
         name: pair.userB?.displayName || 'Партнёр',
         avatarColor: pair.userB?.avatarColor || '#DDEAF7',
+        avatarUrl: pair.userB?.avatarUrl,
       },
       inviteCode: pair.inviteCode,
       connected: pair.status === 'active' && Boolean(pair.userB),

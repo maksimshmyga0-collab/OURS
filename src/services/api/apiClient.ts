@@ -47,17 +47,6 @@ export interface PairResponse {
   error?: string;
 }
 
-const SAFE_CODE_CHARS = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-
-function generateRandomInviteCode(): string {
-  let result = '';
-  for (let i = 0; i < 4; i++) {
-    const idx = Math.floor(Math.random() * SAFE_CODE_CHARS.length);
-    result += SAFE_CODE_CHARS[idx];
-  }
-  return `OURS-${result}`;
-}
-
 export class ApiClient {
   private currentUserId: string | null = null;
   private currentPairId: string | null = null;
@@ -127,20 +116,21 @@ export class ApiClient {
 
       if (profile && !error) {
         return {
-          displayName: profile.display_name || profile.name || defaultName,
+          displayName: profile.name || profile.display_name || defaultName,
           avatarUrl: profile.avatar_url || null,
           avatarColor: profile.avatar_color || '#F6DCE1',
         };
       }
 
-      // Profile does not exist, insert initial profile row
-      await supabase.from('profiles').upsert(
-        {
-          id: userId,
-          name: defaultName,
-        },
-        { onConflict: 'id' }
-      );
+      if (defaultName) {
+        await supabase.from('profiles').upsert(
+          {
+            id: userId,
+            name: defaultName,
+          },
+          { onConflict: 'id' }
+        );
+      }
     } catch (err) {
       console.warn('[OURS Profiles] Profile access warning:', err);
     }
@@ -185,38 +175,57 @@ export class ApiClient {
     // 2. Fetch all members from public.pair_members
     const { data: members } = await supabase
       .from('pair_members')
-      .select('*, profiles(*)')
+      .select('pair_id, user_id, joined_at')
       .eq('pair_id', pairId);
 
     const memberList = members || [];
-    const myMember = memberList.find((m: any) => m.user_id === currentUserId);
-    const partnerMember = memberList.find((m: any) => m.user_id !== currentUserId);
+    const memberUserIds = memberList.map((m: any) => m.user_id).filter(Boolean);
 
-    // Current user profile
-    const myProfileData = await this.getOrCreateProfile(currentUserId);
+    // Fetch member profiles from public.profiles
+    let profileRows: any[] = [];
+    if (memberUserIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url, created_at')
+        .in('id', memberUserIds);
+      profileRows = profs || [];
+    }
+    const profileMap = new Map<string, any>(profileRows.map((p) => [p.id, p]));
+
+    // Current user profile (Device identity)
+    const myProfileRow = profileMap.get(currentUserId);
     const myProfile = {
       id: currentUserId,
-      name: myProfileData.displayName,
-      avatarUrl: myProfileData.avatarUrl,
-      avatarColor: myProfileData.avatarColor || '#F6DCE1',
+      name: myProfileRow?.name || '',
+      avatarUrl: myProfileRow?.avatar_url || null,
+      avatarColor: '#F6DCE1',
     };
 
-    // Partner profile
-    let partnerProfile = {
-      id: partnerMember?.user_id || '',
-      name: partnerMember?.profiles?.display_name || partnerMember?.profiles?.name || 'Партнёр',
-      avatarUrl: partnerMember?.profiles?.avatar_url || null,
-      avatarColor: partnerMember?.profiles?.avatar_color || '#DDEAF7',
-    };
-
-    if (partnerMember?.user_id && (!partnerMember.profiles || !partnerMember.profiles.display_name)) {
-      const pData = await this.getOrCreateProfile(partnerMember.user_id, 'Партнёр');
-      partnerProfile.name = pData.displayName || 'Партнёр';
-      partnerProfile.avatarUrl = pData.avatarUrl;
-      partnerProfile.avatarColor = pData.avatarColor || '#DDEAF7';
+    if (!myProfile.name) {
+      const pData = await this.getOrCreateProfile(currentUserId);
+      myProfile.name = pData.displayName;
+      myProfile.avatarUrl = pData.avatarUrl;
     }
 
-    const isConnected = Boolean(partnerMember?.user_id);
+    // Partner profile (the other user in pair_members)
+    const partnerMember = memberList.find((m: any) => m.user_id !== currentUserId);
+    const partnerUserId = partnerMember?.user_id || '';
+    const partnerProfileRow = partnerUserId ? profileMap.get(partnerUserId) : null;
+
+    const partnerProfile = {
+      id: partnerUserId,
+      name: partnerProfileRow?.name || (partnerUserId ? 'Партнёр' : ''),
+      avatarUrl: partnerProfileRow?.avatar_url || null,
+      avatarColor: '#DDEAF7',
+    };
+
+    if (partnerUserId && !partnerProfile.name) {
+      const pData = await this.getOrCreateProfile(partnerUserId, 'Партнёр');
+      partnerProfile.name = pData.displayName || 'Партнёр';
+      partnerProfile.avatarUrl = pData.avatarUrl;
+    }
+
+    const isConnected = Boolean(partnerUserId);
     const pairSeedVal = `${inviteCode}-${myProfile.name}-${partnerProfile.name}`
       .toLowerCase()
       .replace(/\s+/g, '-');
@@ -234,6 +243,16 @@ export class ApiClient {
       lovelyPurchasedAt,
       subscription,
     };
+
+    // Temporary development-only debug log
+    if (typeof window !== 'undefined') {
+      console.log(`[OURS DEBUG]
+AUTH USER: ${currentUserId}
+PROFILE ID: ${myProfile.id}
+PROFILE NAME: ${myProfile.name}
+PAIR ID: ${pairId}
+PAIR MEMBERS: ${memberUserIds.join(', ')}`);
+    }
 
     // 3. Fetch or initialize today's moments from public.moments
     let { data: rawMoments } = await supabase
@@ -545,7 +564,6 @@ export class ApiClient {
     );
 
     let pairId: string | null = null;
-    let inviteCode: string | null = null;
 
     // 2. Call Supabase RPC 'create_pair'
     const { data: rpcData, error: rpcError } = await supabase.rpc('create_pair');
@@ -561,7 +579,6 @@ export class ApiClient {
     }
 
     pairId = rpcRow.pair_id;
-    inviteCode = rpcRow.pair_code;
 
     this.currentPairId = pairId;
     const assembled = await this.assemblePairData(pairId!, userId);
@@ -581,7 +598,7 @@ export class ApiClient {
     const cleanName = userName.trim();
     const cleanCode = inviteCode.trim().toUpperCase();
 
-    // 1. Update user profile
+    // 1. Update user profile with real name
     await supabase.from('profiles').upsert(
       {
         id: userId,
@@ -632,14 +649,13 @@ export class ApiClient {
    */
   async updateProfile(updates: { name?: string; avatarUrl?: string | null; avatarColor?: string }) {
     const userId = await this.ensureAuthenticatedUser();
-    const profileUpdates: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-    if (updates.name !== undefined) profileUpdates.display_name = updates.name.trim();
+    const profileUpdates: Record<string, any> = {};
+    if (updates.name !== undefined) profileUpdates.name = updates.name.trim();
     if (updates.avatarUrl !== undefined) profileUpdates.avatar_url = updates.avatarUrl;
-    if (updates.avatarColor !== undefined) profileUpdates.avatar_color = updates.avatarColor;
 
-    await supabase.from('profiles').update(profileUpdates).eq('id', userId);
+    if (Object.keys(profileUpdates).length > 0) {
+      await supabase.from('profiles').update(profileUpdates).eq('id', userId);
+    }
     return { success: true };
   }
 
@@ -749,7 +765,17 @@ export class ApiClient {
       { onConflict: 'moment_id,user_id' }
     );
 
-    await supabase.from('moments').update({ status: 'REACTED' }).eq('id', momentId);
+    await supabase
+      .from('moments')
+      .update({ status: 'REACTED' })
+      .eq('id', momentId);
+
+    if (this.currentPairId) {
+      const state = await this.assemblePairData(this.currentPairId, userId);
+      const moment = state.moments.find((m) => m.id === momentId);
+      return { success: true, moment };
+    }
+
     return { success: true };
   }
 
@@ -757,15 +783,14 @@ export class ApiClient {
    * Complete Moment in public.moments
    */
   async completeMoment(momentId: string): Promise<{ success: boolean; moment?: Moment }> {
-    const nowIso = new Date().toISOString();
-    const nowTs = Date.now();
-
+    const completedAt = new Date().toISOString();
     await supabase
       .from('moments')
       .update({
         status: 'COMPLETED',
-        completed_at: nowIso,
-        completed_timestamp: nowTs,
+        revealed: true,
+        completed_at: completedAt,
+        completed_timestamp: Date.now(),
       })
       .eq('id', momentId);
 
@@ -780,49 +805,36 @@ export class ApiClient {
   }
 
   /**
-   * Purchase Lovely for Pair
+   * One-time LOVELY purchase in public.pairs
    */
-  async purchaseLovely(): Promise<{ success: boolean; isLovely: boolean }> {
-    if (this.currentPairId) {
-      await supabase
-        .from('pairs')
-        .update({
-          is_lovely: true,
-          lovely_purchased_at: new Date().toISOString(),
-          subscription: 'premium',
-        })
-        .eq('id', this.currentPairId);
-    }
-    return { success: true, isLovely: true };
+  async purchaseLovely(): Promise<boolean> {
+    if (!this.currentPairId) return false;
+    const purchasedAt = new Date().toISOString();
+    await supabase
+      .from('pairs')
+      .update({
+        is_lovely: true,
+        lovely_purchased_at: purchasedAt,
+        subscription: 'premium',
+      })
+      .eq('id', this.currentPairId);
+    return true;
   }
 
   /**
-   * Reset Lovely for Pair
+   * Reset LOVELY status for testing in public.pairs
    */
-  async resetLovely(): Promise<{ success: boolean; isLovely: boolean }> {
-    if (this.currentPairId) {
-      await supabase
-        .from('pairs')
-        .update({
-          is_lovely: false,
-          subscription: 'free',
-        })
-        .eq('id', this.currentPairId);
-    }
-    return { success: true, isLovely: false };
-  }
-
-  /**
-   * Reset User Session (Dev tool)
-   */
-  async resetUser(): Promise<void> {
-    this.currentUserId = null;
-    this.currentPairId = null;
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // ignore
-    }
+  async resetLovely(): Promise<boolean> {
+    if (!this.currentPairId) return false;
+    await supabase
+      .from('pairs')
+      .update({
+        is_lovely: false,
+        lovely_purchased_at: null,
+        subscription: 'free',
+      })
+      .eq('id', this.currentPairId);
+    return true;
   }
 }
 
