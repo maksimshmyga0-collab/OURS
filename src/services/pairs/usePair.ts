@@ -16,7 +16,7 @@ export function usePair(userId: string = 'user-a-default') {
       }
     });
 
-    const unsubscribe = pairService.subscribeToPair('pair-default-1', (updated) => {
+    const unsubscribe = pairService.subscribeToPair('pair-default-1', (updated: Pair) => {
       if (isMounted) {
         setPair(updated);
       }

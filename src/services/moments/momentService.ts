@@ -208,7 +208,7 @@ export class AppMomentService implements IMomentService {
     }
 
     // Upload through StorageService
-    const storedUrl = await this.photoStorage.uploadMomentPhoto(pairId, momentId, photo);
+    const storedUrl = await this.photoStorage.uploadMomentPhoto(pairId, momentId, userId, photo);
 
     const isPartnerAlreadyUploaded = Boolean(target.partnerPhoto);
     const newStatus = isPartnerAlreadyUploaded ? 'BOTH_UPLOADED' : 'USER_UPLOADED';

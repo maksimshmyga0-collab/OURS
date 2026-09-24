@@ -188,7 +188,7 @@ export default function App() {
       if (options?.isJoin && options.inviteCode) {
         res = await apiClient.joinPair(userName, options.inviteCode);
       } else {
-        res = await apiClient.createPair(userName, options?.inviteCode);
+        res = await apiClient.createPair(userName);
       }
 
       if (res.success && res.pair) {
@@ -212,27 +212,6 @@ export default function App() {
       }
     } catch (err: any) {
       console.error('Onboarding complete error:', err);
-      // Fallback local state if offline
-      setAppState((prev) => {
-        const inviteCode = options?.inviteCode || prev.couple.inviteCode || 'OURS-4821';
-        const partnerName = prev.couple.partner?.name || 'Партнёр';
-        const pairSeed = `${inviteCode}-${userName}-${partnerName}`.toLowerCase().replace(/\s+/g, '-');
-        return {
-          ...prev,
-          hasCompletedOnboarding: true,
-          couple: {
-            ...prev.couple,
-            pairSeed,
-            user: {
-              ...prev.couple.user,
-              name: userName,
-            },
-            inviteCode,
-            connected: options?.isJoin ? true : prev.couple.connected,
-          },
-        };
-      });
-      setActiveTab('today');
     }
   };
 
@@ -255,9 +234,10 @@ export default function App() {
       if (updated.status === 'COMPLETED') {
         const res = await apiClient.completeMoment(updated.id);
         if (res.success && res.moment) {
+          const completedM = res.moment;
           setAppState((prev) => ({
             ...prev,
-            todayMoments: prev.todayMoments.map((m) => (m.id === res.moment.id ? res.moment : m)),
+            todayMoments: prev.todayMoments.map((m) => (m.id === completedM.id ? completedM : m)),
           }));
         }
       } else if (updated.status === 'REVEALED') {
@@ -539,7 +519,6 @@ export default function App() {
       {!appState.hasCompletedOnboarding ? (
         <OnboardingFlow
           onComplete={handleOnboardingComplete}
-          defaultInviteCode={appState.couple.inviteCode || 'OURS-4821'}
         />
       ) : (
         <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] flex flex-col justify-between selection:bg-[#F6DCE1]">

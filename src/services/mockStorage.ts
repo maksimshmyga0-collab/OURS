@@ -86,15 +86,15 @@ export function saveAppState(state: AppState): void {
 }
 
 export function createDemoAppState(): AppState {
-  const demoMoments = createFreshDayMoments('OURS-4821', getLocalDateKey());
+  const demoMoments = createFreshDayMoments('OURS-DEMO', getLocalDateKey());
   return {
     hasCompletedOnboarding: true,
     couple: {
       id: 'pair-demo-1',
-      pairSeed: 'ours-4821-anya-max',
+      pairSeed: 'ours-demo-anya-max',
       user: { id: 'usr-demo-a', name: 'Аня', avatarColor: '#F6DCE1' },
       partner: { id: 'usr-demo-b', name: 'Макс', avatarColor: '#DDEAF7' },
-      inviteCode: 'OURS-4821',
+      inviteCode: 'OURS-DEMO',
       connected: true,
       startDate: '12 сентября 2026',
       daysTogether: 12,

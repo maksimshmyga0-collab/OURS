@@ -1,13 +1,11 @@
 /**
- * Authentication Service
+ * Authentication Service (Supabase Auth)
  * Decouples user authentication and identity from React UI components.
- * Prepared for Supabase Auth (Email, Phone OTP, Anonymous, OAuth) or local mock.
+ * Backed by Supabase Anonymous Authentication and public.profiles.
  */
 
 import { User } from '../../types/models';
-import { appStorage, IKeyValueStorage } from '../storage/keyValueStorage';
-
-const AUTH_USER_KEY = 'ours_auth_user_v1';
+import { supabase, supabaseConfig } from '../api/supabaseClient';
 
 export interface IAuthService {
   getCurrentUser(): Promise<User | null>;
@@ -18,59 +16,95 @@ export interface IAuthService {
 }
 
 export class AppAuthService implements IAuthService {
-  private storage: IKeyValueStorage;
   private currentUser: User | null = null;
   private listeners: Set<(user: User | null) => void> = new Set();
   private initialized = false;
-
-  constructor(storage: IKeyValueStorage = appStorage) {
-    this.storage = storage;
-  }
 
   private notifyListeners() {
     this.listeners.forEach((listener) => listener(this.currentUser));
   }
 
   async getCurrentUser(): Promise<User | null> {
-    if (!this.initialized) {
-      const stored = await this.storage.getItem(AUTH_USER_KEY);
-      if (stored) {
-        try {
-          this.currentUser = JSON.parse(stored) as User;
-        } catch {
-          this.currentUser = null;
+    if (this.currentUser && this.initialized) {
+      return this.currentUser;
+    }
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      let authUser = sessionData?.session?.user;
+
+      if (!authUser) {
+        const { data: signInData } = await supabase.auth.signInAnonymously();
+        if (signInData?.user) {
+          authUser = signInData.user;
         }
       }
-      this.initialized = true;
+
+      if (authUser) {
+        let displayName = '';
+        let avatarUrl: string | null = null;
+        let avatarColor = '#F6DCE1';
+
+        if (supabaseConfig.isConfigured) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          if (profile) {
+            displayName = profile.display_name || profile.name || '';
+            avatarUrl = profile.avatar_url || null;
+            avatarColor = profile.avatar_color || '#F6DCE1';
+          }
+        }
+
+        this.currentUser = {
+          id: authUser.id,
+          displayName,
+          avatarUrl,
+          avatarColor,
+          currentPairId: null,
+          createdAt: authUser.created_at || new Date().toISOString(),
+        };
+        this.initialized = true;
+        return this.currentUser;
+      }
+    } catch (err) {
+      console.warn('[OURS AuthService] Session access error:', err);
     }
 
-    if (!this.currentUser) {
-      // Default initial user for seamless first launch
-      this.currentUser = {
-        id: 'user-a-default',
-        displayName: 'Аня',
-        avatarUrl: null,
-        avatarColor: '#F6DCE1',
-        currentPairId: 'pair-default-1',
-        createdAt: '2026-09-12T10:00:00.000Z',
-      };
-      await this.storage.setItem(AUTH_USER_KEY, JSON.stringify(this.currentUser));
-    }
-
+    this.initialized = true;
     return this.currentUser;
   }
 
-  async signInAnonymously(displayName: string = 'Аня'): Promise<User> {
+  async signInAnonymously(displayName: string = ''): Promise<User> {
+    const { data } = await supabase.auth.signInAnonymously();
+    const authUser = data?.user;
+    const userId = authUser?.id || `user-${Date.now()}`;
+
+    if (displayName && supabaseConfig.isConfigured) {
+      await supabase.from('profiles').upsert(
+        {
+          id: userId,
+          display_name: displayName,
+          avatar_color: '#F6DCE1',
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+    }
+
     const user: User = {
-      id: `user-${Date.now()}`,
+      id: userId,
       displayName,
       avatarUrl: null,
       avatarColor: '#F6DCE1',
-      currentPairId: 'pair-default-1',
+      currentPairId: null,
       createdAt: new Date().toISOString(),
     };
+
     this.currentUser = user;
-    await this.storage.setItem(AUTH_USER_KEY, JSON.stringify(user));
     this.notifyListeners();
     return user;
   }
@@ -80,24 +114,50 @@ export class AppAuthService implements IAuthService {
     if (!user) {
       throw new Error('User not authenticated');
     }
+
     const updated: User = { ...user, ...updates };
     this.currentUser = updated;
-    await this.storage.setItem(AUTH_USER_KEY, JSON.stringify(updated));
+
+    if (supabaseConfig.isConfigured) {
+      const dbUpdates: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (updates.displayName !== undefined) dbUpdates.display_name = updates.displayName;
+      if (updates.avatarUrl !== undefined) dbUpdates.avatar_url = updates.avatarUrl;
+      if (updates.avatarColor !== undefined) dbUpdates.avatar_color = updates.avatarColor;
+
+      await supabase.from('profiles').update(dbUpdates).eq('id', user.id);
+    }
+
     this.notifyListeners();
     return updated;
   }
 
   async signOut(): Promise<void> {
     this.currentUser = null;
-    await this.storage.removeItem(AUTH_USER_KEY);
+    await supabase.auth.signOut();
     this.notifyListeners();
   }
 
   onAuthStateChange(callback: (user: User | null) => void): () => void {
     this.listeners.add(callback);
     callback(this.currentUser);
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        if (!this.currentUser || this.currentUser.id !== session.user.id) {
+          await this.getCurrentUser();
+          this.notifyListeners();
+        }
+      } else {
+        this.currentUser = null;
+        this.notifyListeners();
+      }
+    });
+
     return () => {
       this.listeners.delete(callback);
+      authListener?.subscription?.unsubscribe();
     };
   }
 }

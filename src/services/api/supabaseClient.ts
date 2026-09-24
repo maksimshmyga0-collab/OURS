@@ -1,17 +1,4 @@
-/**
- * Supabase Client Configuration & Contract
- *
- * When Supabase credentials are configured in .env:
- * VITE_SUPABASE_URL=https://xyz.supabase.co
- * VITE_SUPABASE_ANON_KEY=xyz
- *
- * This client provides the connection for:
- * - Supabase Auth (authService)
- * - Supabase Database (pairs, moments, users tables)
- * - Supabase Storage (photoStorageService, bucket 'moments')
- * - Supabase Realtime (subscribeToMoments)
- */
-
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { env } from '../config/env';
 
 export interface SupabaseConfig {
@@ -29,3 +16,15 @@ export function getSupabaseConfig(): SupabaseConfig {
 }
 
 export const supabaseConfig = getSupabaseConfig();
+
+export const supabase: SupabaseClient = createClient(
+  supabaseConfig.url || 'https://placeholder.supabase.co',
+  supabaseConfig.anonKey || 'placeholder-anon-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+  }
+);

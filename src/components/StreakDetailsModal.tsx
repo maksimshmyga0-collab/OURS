@@ -34,7 +34,7 @@ export const StreakDetailsModal: React.FC<StreakDetailsModalProps> = ({
         pairSeed,
         user: { name: partnerAName, avatarColor: 'peach' },
         partner: { name: partnerBName, avatarColor: 'blue' },
-        inviteCode: 'OURS-4821',
+        inviteCode: '',
         connected: true,
         startDate: '12 сентября 2026',
         daysTogether: streakInfo.totalActiveDays,

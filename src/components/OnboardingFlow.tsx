@@ -3,7 +3,6 @@ import { PrimaryButton } from './PrimaryButton';
 import {
   ChevronLeft,
   ChevronRight,
-  Copy,
   Check,
   Lock,
   Sparkles,
@@ -11,7 +10,6 @@ import {
   Heart,
   Coffee,
 } from 'lucide-react';
-import { copyToClipboard } from '../services/device/clipboard';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { PRESET_PHOTOS } from '../services/samplePhotos';
 
@@ -20,20 +18,17 @@ interface OnboardingFlowProps {
     userName: string,
     options?: { isJoin?: boolean; inviteCode?: string }
   ) => void;
-  defaultInviteCode?: string;
 }
 
 type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join';
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onComplete,
-  defaultInviteCode = 'OURS-4821',
 }) => {
   const [view, setView] = useState<OnboardingView>('slide-1');
   const [userName, setUserName] = useState<string>('');
   const [joinName, setJoinName] = useState<string>('');
   const [joinCode, setJoinCode] = useState<string>('');
-  const [isCopied, setIsCopied] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [shakeField, setShakeField] = useState<'create-name' | 'join-name' | 'join-code' | null>(null);
 
@@ -51,15 +46,6 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const triggerShake = (field: 'create-name' | 'join-name' | 'join-code') => {
     setShakeField(field);
     setTimeout(() => setShakeField(null), 400);
-  };
-
-  // Copy code handler
-  const handleCopyCode = async () => {
-    triggerHaptic(true);
-    playSoftChime('tap', true);
-    await copyToClipboard(defaultInviteCode);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
   };
 
   // Skip onboarding entirely and open the couple selection hub
@@ -94,7 +80,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     }
     triggerHaptic(true);
     playSoftChime('match', true);
-    onComplete(trimmed, { isJoin: false, inviteCode: defaultInviteCode });
+    onComplete(trimmed, { isJoin: false });
   };
 
   // Join couple submission
@@ -625,39 +611,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </div>
 
               {/* Pink Information Card */}
-              <div className="p-5 rounded-[22px] bg-[#FAF0F2] dark:bg-[#181416] border border-[#EED7DC] dark:border-[#332227] space-y-3">
-                <div>
-                  <h3 className="font-display text-sm font-bold text-[#343033] dark:text-white">
-                    Пригласи партнёра
-                  </h3>
-                  <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-relaxed">
-                    Отправь код — по нему партнёр присоединится к твоей паре.
-                  </p>
-                </div>
-
-                {/* Code Pill + Copy button */}
-                <div className="flex items-center justify-between p-3 pl-4 rounded-[16px] bg-white dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#282024] shadow-2xs">
-                  <span className="font-mono text-base font-bold tracking-widest text-[#343033] dark:text-white">
-                    {defaultInviteCode}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleCopyCode}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF0F2] dark:bg-[#28181C] hover:bg-[#F6E2E6] dark:hover:bg-[#342026] text-[#343033] dark:text-white text-xs font-semibold border border-[#EED7DC] dark:border-[#42262E] transition-all active:scale-95 cursor-pointer shadow-2xs"
-                  >
-                    {isCopied ? (
-                      <>
-                        <Check size={14} className="text-[#E98787] dark:text-[#F0B9C6]" />
-                        <span>Скопировано</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} className="text-[#E98787] dark:text-[#F0B9C6]" />
-                        <span>Копировать</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+              <div className="p-5 rounded-[22px] bg-[#FAF0F2] dark:bg-[#181416] border border-[#EED7DC] dark:border-[#332227] space-y-2">
+                <h3 className="font-display text-sm font-bold text-[#343033] dark:text-white">
+                  Пригласи партнёра
+                </h3>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                  После создания пары ты получишь персональный уникальный код приглашения для своего партнёра.
+                </p>
               </div>
             </div>
 
@@ -725,7 +685,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     type="text"
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder="OURS-4821"
+                    placeholder="OURS-7K4M"
                     className={`w-full h-[52px] px-4 rounded-[18px] bg-white dark:bg-[#141214] border ${
                       shakeField === 'join-code'
                         ? 'border-[#E98787] animate-shake ring-2 ring-[#E98787]/25'
