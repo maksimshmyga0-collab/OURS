@@ -1,0 +1,210 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ours-bg: #FFF9FA;
+  --color-ours-surface: #FFFFFF;
+  --color-ours-soft-pink: #F6DCE1;
+  --color-ours-dusty-pink: #EFC1CB;
+  --color-ours-soft-blue: #DDEAF7;
+  --color-ours-peach: #F7D8D0;
+  --color-ours-cream: #F4E8C9;
+  --color-ours-lilac: #E8DCEB;
+  --color-ours-coral: #E98787;
+  --color-ours-text-primary: #343033;
+  --color-ours-text-secondary: #777277;
+  --color-ours-divider: #F0E6E8;
+  --color-ours-disabled: #CEC5C8;
+
+  --font-sans: 'Manrope', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Unbounded', 'Outfit', system-ui, -apple-system, sans-serif;
+}
+
+:root {
+  color: #343033;
+  background-color: #FFF9FA;
+  -webkit-tap-highlight-color: transparent;
+  font-family: 'Manrope', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* Custom smooth scroll and mobile app touch behaviors */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: #FFF9FA;
+  color: #343033;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle, natural HIG elevation & surfaces */
+.soft-card-shadow {
+  box-shadow: 
+    0 1px 2px rgba(52, 48, 51, 0.02),
+    0 6px 18px -4px rgba(52, 48, 51, 0.035);
+}
+
+.main-moment-card-shadow {
+  box-shadow:
+    0 1px 2px rgba(52, 48, 51, 0.02),
+    0 8px 24px -6px rgba(52, 48, 51, 0.04);
+}
+
+/* Clean Apple-style translucent system bars & materials */
+.liquid-glass-bar {
+  background: rgba(255, 249, 250, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.liquid-glass-header {
+  background: rgba(255, 249, 250, 0.88);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.liquid-glass-pill {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.liquid-glass-pill:hover {
+  background: #FFFFFF;
+}
+
+.liquid-glass-card {
+  background: #FFFFFF;
+  border: 1px solid #F0E6E8;
+  box-shadow: 
+    0 1px 2px rgba(52, 48, 51, 0.02),
+    0 4px 14px -4px rgba(52, 48, 51, 0.03);
+}
+
+.liquid-glass-floating {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 
+    0 4px 16px -2px rgba(52, 48, 51, 0.08);
+}
+
+.match-glow-shadow {
+  box-shadow: 0 8px 24px -4px rgba(233, 135, 135, 0.2);
+}
+
+/* Hide scrollbars for clean story-like feel while preserving scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes gentle-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-gentle-float {
+  animation: gentle-float 4s ease-in-out infinite;
+}
+
+@keyframes input-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-shake {
+  animation: input-shake 0.35s ease-in-out;
+}
+
+@keyframes sphere-converge-left {
+  0% {
+    transform: translateX(-36px) scale(0.92);
+  }
+  36%, 82% {
+    transform: translateX(-10px) scale(1.02);
+  }
+  100% {
+    transform: translateX(-36px) scale(0.92);
+  }
+}
+
+@keyframes sphere-converge-right {
+  0% {
+    transform: translateX(36px) scale(0.92);
+  }
+  36%, 82% {
+    transform: translateX(10px) scale(1.02);
+  }
+  100% {
+    transform: translateX(36px) scale(0.92);
+  }
+}
+
+@keyframes match-wave-expand {
+  0%, 32% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  42% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+  72% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes match-pill-pop {
+  0%, 34% {
+    opacity: 0;
+    transform: scale(0.6) translateY(4px);
+  }
+  44%, 80% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  90%, 100% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.animate-sphere-left {
+  animation: sphere-converge-left 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-sphere-right {
+  animation: sphere-converge-right 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-match-wave {
+  animation: match-wave-expand 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.animate-match-pill {
+  animation: match-pill-pop 3.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+

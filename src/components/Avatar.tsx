@@ -1,0 +1,34 @@
+import React from 'react';
+
+interface AvatarProps {
+  name: string;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  bgColor?: string;
+  className?: string;
+}
+
+export const Avatar: React.FC<AvatarProps> = ({
+  name,
+  size = 'md',
+  bgColor = '#F6DCE1',
+  className = '',
+}) => {
+  const initial = name ? name.trim().charAt(0).toUpperCase() : '?';
+
+  const sizeClasses = {
+    sm: 'w-7 h-7 text-xs',
+    md: 'w-9 h-9 text-sm',
+    lg: 'w-12 h-12 text-base font-semibold',
+    xl: 'w-16 h-16 text-xl font-bold',
+  }[size];
+
+  return (
+    <div
+      className={`rounded-full flex items-center justify-center font-medium text-[#343033] shrink-0 border border-white/80 shadow-xs select-none ${sizeClasses} ${className}`}
+      style={{ backgroundColor: bgColor }}
+      aria-label={name}
+    >
+      {initial}
+    </div>
+  );
+};

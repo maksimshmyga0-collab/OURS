@@ -1,0 +1,6 @@
+{
+  "name": "OURS — Ежедневный ритуал для двоих",
+  "description": "Приватное приложение для двоих. Маленькие моменты, которые становятся вашей общей историей.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,286 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  AppState,
+  getInitialAppState,
+  saveAppState,
+  resetAppToDefault,
+  resetToOnboarding,
+} from './services/mockStorage';
+import { NavigationTab, Moment, AppSettings, MomentPhoto } from './types';
+import { CoupleHeader } from './components/CoupleHeader';
+import { BottomTabBar } from './components/BottomTabBar';
+import { DevControls } from './components/DevControls';
+import { PremiumModal } from './components/PremiumModal';
+import { StreakDetailsModal } from './components/StreakDetailsModal';
+import { OnboardingFlow } from './components/OnboardingFlow';
+import { TodayScreen } from './screens/TodayScreen';
+import { HistoryScreen } from './screens/HistoryScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { PARTNER_SAMPLE_PHOTOS } from './services/samplePhotos';
+import { playSoftChime, triggerHaptic } from './services/feedback';
+import { calculateCoupleStreak } from './services/streak/streakService';
+
+export default function App() {
+  const [appState, setAppState] = useState<AppState>(getInitialAppState);
+  const [activeTab, setActiveTab] = useState<NavigationTab>('today');
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
+
+  // Sync state to local storage on changes
+  useEffect(() => {
+    saveAppState(appState);
+  }, [appState]);
+
+  // Joint streak and history statistics
+  const streakInfo = useMemo(() => {
+    return calculateCoupleStreak(appState.todayMoments, appState.history);
+  }, [appState.todayMoments, appState.history]);
+
+
+  // Handle Onboarding Completion
+  const handleOnboardingComplete = (
+    userName: string,
+    options?: { isJoin?: boolean; inviteCode?: string }
+  ) => {
+    setAppState((prev) => ({
+      ...prev,
+      hasCompletedOnboarding: true,
+      couple: {
+        ...prev.couple,
+        user: {
+          ...prev.couple.user,
+          name: userName,
+        },
+        inviteCode: options?.inviteCode || prev.couple.inviteCode || 'OURS-4821',
+        connected: options?.isJoin ? true : prev.couple.connected,
+      },
+    }));
+    setActiveTab('today');
+  };
+
+  // Update a moment in today's moments list
+  const handleUpdateMoment = (updated: Moment) => {
+    setAppState((prev) => {
+      const nextMoments = prev.todayMoments.map((m) =>
+        m.id === updated.id ? updated : m
+      );
+      return {
+        ...prev,
+        todayMoments: nextMoments,
+      };
+    });
+  };
+
+  // Switch active moment
+  const handleSelectActiveMoment = (momentId: string) => {
+    setAppState((prev) => ({
+      ...prev,
+      activeMomentId: momentId,
+    }));
+  };
+
+  // Update App Settings
+  const handleUpdateSettings = (newSettings: AppSettings) => {
+    setAppState((prev) => ({
+      ...prev,
+      settings: newSettings,
+    }));
+  };
+
+  // Upgrade to Premium
+  const handleUpgradeToPremium = (tariff: 'month' | 'year' = 'year') => {
+    setAppState((prev) => ({
+      ...prev,
+      couple: {
+        ...prev.couple,
+        subscription: 'premium',
+        subscriptionTariff: tariff,
+      },
+      // Unlock all history items in demo
+      history: prev.history.map((h) => ({ ...h, isLocked: false })),
+    }));
+    playSoftChime('success', appState.settings.sounds);
+    triggerHaptic(appState.settings.haptic);
+  };
+
+  // Reset subscription for demo testing
+  const handleResetSubscription = () => {
+    setAppState((prev) => ({
+      ...prev,
+      couple: {
+        ...prev.couple,
+        subscription: 'free',
+        subscriptionTariff: undefined,
+      },
+      // Lock history older than 7 days
+      history: prev.history.map((h, i) => ({ ...h, isLocked: i > 2 })),
+    }));
+    playSoftChime('tap', appState.settings.sounds);
+    triggerHaptic(appState.settings.haptic);
+  };
+
+  // Simulate Partner Upload for testing (Moment Duo)
+  const handleSimulatePartnerUpload = () => {
+    const activeMoment =
+      appState.todayMoments.find((m) => m.id === appState.activeMomentId) ||
+      appState.todayMoments[0];
+
+    if (!activeMoment) return;
+
+    const partnerPhotoUrl =
+      PARTNER_SAMPLE_PHOTOS[(activeMoment.order - 1) % PARTNER_SAMPLE_PHOTOS.length];
+
+    const nowIso = new Date().toISOString();
+    const userPhotoItem: MomentPhoto[] = activeMoment.userPhoto
+      ? [
+          {
+            userId: appState.couple.user.id || 'user-a-default',
+            imageUrl: activeMoment.userPhoto,
+            createdAt: nowIso,
+          },
+        ]
+      : [];
+    const partnerPhotoItem: MomentPhoto = {
+      userId: appState.couple.partner.id || 'user-b-default',
+      imageUrl: partnerPhotoUrl,
+      createdAt: nowIso,
+    };
+
+    const newPhotos = [...userPhotoItem, partnerPhotoItem];
+    const newStatus = activeMoment.userPhoto ? 'BOTH_UPLOADED' : 'EMPTY';
+
+    const updated: Moment = {
+      ...activeMoment,
+      partnerPhoto: partnerPhotoUrl,
+      photos: newPhotos,
+      status: newStatus,
+    };
+
+    handleUpdateMoment(updated);
+    playSoftChime('tap', appState.settings.sounds);
+    triggerHaptic(appState.settings.haptic);
+  };
+
+
+  // Reset to default
+  const handleResetDay = () => {
+    const resetState = resetAppToDefault();
+    setAppState(resetState);
+  };
+
+  // Restart Onboarding
+  const handleRestartOnboarding = () => {
+    const onboardingState = resetToOnboarding();
+    setAppState(onboardingState);
+  };
+
+  // If onboarding not completed, render Onboarding flow
+  if (!appState.hasCompletedOnboarding) {
+    return (
+      <OnboardingFlow
+        onComplete={handleOnboardingComplete}
+        defaultInviteCode={appState.couple.inviteCode || 'OURS-4821'}
+      />
+    );
+  }
+
+  const activeMoment =
+    appState.todayMoments.find((m) => m.id === appState.activeMomentId) ||
+    appState.todayMoments[0];
+
+  const isPartnerUploaded = Boolean(activeMoment?.partnerPhoto);
+
+  return (
+    <div className="min-h-screen text-[#343033] flex flex-col justify-between selection:bg-[#F6DCE1]">
+      {/* Mobile-first centered frame container with soft depth */}
+      <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative bg-[#FFF9FA]/94 backdrop-blur-[2px] sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70">
+        {/* Sticky Header with couple names and avatar pair */}
+        <CoupleHeader
+          couple={appState.couple}
+          onOpenProfile={() => setActiveTab('profile')}
+          currentStreak={streakInfo.currentStreak}
+          onOpenStreak={() => setIsStreakModalOpen(true)}
+        />
+
+        {/* Scrollable Main Viewport */}
+        <main className="flex-1 px-4 pt-4 pb-2">
+          {activeTab === 'today' && (
+            <TodayScreen
+              couple={appState.couple}
+              moments={appState.todayMoments}
+              activeMomentId={appState.activeMomentId}
+              onSelectActiveMoment={handleSelectActiveMoment}
+              onUpdateMoment={handleUpdateMoment}
+              soundEnabled={appState.settings.sounds}
+              hapticEnabled={appState.settings.haptic}
+              streakInfo={streakInfo}
+              onOpenStreak={() => setIsStreakModalOpen(true)}
+            />
+          )}
+
+
+          {activeTab === 'history' && (
+            <HistoryScreen
+              history={appState.history}
+              todayMoments={appState.todayMoments}
+              couple={appState.couple}
+              onOpenPremium={() => setIsPremiumModalOpen(true)}
+              onNavigateToToday={() => setActiveTab('today')}
+            />
+          )}
+
+          {activeTab === 'profile' && (
+            <ProfileScreen
+              couple={appState.couple}
+              settings={appState.settings}
+              onUpdateSettings={handleUpdateSettings}
+              onOpenPremium={() => setIsPremiumModalOpen(true)}
+              onResetApp={handleResetDay}
+            />
+          )}
+        </main>
+
+        {/* Fixed Bottom Tab Bar */}
+        <BottomTabBar
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            playSoftChime('tap', appState.settings.sounds);
+            triggerHaptic(appState.settings.haptic);
+          }}
+        />
+
+        {/* Dev / Partner Mock Control Floating Widget */}
+        <DevControls
+          onSimulatePartnerUpload={handleSimulatePartnerUpload}
+          onResetDay={handleResetDay}
+          onRestartOnboarding={handleRestartOnboarding}
+          onOpenPremium={() => setIsPremiumModalOpen(true)}
+          isPartnerUploaded={isPartnerUploaded}
+          canSimulate={Boolean(activeMoment)}
+        />
+
+        {/* Premium Upgrade Modal / Screen */}
+        <PremiumModal
+          isOpen={isPremiumModalOpen}
+          onClose={() => setIsPremiumModalOpen(false)}
+          onUpgrade={handleUpgradeToPremium}
+          onResetSubscription={handleResetSubscription}
+          isAlreadyPremium={appState.couple.subscription === 'premium'}
+          currentTariff={appState.couple.subscriptionTariff || 'year'}
+        />
+
+        {/* Couple Streak and Thread Artifact Details Modal */}
+        <StreakDetailsModal
+          isOpen={isStreakModalOpen}
+          onClose={() => setIsStreakModalOpen(false)}
+          streakInfo={streakInfo}
+          partnerAName={appState.couple.user.name}
+          partnerBName={appState.couple.partner.name}
+          pairSeed={appState.couple.id || 'pair-default-1'}
+        />
+
+      </div>
+    </div>
+  );
+}
