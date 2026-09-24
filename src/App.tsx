@@ -249,7 +249,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#FFF9FA] text-[#343033] flex flex-col justify-between selection:bg-[#F6DCE1]">
       {/* Mobile-first centered frame container with soft depth */}
-      <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative bg-[#FFF9FA]/94 backdrop-blur-[2px] sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70">
+      <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative bg-[#FFF9FA] sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70">
         {/* Sticky Header with couple names and avatar pair */}
         <CoupleHeader
           couple={appState.couple}

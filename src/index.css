@@ -20,8 +20,8 @@
 }
 
 :root {
-  color-scheme: light;
-  supported-color-schemes: light;
+  color-scheme: only light;
+  supported-color-schemes: only light;
   color: #343033;
   background-color: #FFF9FA;
   -webkit-tap-highlight-color: transparent;
@@ -29,10 +29,10 @@
 }
 
 html {
-  color-scheme: light;
-  supported-color-schemes: light;
-  background-color: #FFF9FA;
-  color: #343033;
+  color-scheme: only light !important;
+  supported-color-schemes: only light;
+  background-color: #FFF9FA !important;
+  color: #343033 !important;
 }
 
 /* Custom smooth scroll and mobile app touch behaviors */
@@ -45,28 +45,46 @@ body {
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  color-scheme: light;
-  supported-color-schemes: light;
-  background-color: #FFF9FA;
-  color: #343033;
+  color-scheme: only light !important;
+  supported-color-schemes: only light;
+  background-color: #FFF9FA !important;
+  color: #343033 !important;
   user-select: none;
   -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
 }
 
 #root {
-  color-scheme: light;
-  background-color: #FFF9FA;
-  color: #343033;
+  color-scheme: only light !important;
+  background-color: #FFF9FA !important;
+  color: #343033 !important;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
-/* Prevent any automatic inversion or dark mode emulation from system or browser */
+/* Prevent system form controls from inheriting dark mode UI */
+input,
+textarea,
+select,
+button {
+  color-scheme: only light !important;
+}
+
+/* Forcibly lock all elements to light color-scheme if browser checks prefers-color-scheme */
 @media (prefers-color-scheme: dark) {
   :root,
   html,
   body,
+  #root,
+  *,
+  *::before,
+  *::after {
+    color-scheme: only light !important;
+  }
+
+  html,
+  body,
   #root {
-    color-scheme: light !important;
     background-color: #FFF9FA !important;
     color: #343033 !important;
   }
