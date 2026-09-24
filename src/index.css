@@ -1,43 +1,100 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ours-bg: #FFF9FA;
-  --color-ours-surface: #FFFFFF;
-  --color-ours-soft-pink: #F6DCE1;
+  --color-ours-bg: var(--ours-bg);
+  --color-ours-surface: var(--ours-surface);
+  --color-ours-soft-pink: var(--ours-card-pink);
   --color-ours-dusty-pink: #EFC1CB;
-  --color-ours-soft-blue: #DDEAF7;
-  --color-ours-peach: #F7D8D0;
-  --color-ours-cream: #F4E8C9;
-  --color-ours-lilac: #E8DCEB;
+  --color-ours-soft-blue: var(--ours-card-blue);
+  --color-ours-peach: var(--ours-card-peach);
+  --color-ours-cream: var(--ours-card-cream);
+  --color-ours-lilac: var(--ours-card-lilac);
   --color-ours-coral: #E98787;
-  --color-ours-text-primary: #343033;
-  --color-ours-text-secondary: #777277;
-  --color-ours-divider: #F0E6E8;
+  --color-ours-text-primary: var(--ours-text-primary);
+  --color-ours-text-secondary: var(--ours-text-secondary);
+  --color-ours-divider: var(--ours-border);
   --color-ours-disabled: #CEC5C8;
 
   --font-sans: 'Manrope', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-display: 'Unbounded', 'Outfit', system-ui, -apple-system, sans-serif;
 }
 
-:root {
-  color-scheme: only light;
-  supported-color-schemes: only light;
-  color: #343033;
+/* ==========================================================================
+   OURS Theme Design Tokens
+   ========================================================================== */
+:root,
+html.light {
+  color-scheme: light;
+  --ours-bg: #FFF9FA;
+  --ours-surface: #FFFFFF;
+  --ours-surface-subtle: #FAF5F7;
+  --ours-surface-elevated: #FFFFFF;
+  --ours-text-primary: #343033;
+  --ours-text-secondary: #777277;
+  --ours-text-muted: #A8A1A4;
+  --ours-border: #EBE3E5;
+  --ours-border-subtle: #F2ECEE;
+  --ours-border-divider: #F0E6E8;
+  --ours-accent: #F0B9C6;
+  --ours-accent-coral: #E98787;
+  --ours-card-pink: #FAF0F2;
+  --ours-card-pink-border: #EED7DC;
+  --ours-card-blue: #EDF4FB;
+  --ours-card-blue-border: #D5E3F0;
+  --ours-card-peach: #FAF2EE;
+  --ours-card-peach-border: #EEDBD2;
+  --ours-card-cream: #FAF6EC;
+  --ours-card-cream-border: #EBE3CD;
+  --ours-card-lilac: #F6F0F7;
+  --ours-card-lilac-border: #E7DCE8;
+  --ours-header-bg: rgba(255, 249, 250, 0.92);
+  --ours-nav-bg: rgba(255, 249, 250, 0.92);
+}
+
+html.dark,
+:root.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --ours-bg: #000000;
+  --ours-surface: #111111;
+  --ours-surface-subtle: #181618;
+  --ours-surface-elevated: #161616;
+  --ours-text-primary: #FFFFFF;
+  --ours-text-secondary: #B8B2B5;
+  --ours-text-muted: #807B7E;
+  --ours-border: #242024;
+  --ours-border-subtle: #242024;
+  --ours-border-divider: #242024;
+  --ours-accent: #F0B9C6;
+  --ours-accent-coral: #E98787;
+  --ours-card-pink: #1E1417;
+  --ours-card-pink-border: #352126;
+  --ours-card-blue: #141A22;
+  --ours-card-blue-border: #212E3C;
+  --ours-card-peach: #1F1714;
+  --ours-card-peach-border: #382822;
+  --ours-card-cream: #1C1A14;
+  --ours-card-cream-border: #342F21;
+  --ours-card-lilac: #1A151E;
+  --ours-card-lilac-border: #312338;
+  --ours-header-bg: rgba(0, 0, 0, 0.92);
+  --ours-nav-bg: rgba(0, 0, 0, 0.92);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
   background-color: #FFF9FA;
+  color: #343033;
   -webkit-tap-highlight-color: transparent;
   font-family: 'Manrope', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
-html {
-  color-scheme: only light !important;
-  supported-color-schemes: only light;
-  background-color: #FFF9FA !important;
-  color: #343033 !important;
-}
-
-/* Custom smooth scroll and mobile app touch behaviors */
-* {
-  box-sizing: border-box;
+html.dark {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
 }
 
 body {
@@ -45,52 +102,307 @@ body {
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  color-scheme: only light !important;
-  supported-color-schemes: only light;
-  background-color: #FFF9FA !important;
-  color: #343033 !important;
+  background-color: #FFF9FA;
+  color: #343033;
   user-select: none;
   -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
 }
 
+html.dark body {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+}
+
 #root {
-  color-scheme: only light !important;
-  background-color: #FFF9FA !important;
-  color: #343033 !important;
   min-height: 100vh;
   min-height: 100dvh;
+  background-color: #FFF9FA;
+  color: #343033;
 }
 
-/* Prevent system form controls from inheriting dark mode UI */
-input,
-textarea,
-select,
-button {
-  color-scheme: only light !important;
+html.dark #root {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
 }
 
-/* Forcibly lock all elements to light color-scheme if browser checks prefers-color-scheme */
-@media (prefers-color-scheme: dark) {
-  :root,
-  html,
-  body,
-  #root,
-  *,
-  *::before,
-  *::after {
-    color-scheme: only light !important;
-  }
-
-  html,
-  body,
-  #root {
-    background-color: #FFF9FA !important;
-    color: #343033 !important;
-  }
+/* Strict requirement 9: NEVER filter, invert, or darken user photos */
+img,
+video,
+canvas {
+  filter: none !important;
+  color-scheme: light !important;
 }
 
-/* Subtle, natural HIG elevation & surfaces */
+/* Form controls adapt according to theme */
+html.light input,
+html.light textarea,
+html.light select,
+html.light button {
+  color-scheme: light;
+}
+
+html.dark input,
+html.dark textarea,
+html.dark select,
+html.dark button {
+  color-scheme: dark;
+}
+
+/* Micro-transition (150-250ms) for pleasant instant theme change */
+html.theme-transitioning,
+html.theme-transitioning body,
+html.theme-transitioning #root,
+html.theme-transitioning nav,
+html.theme-transitioning header,
+html.theme-transitioning div,
+html.theme-transitioning button,
+html.theme-transitioning span,
+html.theme-transitioning p,
+html.theme-transitioning h1,
+html.theme-transitioning h2,
+html.theme-transitioning h3,
+html.theme-transitioning input {
+  transition: background-color 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out !important;
+  transition-delay: 0ms !important;
+}
+
+/* ==========================================================================
+   Dark Theme Token Mapping
+   ========================================================================== */
+html.dark .bg-\[\#FFF9FA\] {
+  background-color: #000000 !important;
+}
+
+html.dark .bg-\[\#FFF9FA\]\/92,
+html.dark .bg-\[\#FFF9FA\]\/94,
+html.dark .bg-\[\#FFF9FA\]\/90 {
+  background-color: rgba(0, 0, 0, 0.92) !important;
+}
+
+html.dark .bg-white {
+  background-color: #111111 !important;
+}
+
+html.dark .bg-white\/70,
+html.dark .bg-white\/80,
+html.dark .bg-white\/85,
+html.dark .bg-white\/90,
+html.dark .bg-white\/95 {
+  background-color: rgba(22, 22, 22, 0.92) !important;
+}
+
+html.dark .bg-\[\#FAF5F7\] {
+  background-color: #181618 !important;
+}
+
+html.dark .bg-\[\#FAF0F2\] {
+  background-color: #1E1417 !important;
+}
+
+html.dark .bg-\[\#FAF1F3\] {
+  background-color: #1E1417 !important;
+}
+
+html.dark .bg-\[\#EDF4FB\] {
+  background-color: #141A22 !important;
+}
+
+html.dark .bg-\[\#FAF2EE\] {
+  background-color: #1F1714 !important;
+}
+
+html.dark .bg-\[\#FAF6EC\] {
+  background-color: #1C1A14 !important;
+}
+
+html.dark .bg-\[\#F6F0F7\] {
+  background-color: #1A151E !important;
+}
+
+html.dark .bg-\[\#F6DCE1\] {
+  background-color: #2D1A20 !important;
+}
+
+html.dark .bg-\[\#FAF2E8\] {
+  background-color: #1F1714 !important;
+}
+
+html.dark .bg-\[\#F4E8C9\]\/70,
+html.dark .bg-\[\#F4E8C9\] {
+  background-color: #1C1A14 !important;
+}
+
+html.dark .bg-\[\#FDF6F0\] {
+  background-color: #1F1714 !important;
+}
+
+html.dark .bg-\[\#FAF0ED\] {
+  background-color: #1E1417 !important;
+}
+
+html.dark .bg-\[\#FBF0F2\] {
+  background-color: #1E1417 !important;
+}
+
+html.dark .bg-\[\#EDF4FB\]\/70 {
+  background-color: #141A22 !important;
+}
+
+html.dark .bg-\[\#FAF0F2\]\/70 {
+  background-color: #1E1417 !important;
+}
+
+html.dark .bg-\[\#FAF2EE\]\/70 {
+  background-color: #1F1714 !important;
+}
+
+html.dark .bg-\[\#FFF0F3\] {
+  background-color: #2B171E !important;
+}
+
+html.dark .bg-\[\#FFF3F5\] {
+  background-color: #171315 !important;
+}
+
+html.dark .bg-\[\#E5F3EC\] {
+  background-color: #152419 !important;
+}
+
+html.dark .bg-\[\#F2ECEE\],
+html.dark .bg-\[\#EFE8EA\],
+html.dark .bg-\[\#E5DFE1\] {
+  background-color: #242024 !important;
+}
+
+/* Typography in Dark Mode */
+html.dark .text-\[\#343033\] {
+  color: #FFFFFF !important;
+}
+
+html.dark .text-\[\#777277\] {
+  color: #B8B2B5 !important;
+}
+
+html.dark .text-\[\#8A8488\],
+html.dark .text-\[\#A8A1A4\],
+html.dark .text-\[\#A89CA1\],
+html.dark .text-\[\#948E92\] {
+  color: #8C868A !important;
+}
+
+html.dark .text-\[\#4A6B82\] {
+  color: #88ADC8 !important;
+}
+
+html.dark .text-\[\#2B7348\] {
+  color: #649A6E !important;
+}
+
+html.dark .text-\[\#E2765A\] {
+  color: #F09A85 !important;
+}
+
+/* Borders in Dark Mode */
+html.dark .border-\[\#EBE3E5\],
+html.dark .border-\[\#E8DFE1\],
+html.dark .border-\[\#F0E6E8\],
+html.dark .border-\[\#F0E6E8\]\/70,
+html.dark .border-\[\#000000\]\/6,
+html.dark .border-\[\#F2ECEE\],
+html.dark .border-\[\#EEDCE2\],
+html.dark .border-\[\#F2DECF\],
+html.dark .border-\[\#E9DBB4\]\/80,
+html.dark .border-\[\#E9DBB4\],
+html.dark .border-\[\#F2D6DC\],
+html.dark .border-\[\#F2D1D8\],
+html.dark .border-\[\#CDE5D8\],
+html.dark .border-\[\#E5D7DA\],
+html.dark .divide-\[\#F2ECEE\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #242024 !important;
+}
+
+html.dark .border-\[\#EED7DC\] {
+  border-color: #352126 !important;
+}
+
+html.dark .border-\[\#D5E3F0\] {
+  border-color: #212E3C !important;
+}
+
+html.dark .border-\[\#EEDBD2\] {
+  border-color: #382822 !important;
+}
+
+html.dark .border-\[\#EBE3CD\] {
+  border-color: #342F21 !important;
+}
+
+html.dark .border-\[\#E7DCE8\] {
+  border-color: #312338 !important;
+}
+
+/* Inputs in Dark Mode */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  background-color: #181618 !important;
+  color: #FFFFFF !important;
+  border-color: #242024 !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #777277 !important;
+}
+
+/* Translucent bars & cards in Dark Mode */
+html.dark .liquid-glass-bar,
+html.dark .liquid-glass-header {
+  background: rgba(0, 0, 0, 0.9) !important;
+  border-color: #242024 !important;
+}
+
+html.dark .liquid-glass-pill {
+  background: rgba(26, 24, 26, 0.88) !important;
+  border-color: #242024 !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .liquid-glass-pill:hover {
+  background: #252225 !important;
+}
+
+html.dark .liquid-glass-card,
+html.dark .liquid-glass-floating {
+  background: #111111 !important;
+  border-color: #242024 !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .main-moment-card-shadow,
+html.dark .soft-card-shadow {
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Brand logo adaptive blending */
+.ours-logo-right-sphere {
+  mix-blend-mode: multiply;
+  opacity: 0.9;
+}
+
+html.dark .ours-logo-right-sphere {
+  mix-blend-mode: screen;
+  opacity: 0.95;
+}
+
+html.dark .ours-logo-left-sphere {
+  box-shadow: 0 2px 10px rgba(240, 185, 198, 0.35) !important;
+}
+
+/* ==========================================================================
+   Elevation & Shadows
+   ========================================================================== */
 .soft-card-shadow {
   box-shadow: 
     0 1px 2px rgba(52, 48, 51, 0.02),
@@ -266,4 +578,3 @@ button {
     scroll-behavior: auto !important;
   }
 }
-

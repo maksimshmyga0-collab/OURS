@@ -16,7 +16,6 @@
 import { Moment, HistoryDay, ReactionEmoji } from '../../types/models';
 import { appStorage, IKeyValueStorage } from '../storage/keyValueStorage';
 import { photoStorageService, IStorageService } from '../storage/storageService';
-import { PRESET_PHOTOS } from '../samplePhotos';
 
 const MOMENTS_STORAGE_KEY_PREFIX = 'ours_moments_pair_';
 const HISTORY_STORAGE_KEY_PREFIX = 'ours_history_pair_';
@@ -40,6 +39,7 @@ export interface IMomentService {
   completeMoment(pairId: string, momentId: string): Promise<Moment>;
   updateMoment(pairId: string, updated: Moment): Promise<Moment>;
   getHistory(pairId: string): Promise<HistoryDay[]>;
+  unlockHistoryWithLovely(pairId: string): Promise<HistoryDay[]>;
   unlockHistoryWithPremium(pairId: string): Promise<HistoryDay[]>;
   subscribeToMoments(pairId: string, callback: (moments: Moment[]) => void): () => void;
   resetDayMoments(pairId: string): Promise<Moment[]>;
@@ -57,23 +57,23 @@ export const INITIAL_TODAY_PROMPTS = [
   {
     order: 1 as const,
     label: 'МОМЕНТ 1',
-    prompt: 'Что сегодня заставило тебя улыбнуться?',
+    prompt: 'Покажи, что сейчас рядом с тобой',
     subtext: 'Сделайте по одному фото и откройте их вместе.',
     themeColor: 'peach' as const,
   },
   {
     order: 2 as const,
     label: 'МОМЕНТ 2',
-    prompt: 'Покажи место, где тебе сейчас хорошо.',
+    prompt: 'Что сейчас перед твоими глазами?',
     subtext: 'Сделайте по одному фото и откройте их вместе.',
     themeColor: 'pink' as const,
   },
   {
     order: 3 as const,
     label: 'МОМЕНТ 3',
-    prompt: 'Что ты хочешь запомнить из сегодняшнего дня?',
+    prompt: 'Покажи маленькую часть своего дня',
     subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach' as const,
+    themeColor: 'blue' as const,
   },
 ];
 
@@ -334,240 +334,37 @@ export class AppMomentService implements IMomentService {
     const stored = await this.storage.getItem(key);
     if (stored) {
       try {
-        return JSON.parse(stored) as HistoryDay[];
+        const parsed = JSON.parse(stored) as HistoryDay[];
+        // Filter out any legacy sample/beta test moments
+        const realHistory = parsed.filter(
+          (d) =>
+            !d.id.startsWith('hist-yesterday') &&
+            !d.id.startsWith('hist-20-sep') &&
+            !d.id.startsWith('hist-18-sep') &&
+            !d.id.startsWith('hist-14-sep') &&
+            !d.id.startsWith('hist-week-ago') &&
+            !d.id.startsWith('hist-first-day')
+        );
+        return realHistory;
       } catch {
         // fallback
       }
     }
 
-    const defaultHistory: HistoryDay[] = [
-      {
-        id: 'hist-yesterday',
-        title: 'Вчера',
-        subtitle: '2 момента',
-        dateStr: '22 сентября 2026',
-        isLocked: false,
-        moments: [
-          {
-            id: 'hist-y-1',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-22T09:24:00.000Z',
-            dateKey: '2026-09-22',
-            imageUrl: PRESET_PHOTOS[0].url,
-            caption: null,
-            order: 1,
-            label: 'МОМЕНТ 1',
-            prompt: 'Твой первый кофе или чай сегодня?',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'blue',
-            userPhoto: PRESET_PHOTOS[0].url,
-            partnerPhoto: PRESET_PHOTOS[3].url,
-            userReaction: '😍',
-            partnerReaction: '❤️',
-            completedAt: 'Вчера, 09:24',
-          },
-          {
-            id: 'hist-y-2',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-22T19:40:00.000Z',
-            dateKey: '2026-09-22',
-            imageUrl: PRESET_PHOTOS[1].url,
-            caption: null,
-            order: 2,
-            label: 'МОМЕНТ 2',
-            prompt: 'Что было самым красивым по дороге домой?',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'pink',
-            userPhoto: PRESET_PHOTOS[1].url,
-            partnerPhoto: PRESET_PHOTOS[2].url,
-            userReaction: '🫶',
-            partnerReaction: '🥹',
-            completedAt: 'Вчера, 19:40',
-          },
-        ],
-      },
-      {
-        id: 'hist-20-sep',
-        title: '20 сентября',
-        subtitle: '3 момента',
-        dateStr: '20 сентября 2026',
-        isLocked: false,
-        moments: [
-          {
-            id: 'hist-20-1',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-20T11:15:00.000Z',
-            dateKey: '2026-09-20',
-            imageUrl: PRESET_PHOTOS[2].url,
-            caption: null,
-            order: 1,
-            label: 'МОМЕНТ 1',
-            prompt: 'Вид из твоего окна прямо сейчас',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'blue',
-            userPhoto: PRESET_PHOTOS[2].url,
-            partnerPhoto: PRESET_PHOTOS[1].url,
-            userReaction: '❤️',
-            partnerReaction: '❤️',
-            completedAt: '20 сентября, 11:15',
-          },
-          {
-            id: 'hist-20-2',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-20T15:30:00.000Z',
-            dateKey: '2026-09-20',
-            imageUrl: PRESET_PHOTOS[3].url,
-            caption: null,
-            order: 2,
-            label: 'МОМЕНТ 2',
-            prompt: 'Что ты сейчас слушаешь или читаешь?',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'pink',
-            userPhoto: PRESET_PHOTOS[3].url,
-            partnerPhoto: PRESET_PHOTOS[0].url,
-            userReaction: '🥹',
-            partnerReaction: '😂',
-            completedAt: '20 сентября, 15:30',
-          },
-          {
-            id: 'hist-20-3',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-20T22:04:00.000Z',
-            dateKey: '2026-09-20',
-            imageUrl: PRESET_PHOTOS[1].url,
-            caption: null,
-            order: 3,
-            label: 'МОМЕНТ 3',
-            prompt: 'Маленькая радость сегодняшнего вечера',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'peach',
-            userPhoto: PRESET_PHOTOS[1].url,
-            partnerPhoto: PRESET_PHOTOS[2].url,
-            userReaction: '🫶',
-            partnerReaction: '😍',
-            completedAt: '20 сентября, 22:04',
-          },
-        ],
-      },
-      {
-        id: 'hist-18-sep',
-        title: '18 сентября',
-        subtitle: '3 момента',
-        dateStr: '18 сентября 2026',
-        isLocked: false,
-        moments: [
-          {
-            id: 'hist-18-1',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-18T10:45:00.000Z',
-            dateKey: '2026-09-18',
-            imageUrl: PRESET_PHOTOS[0].url,
-            caption: null,
-            order: 1,
-            label: 'МОМЕНТ 1',
-            prompt: 'Завтрак выходного дня',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'blue',
-            userPhoto: PRESET_PHOTOS[0].url,
-            partnerPhoto: PRESET_PHOTOS[3].url,
-            userReaction: '😍',
-            partnerReaction: '🫶',
-            completedAt: '18 сентября, 10:45',
-          },
-          {
-            id: 'hist-18-2',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-18T16:10:00.000Z',
-            dateKey: '2026-09-18',
-            imageUrl: PRESET_PHOTOS[3].url,
-            caption: null,
-            order: 2,
-            label: 'МОМЕНТ 2',
-            prompt: 'Уютная деталь вокруг тебя',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'pink',
-            userPhoto: PRESET_PHOTOS[3].url,
-            partnerPhoto: PRESET_PHOTOS[1].url,
-            userReaction: '❤️',
-            partnerReaction: '🥹',
-            completedAt: '18 сентября, 16:10',
-          },
-          {
-            id: 'hist-18-3',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-18T23:12:00.000Z',
-            dateKey: '2026-09-18',
-            imageUrl: PRESET_PHOTOS[2].url,
-            caption: null,
-            order: 3,
-            label: 'МОМЕНТ 3',
-            prompt: 'О чём ты подумал перед сном?',
-            subtext: 'Открыто вместе',
-            status: 'COMPLETED',
-            themeColor: 'peach',
-            userPhoto: PRESET_PHOTOS[2].url,
-            partnerPhoto: PRESET_PHOTOS[0].url,
-            userReaction: '🥹',
-            partnerReaction: '❤️',
-            completedAt: '18 сентября, 23:12',
-          },
-        ],
-      },
-      {
-        id: 'hist-14-sep',
-        title: '14 сентября',
-        subtitle: '3 момента',
-        dateStr: '14 сентября 2026',
-        isLocked: true, // Requires Premium (older than 7 days)
-        moments: [
-          {
-            id: 'hist-14-1',
-            pairId,
-            createdBy: 'user-a-default',
-            createdAt: '2026-09-14T12:00:00.000Z',
-            dateKey: '2026-09-14',
-            imageUrl: PRESET_PHOTOS[1].url,
-            caption: null,
-            order: 1,
-            label: 'МОМЕНТ 1',
-            prompt: 'Наш первый день в OURS',
-            subtext: 'Архивировано',
-            status: 'COMPLETED',
-            themeColor: 'blue',
-            userPhoto: PRESET_PHOTOS[1].url,
-            partnerPhoto: PRESET_PHOTOS[2].url,
-            userReaction: '❤️',
-            partnerReaction: '❤️',
-            completedAt: '14 сентября, 12:00',
-          },
-        ],
-      },
-    ];
-
+    const defaultHistory: HistoryDay[] = [];
     await this.storage.setItem(key, JSON.stringify(defaultHistory));
     return defaultHistory;
   }
 
-  async unlockHistoryWithPremium(pairId: string): Promise<HistoryDay[]> {
+  async unlockHistoryWithLovely(pairId: string): Promise<HistoryDay[]> {
     const history = await this.getHistory(pairId);
     const unlocked = history.map((item) => ({ ...item, isLocked: false }));
     await this.storage.setItem(this.getHistoryStorageKey(pairId), JSON.stringify(unlocked));
     return unlocked;
+  }
+
+  async unlockHistoryWithPremium(pairId: string): Promise<HistoryDay[]> {
+    return this.unlockHistoryWithLovely(pairId);
   }
 
   subscribeToMoments(pairId: string, callback: (moments: Moment[]) => void): () => void {

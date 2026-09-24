@@ -2,7 +2,7 @@ import React from 'react';
 import { OursLogo } from './OursLogo';
 import { Avatar } from './Avatar';
 import { CoupleState } from '../types';
-import { Flame } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 interface CoupleHeaderProps {
   couple: CoupleState;
@@ -17,25 +17,34 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
   currentStreak = 0,
   onOpenStreak,
 }) => {
+  const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
+
   return (
-    <header className="sticky top-0 z-30 bg-[#FFF9FA]/92 backdrop-blur-xl border-b border-[#000000]/6 px-4 py-2.5 flex items-center justify-between transition-colors">
+    <header className="sticky top-0 z-30 bg-[#FFF9FA]/92 dark:bg-[#000000]/92 backdrop-blur-xl border-b border-[#000000]/6 dark:border-[#242024] px-4 py-2.5 flex items-center justify-between transition-colors">
       {/* Brand logo & wordmark */}
       <div className="flex items-center gap-2">
         <OursLogo size={20} />
-        <span className="font-display font-semibold tracking-wide text-lg text-[#343033]">
-          OURS
-        </span>
+        <div className="flex items-baseline gap-1.5">
+          <span className="font-display font-semibold tracking-wide text-lg text-[#343033] dark:text-white leading-none">
+            OURS
+          </span>
+          {isLovely && (
+            <span className="text-[10px] font-bold tracking-widest text-[#E98787] dark:text-[#F0B9C6] uppercase leading-none select-none opacity-90">
+              LOVELY
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Streak Pill */}
+        {/* Наше небо Pill */}
         <button
           type="button"
           onClick={onOpenStreak}
-          className="min-h-[34px] flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-white/85 border border-[#EBE3E5] text-xs font-semibold text-[#343033] transition-all duration-200 ease-out hover:bg-white active:scale-[0.97] cursor-pointer shadow-2xs"
-          title="Ваша серия и нить"
+          className="min-h-[34px] flex items-center gap-1.5 py-1 px-2.5 rounded-full bg-white/85 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] text-xs font-semibold text-[#343033] dark:text-white transition-all duration-200 ease-out hover:bg-white dark:hover:bg-[#252225] active:scale-[0.97] cursor-pointer shadow-2xs"
+          title="Наше небо"
         >
-          <Flame size={14} className="text-[#E2765A] fill-[#E2765A]/25" />
+          <Sparkles size={14} className="text-[#E98787] dark:text-[#F0B9C6]" />
           <span>{currentStreak > 0 ? `${currentStreak}` : '0'}</span>
         </button>
 
@@ -43,7 +52,7 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
         <button
           type="button"
           onClick={onOpenProfile}
-          className="min-h-[34px] flex items-center gap-2 py-1 px-2.5 rounded-full bg-white/85 border border-[#EBE3E5] transition-all duration-200 ease-out hover:bg-white active:scale-[0.97] cursor-pointer shadow-2xs"
+          className="min-h-[34px] flex items-center gap-2 py-1 px-2.5 rounded-full bg-white/85 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] transition-all duration-200 ease-out hover:bg-white dark:hover:bg-[#252225] active:scale-[0.97] cursor-pointer shadow-2xs"
           title="Профиль пары"
         >
           <div className="flex items-center -space-x-2">
@@ -52,15 +61,17 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
               size="sm"
               bgColor={couple.user.avatarColor}
               imageUrl={couple.user.avatarUrl}
+              variant="user"
             />
             <Avatar
               name={couple.partner.name}
               size="sm"
               bgColor={couple.partner.avatarColor}
               imageUrl={couple.partner.avatarUrl}
+              variant="partner"
             />
           </div>
-          <span className="text-xs font-medium text-[#343033] tracking-tight">
+          <span className="text-xs font-medium text-[#343033] dark:text-white tracking-tight">
             {couple.user.name} + {couple.partner.name}
           </span>
         </button>
@@ -68,4 +79,3 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
     </header>
   );
 };
-

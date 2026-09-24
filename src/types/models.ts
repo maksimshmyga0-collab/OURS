@@ -11,7 +11,7 @@ export type MomentStatus =
   | 'REACTED'
   | 'COMPLETED';
 
-export type ReactionEmoji = '❤️' | '🥹' | '😂' | '😍' | '🫶';
+export type ReactionEmoji = '❤️' | '😂' | '🔥' | '😢' | '🥹';
 
 export type PairStatus = 'pending' | 'active' | 'archived';
 
@@ -53,7 +53,9 @@ export interface Pair {
   userB: User | null;
   startDate: string;
   daysTogether: number;
-  subscription: SubscriptionTier;
+  isLovely: boolean;
+  lovelyPurchasedAt?: string;
+  subscription?: SubscriptionTier;
 }
 
 /**
@@ -125,12 +127,19 @@ export interface HistoryDay {
 }
 
 /**
+ * Theme Modes
+ */
+export type ThemeMode = 'light' | 'dark' | 'system';
+export type ResolvedTheme = 'light' | 'dark';
+
+/**
  * App Settings
  */
 export interface AppSettings {
   notifications: boolean;
   sounds: boolean;
   haptic: boolean;
+  theme?: ThemeMode;
 }
 
 export type NavigationTab = 'today' | 'history' | 'profile';

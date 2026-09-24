@@ -28,6 +28,18 @@ export function usePair(userId: string = 'user-a-default') {
     };
   }, [userId]);
 
+  const purchaseLovely = useCallback(async () => {
+    if (!pair) return;
+    const updated = await pairService.purchaseLovely(pair.id);
+    setPair(updated);
+  }, [pair]);
+
+  const resetLovely = useCallback(async () => {
+    if (!pair) return;
+    const updated = await pairService.resetLovely(pair.id);
+    setPair(updated);
+  }, [pair]);
+
   const updateSubscription = useCallback(async (tier: 'free' | 'premium') => {
     if (!pair) return;
     const updated = await pairService.updateSubscription(pair.id, tier);
@@ -44,6 +56,7 @@ export function usePair(userId: string = 'user-a-default') {
         connected: true,
         startDate: '12 сентября 2026',
         daysTogether: 12,
+        isLovely: false,
         subscription: 'free',
       };
     }
@@ -62,6 +75,8 @@ export function usePair(userId: string = 'user-a-default') {
       connected: pair.status === 'active' && Boolean(pair.userB),
       startDate: pair.startDate,
       daysTogether: pair.daysTogether,
+      isLovely: pair.isLovely,
+      lovelyPurchasedAt: pair.lovelyPurchasedAt,
       subscription: pair.subscription,
     };
   }, [pair]);
@@ -70,6 +85,8 @@ export function usePair(userId: string = 'user-a-default') {
     pair,
     coupleState,
     isLoading,
+    purchaseLovely,
+    resetLovely,
     updateSubscription,
   };
 }

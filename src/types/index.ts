@@ -11,13 +11,16 @@ export interface UserProfile {
 
 export interface CoupleState {
   id?: string;
+  pairSeed?: string;
   user: UserProfile;
   partner: UserProfile;
   inviteCode: string;
   connected: boolean;
   startDate: string;
   daysTogether: number;
-  subscription: 'free' | 'premium';
+  isLovely: boolean;
+  lovelyPurchasedAt?: string;
+  subscription?: 'free' | 'premium';
   subscriptionTariff?: 'month' | 'year';
 }
 

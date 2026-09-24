@@ -1,30 +1,53 @@
 /**
  * OURS Design System Tokens
- * Strict adherence to soft pastel palette, warm white background, and gentle radius.
+ * Supports Light & Dark themes with unified yogurt-pink accent and anti-inversion photo discipline.
  */
 
-export const colors = {
-  // Backgrounds & Surfaces
-  background: '#FFF9FA', // Warm white / milk white
-  surface: '#FFFFFF',    // Pure card white
-  
-  // Pastel Semantic Cards
-  softPink: '#F6DCE1',   // Secondary surfaces, selected states, soft emotional areas
-  dustyPink: '#EFC1CB',  // More saturated pastel pink
-  softBlue: '#DDEAF7',   // Daily moment, waiting states, info cards
-  peach: '#F7D8D0',      // Completed states, emotional cards, secondary moments
-  cream: '#F4E8C9',      // Statistics, highlights, small warm badges
-  softLilac: '#E8DCEB',  // Accent only, very careful
-  
-  // Emotional Accent
-  coral: '#E98787',      // Reaction, primary CTA highlight, MATCH accent
-  
-  // Typography & Borders
-  textPrimary: '#343033',   // Soft dark graphite (no pure black)
-  textSecondary: '#777277', // Muted descriptive text
-  divider: '#F0E6E8',       // Hairline dividers
-  disabled: '#CEC5C8',      // Inactive states
+export const lightThemeTokens = {
+  background: '#FFF9FA',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#FAF5F7',
+  surfaceElevated: '#FFFFFF',
+  textPrimary: '#343033',
+  textSecondary: '#777277',
+  textMuted: '#A8A1A4',
+  border: '#EBE3E5',
+  borderSubtle: '#F2ECEE',
+  divider: '#F0E6E8',
+  accent: '#F0B9C6',
+  coral: '#E98787',
+  softPink: '#F6DCE1',
+  dustyPink: '#EFC1CB',
+  softBlue: '#DDEAF7',
+  peach: '#F7D8D0',
+  cream: '#F4E8C9',
+  softLilac: '#E8DCEB',
+  disabled: '#CEC5C8',
 } as const;
+
+export const darkThemeTokens = {
+  background: '#000000',
+  surface: '#111111',
+  surfaceSecondary: '#121212',
+  surfaceElevated: '#161616',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#B8B2B5',
+  textMuted: '#807B7E',
+  border: '#242024',
+  borderSubtle: '#242024',
+  divider: '#242024',
+  accent: '#F0B9C6', // Yogurt pink accent preserved in dark mode
+  coral: '#E98787',
+  softPink: '#1E1417',
+  dustyPink: '#2E1920',
+  softBlue: '#141A22',
+  peach: '#1F1714',
+  cream: '#1C1A14',
+  softLilac: '#1A151E',
+  disabled: '#484447',
+} as const;
+
+export const colors = lightThemeTokens;
 
 export const radius = {
   sm: '12px',

@@ -10,7 +10,7 @@ export interface OursLogoProps {
 /**
  * Authentic OURS Brand Logo:
  * Two soft overlapping spheres (Pink & Blue) representing the couple,
- * exactly matching the onboarding visual identity.
+ * with enhanced +30% saturation while keeping soft pastel elegance.
  */
 export const OursLogo: React.FC<OursLogoProps> = ({
   size = 22,
@@ -25,28 +25,28 @@ export const OursLogo: React.FC<OursLogoProps> = ({
       style={{ height: sphereSize }}
       aria-label="OURS logo"
     >
-      {/* Left Pink Sphere */}
+      {/* Left Pink/Coral Sphere (+30% saturated) */}
       <span
         style={{
           width: sphereSize,
           height: sphereSize,
           background:
-            'radial-gradient(circle at 35% 32%, #FFC1CC 0%, #F6DCE1 55%, #EFC1CB 100%)',
-          boxShadow: '0 2px 6px -1px rgba(233, 135, 135, 0.25)',
+            'radial-gradient(circle at 35% 32%, #FFA4B4 0%, #F5869A 55%, #E66C82 100%)',
+          boxShadow: '0 2px 8px -1px rgba(230, 108, 130, 0.38)',
         }}
-        className="rounded-full shrink-0 border border-white/90 z-0"
+        className="rounded-full shrink-0 border border-white/85 dark:border-[#242024]/80 z-0 ours-logo-left-sphere"
       />
-      {/* Right Blue Sphere */}
+      {/* Right Blue Sphere (+30% saturated) */}
       <span
         style={{
           width: sphereSize,
           height: sphereSize,
           marginLeft: -overlap,
           background:
-            'radial-gradient(circle at 35% 32%, #E8F2FD 0%, #DDEAF7 55%, #BCD6EE 100%)',
-          boxShadow: '0 2px 6px -1px rgba(188, 214, 238, 0.3)',
+            'radial-gradient(circle at 35% 32%, #CDE3FD 0%, #9BC4F5 55%, #7BAEE8 100%)',
+          boxShadow: '0 2px 8px -1px rgba(123, 174, 232, 0.38)',
         }}
-        className="rounded-full shrink-0 border border-white/90 mix-blend-multiply opacity-90 z-10"
+        className="rounded-full shrink-0 border border-white/85 dark:border-[#242024]/80 ours-logo-right-sphere z-10"
       />
     </div>
   );

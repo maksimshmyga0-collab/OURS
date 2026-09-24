@@ -31,7 +31,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
   return (
     <nav
-      className="sticky bottom-0 z-40 bg-[#FFF9FA]/92 backdrop-blur-xl border-t border-[#000000]/6 px-4 pt-1.5 pb-2 transition-colors"
+      className="sticky bottom-0 z-40 bg-[#FFF9FA]/92 dark:bg-black/92 backdrop-blur-xl border-t border-[#000000]/6 dark:border-[#242024] px-4 pt-1.5 pb-2 transition-colors"
       aria-label="Нижняя навигация"
     >
       <div className="max-w-md mx-auto grid grid-cols-3 gap-1">
@@ -50,12 +50,12 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
                 size={22}
                 strokeWidth={isActive ? 2.3 : 1.75}
                 className={`transition-colors duration-200 ease-out ${
-                  isActive ? 'text-[#E98787]' : 'text-[#8A8488]'
+                  isActive ? 'text-[#E98787]' : 'text-[#8A8488] dark:text-[#B8B2B5]'
                 }`}
               />
               <span
                 className={`text-[11px] tracking-tight leading-none transition-colors duration-200 ease-out ${
-                  isActive ? 'font-semibold text-[#E98787]' : 'font-medium text-[#8A8488]'
+                  isActive ? 'font-semibold text-[#E98787]' : 'font-medium text-[#8A8488] dark:text-[#B8B2B5]'
                 }`}
               >
                 {tab.label}

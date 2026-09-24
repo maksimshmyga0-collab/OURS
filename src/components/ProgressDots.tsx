@@ -25,8 +25,8 @@ export const ProgressDots: React.FC<ProgressDotsProps> = ({
               isDone
                 ? 'w-2.5 h-2.5 bg-[#E98787]'
                 : isCurrent
-                ? 'w-4 h-2.5 bg-[#EFC1CB] rounded-full'
-                : 'w-2.5 h-2.5 bg-[#CEC5C8]/50'
+                ? 'w-4 h-2.5 bg-[#EFC1CB] dark:bg-[#A86474] rounded-full'
+                : 'w-2.5 h-2.5 bg-[#CEC5C8]/50 dark:bg-[#383238]'
             }`}
           />
         );

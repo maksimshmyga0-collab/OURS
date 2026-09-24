@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { OursLogo } from './OursLogo';
 
 interface MatchAnimationProps {
@@ -8,37 +8,57 @@ interface MatchAnimationProps {
 export const MatchAnimation: React.FC<MatchAnimationProps> = ({ onComplete }) => {
   const [step, setStep] = useState<'converge' | 'matched' | 'closing'>('converge');
 
+  // Keep latest onComplete in a ref to avoid timer cancellations on parent re-renders
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  const hasFiredRef = useRef(false);
+
   useEffect(() => {
-    // Step 1 -> 2: Shapes converge softly into Match (750ms)
+    // Step 1 -> 2: Shapes converge softly into Match (600ms)
     const t1 = setTimeout(() => {
       setStep('matched');
-    }, 750);
+    }, 600);
 
-    // Step 2 -> 3: Soft fade out begins (1900ms)
+    // Step 2 -> 3: Soft fade out begins (1500ms)
     const t2 = setTimeout(() => {
       setStep('closing');
-    }, 1900);
+    }, 1500);
 
-    // Step 3 -> complete: hand over smoothly to revealed photos (2300ms)
+    // Step 3 -> complete: hand over smoothly to revealed photos (1850ms)
     const t3 = setTimeout(() => {
-      onComplete();
-    }, 2300);
+      if (!hasFiredRef.current) {
+        hasFiredRef.current = true;
+        onCompleteRef.current?.();
+      }
+    }, 1850);
+
+    // Hard fallback timeout safeguard: under no circumstances stay stuck after 2500ms
+    const tFallback = setTimeout(() => {
+      if (!hasFiredRef.current) {
+        hasFiredRef.current = true;
+        onCompleteRef.current?.();
+      }
+    }, 2500);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);
+      clearTimeout(tFallback);
     };
-  }, [onComplete]);
+  }, []); // Run effect ONCE on mount
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#343033]/60 backdrop-blur-md transition-opacity duration-400 ease-out ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center p-6 bg-[#343033]/60 backdrop-blur-md transition-opacity duration-350 ease-out ${
         step === 'closing'
           ? 'opacity-0 pointer-events-none'
-          : 'opacity-100 animate-in fade-in duration-300'
+          : 'opacity-100 animate-in fade-in duration-250'
       }`}
       aria-live="polite"
+      role="dialog"
+      aria-modal="true"
     >
       {/* Soft pastel ambient background aura */}
       <div className="absolute w-72 h-72 rounded-full bg-gradient-to-tr from-[#F6DCE1]/45 via-[#F7D8D0]/40 to-[#DDEAF7]/45 blur-3xl pointer-events-none transition-all duration-700 ease-out" />

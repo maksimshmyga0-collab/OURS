@@ -143,7 +143,7 @@ export function calculateMomentAvailability(
 }
 
 /**
- * Initial prompts for fresh day moments
+ * Natural, open, warm prompts that inspire a photo without feeling like a chore
  */
 export const DAILY_PROMPTS_POOL: Array<{
   prompt: string;
@@ -151,20 +151,35 @@ export const DAILY_PROMPTS_POOL: Array<{
   themeColor: 'peach' | 'pink' | 'blue';
 }> = [
   {
-    prompt: 'Что сегодня заставило тебя улыбнуться?',
+    prompt: 'Покажи, что сейчас рядом с тобой',
     subtext: 'Сделайте по одному фото и откройте их вместе.',
     themeColor: 'peach',
   },
   {
-    prompt: 'Покажи место, где тебе сейчас хорошо.',
+    prompt: 'Что сейчас перед твоими глазами?',
     subtext: 'Сделайте по одному фото и откройте их вместе.',
     themeColor: 'pink',
   },
   {
-    prompt: 'Что ты хочешь запомнить из сегодняшнего дня?',
+    prompt: 'Покажи маленькую часть своего дня',
     subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
+    themeColor: 'blue',
   },
+];
+
+export const EXTENDED_PROMPTS_LIST: string[] = [
+  'Покажи, что сейчас рядом с тобой',
+  'Что сейчас перед твоими глазами?',
+  'Покажи маленькую часть своего дня',
+  'Что хочется сохранить в памяти?',
+  'Покажи место, где ты сейчас',
+  'Что сегодня было рядом с тобой?',
+  'Покажи то, на что сейчас хочется посмотреть',
+  'Оставь кусочек своего дня для нас',
+  'Что сейчас окружает тебя?',
+  'Покажи свой сегодняшний момент',
+  'Покажи что-нибудь, что сейчас с тобой',
+  'Что хочется разделить со мной?',
 ];
 
 export function createFreshDayMoments(pairId: string, dateKey: string): Moment[] {

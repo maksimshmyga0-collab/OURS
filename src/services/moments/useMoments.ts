@@ -98,9 +98,9 @@ export function useMoments(pairId: string = 'pair-default-1', currentUserId: str
     }
   }, [pairId]);
 
-  // Unlock history when upgraded to Premium
+  // Unlock history when upgraded to LOVELY
   const unlockHistory = useCallback(async () => {
-    const unlocked = await momentService.unlockHistoryWithPremium(pairId);
+    const unlocked = await momentService.unlockHistoryWithLovely(pairId);
     setHistory(unlocked);
   }, [pairId]);
 

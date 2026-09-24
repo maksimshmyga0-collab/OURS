@@ -6,12 +6,14 @@ import {
   resetAppToDefault,
   resetToOnboarding,
 } from './services/mockStorage';
-import { NavigationTab, Moment, AppSettings, MomentPhoto, UserProfile } from './types';
+import { NavigationTab, Moment, AppSettings, MomentPhoto, UserProfile, ThemeMode } from './types';
+import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
 import { BottomTabBar } from './components/BottomTabBar';
 import { DevControls } from './components/DevControls';
-import { PremiumModal } from './components/PremiumModal';
-import { StreakDetailsModal } from './components/StreakDetailsModal';
+import { LovelyModal } from './components/LovelyModal';
+import { OurSkyModal } from './components/OurSkyModal';
+import { DevSkyTesterModal } from './components/DevSkyTesterModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { TodayScreen } from './screens/TodayScreen';
@@ -21,12 +23,15 @@ import { PARTNER_SAMPLE_PHOTOS } from './services/samplePhotos';
 import { playSoftChime, triggerHaptic } from './services/feedback';
 import { calculateCoupleStreak } from './services/streak/streakService';
 import { syncAppStateForDate } from './services/moments/momentTiming';
+import { getCoupleMatchedDates, createSimulatedSkyHistory } from './services/sky/skyService';
+import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
   const [activeTab, setActiveTab] = useState<NavigationTab>('today');
-  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState(false);
+  const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
+  const [isSkyTesterOpen, setIsSkyTesterOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   // Sync state to local storage on changes
@@ -54,25 +59,38 @@ export default function App() {
     return calculateCoupleStreak(appState.todayMoments, appState.history);
   }, [appState.todayMoments, appState.history]);
 
+  // Couple matched dates for «Наше небо» (1 calendar day with match = 1 star)
+  const matchedDates = useMemo(() => {
+    return getCoupleMatchedDates(appState.couple, appState.todayMoments, appState.history);
+  }, [appState.couple, appState.todayMoments, appState.history]);
+
+  const pairSeed = appState.couple.pairSeed || getCoupleSeed(appState.couple);
+
 
   // Handle Onboarding Completion
   const handleOnboardingComplete = (
     userName: string,
     options?: { isJoin?: boolean; inviteCode?: string }
   ) => {
-    setAppState((prev) => ({
-      ...prev,
-      hasCompletedOnboarding: true,
-      couple: {
-        ...prev.couple,
-        user: {
-          ...prev.couple.user,
-          name: userName,
+    setAppState((prev) => {
+      const inviteCode = options?.inviteCode || prev.couple.inviteCode || 'OURS-4821';
+      const partnerName = prev.couple.partner?.name || 'Макс';
+      const pairSeed = `${inviteCode}-${userName}-${partnerName}`.toLowerCase().replace(/\s+/g, '-');
+      return {
+        ...prev,
+        hasCompletedOnboarding: true,
+        couple: {
+          ...prev.couple,
+          pairSeed,
+          user: {
+            ...prev.couple.user,
+            name: userName,
+          },
+          inviteCode,
+          connected: options?.isJoin ? true : prev.couple.connected,
         },
-        inviteCode: options?.inviteCode || prev.couple.inviteCode || 'OURS-4821',
-        connected: options?.isJoin ? true : prev.couple.connected,
-      },
-    }));
+      };
+    });
     setActiveTab('today');
   };
 
@@ -105,28 +123,43 @@ export default function App() {
     }));
   };
 
-  // Upgrade to Premium
-  const handleUpgradeToPremium = (tariff: 'month' | 'year' = 'year') => {
+  // Update Theme mode specifically
+  const handleUpdateTheme = (theme: ThemeMode) => {
+    setAppState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        theme,
+      },
+    }));
+  };
+
+  // One-time purchase for the couple: LOVELY ♡
+  const handlePurchaseLovely = () => {
+    const purchasedAt = new Date().toISOString();
     setAppState((prev) => ({
       ...prev,
       couple: {
         ...prev.couple,
+        isLovely: true,
+        lovelyPurchasedAt: purchasedAt,
         subscription: 'premium',
-        subscriptionTariff: tariff,
       },
-      // Unlock all history items in demo
+      // Unlock all history items
       history: prev.history.map((h) => ({ ...h, isLocked: false })),
     }));
     playSoftChime('success', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
   };
 
-  // Reset subscription for demo testing
-  const handleResetSubscription = () => {
+  // Reset LOVELY status for demo testing
+  const handleResetLovely = () => {
     setAppState((prev) => ({
       ...prev,
       couple: {
         ...prev.couple,
+        isLovely: false,
+        lovelyPurchasedAt: undefined,
         subscription: 'free',
         subscriptionTariff: undefined,
       },
@@ -135,6 +168,14 @@ export default function App() {
     }));
     playSoftChime('tap', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
+  };
+
+  const handleToggleLovely = () => {
+    if (appState.couple.isLovely || appState.couple.subscription === 'premium') {
+      handleResetLovely();
+    } else {
+      handlePurchaseLovely();
+    }
   };
 
   // Update Current User Profile (Name & Photo)
@@ -218,6 +259,19 @@ export default function App() {
     triggerHaptic(appState.settings.haptic);
   };
 
+  // Simulate Matched Days for Sky Testing (Developer Sandbox)
+  const handleUpdateSimulatedSkyDays = (count: number, year: number, month: number) => {
+    setAppState((prev) => {
+      const updatedHistory = createSimulatedSkyHistory(count, year, month, prev.history);
+      return {
+        ...prev,
+        history: updatedHistory,
+      };
+    });
+    playSoftChime('tap', appState.settings.sounds);
+    triggerHaptic(appState.settings.haptic);
+  };
+
   // Reset to default
   const handleResetDay = () => {
     const resetState = resetAppToDefault();
@@ -230,16 +284,6 @@ export default function App() {
     setAppState(onboardingState);
   };
 
-  // If onboarding not completed, render Onboarding flow
-  if (!appState.hasCompletedOnboarding) {
-    return (
-      <OnboardingFlow
-        onComplete={handleOnboardingComplete}
-        defaultInviteCode={appState.couple.inviteCode || 'OURS-4821'}
-      />
-    );
-  }
-
   const activeMoment =
     appState.todayMoments.find((m) => m.id === appState.activeMomentId) ||
     appState.todayMoments[0];
@@ -247,120 +291,158 @@ export default function App() {
   const isPartnerUploaded = Boolean(activeMoment?.partnerPhoto);
 
   return (
-    <div className="min-h-screen bg-[#FFF9FA] text-[#343033] flex flex-col justify-between selection:bg-[#F6DCE1]">
-      {/* Mobile-first centered frame container with soft depth */}
-      <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative bg-[#FFF9FA] sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70">
-        {/* Sticky Header with couple names and avatar pair */}
-        <CoupleHeader
-          couple={appState.couple}
-          onOpenProfile={() => {
-            if (activeTab === 'profile') {
-              setIsEditProfileOpen(true);
-            } else {
-              setActiveTab('profile');
-            }
-          }}
-          currentStreak={streakInfo.currentStreak}
-          onOpenStreak={() => setIsStreakModalOpen(true)}
+    <ThemeProvider
+      initialTheme={appState.settings.theme}
+      onThemePersist={handleUpdateTheme}
+    >
+      {!appState.hasCompletedOnboarding ? (
+        <OnboardingFlow
+          onComplete={handleOnboardingComplete}
+          defaultInviteCode={appState.couple.inviteCode || 'OURS-4821'}
         />
+      ) : (
+        <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] flex flex-col justify-between selection:bg-[#F6DCE1]">
+          {/* Mobile-first centered frame container with soft depth */}
+          <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative bg-[#FFF9FA] dark:bg-[#000000] sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70 dark:sm:border-[#242024]">
+            {/* Sticky Header with couple names and avatar pair */}
+            <CoupleHeader
+              couple={appState.couple}
+              onOpenProfile={() => {
+                if (activeTab === 'profile') {
+                  setIsEditProfileOpen(true);
+                } else {
+                  setActiveTab('profile');
+                }
+              }}
+              currentStreak={streakInfo.currentStreak}
+              onOpenStreak={() => setIsStreakModalOpen(true)}
+            />
 
-        {/* Scrollable Main Viewport */}
-        <main className="flex-1 px-4 pt-4 pb-2">
-          <div key={activeTab} className="animate-in fade-in duration-250 ease-out">
-            {activeTab === 'today' && (
-              <TodayScreen
-                couple={appState.couple}
-                moments={appState.todayMoments}
-                activeMomentId={appState.activeMomentId}
-                onSelectActiveMoment={handleSelectActiveMoment}
-                onUpdateMoment={handleUpdateMoment}
-                soundEnabled={appState.settings.sounds}
-                hapticEnabled={appState.settings.haptic}
-                streakInfo={streakInfo}
-                onOpenStreak={() => setIsStreakModalOpen(true)}
-              />
-            )}
+            {/* Scrollable Main Viewport */}
+            <main className="flex-1 px-4 pt-4 pb-2">
+              <div key={activeTab} className="animate-in fade-in duration-250 ease-out">
+                {activeTab === 'today' && (
+                  <TodayScreen
+                    couple={appState.couple}
+                    moments={appState.todayMoments}
+                    activeMomentId={appState.activeMomentId}
+                    onSelectActiveMoment={handleSelectActiveMoment}
+                    onUpdateMoment={handleUpdateMoment}
+                    soundEnabled={appState.settings.sounds}
+                    hapticEnabled={appState.settings.haptic}
+                    streakInfo={streakInfo}
+                    onOpenStreak={() => setIsStreakModalOpen(true)}
+                  />
+                )}
 
-            {activeTab === 'history' && (
-              <HistoryScreen
-                history={appState.history}
-                todayMoments={appState.todayMoments}
-                couple={appState.couple}
-                onOpenPremium={() => setIsPremiumModalOpen(true)}
-                onNavigateToToday={() => setActiveTab('today')}
-              />
-            )}
+                {activeTab === 'history' && (
+                  <HistoryScreen
+                    history={appState.history}
+                    todayMoments={appState.todayMoments}
+                    couple={appState.couple}
+                    onOpenLovely={() => setIsLovelyModalOpen(true)}
+                    onOpenPremium={() => setIsLovelyModalOpen(true)}
+                    onNavigateToToday={() => setActiveTab('today')}
+                  />
+                )}
 
-            {activeTab === 'profile' && (
-              <ProfileScreen
-                couple={appState.couple}
-                settings={appState.settings}
-                onUpdateSettings={handleUpdateSettings}
-                onOpenPremium={() => setIsPremiumModalOpen(true)}
-                onResetApp={handleResetDay}
-                streakInfo={streakInfo}
-                onOpenEditProfile={() => setIsEditProfileOpen(true)}
-                onOpenThread={() => setIsStreakModalOpen(true)}
-              />
-            )}
+                {activeTab === 'profile' && (
+                  <ProfileScreen
+                    couple={appState.couple}
+                    settings={appState.settings}
+                    onUpdateSettings={handleUpdateSettings}
+                    onOpenLovely={() => setIsLovelyModalOpen(true)}
+                    onOpenPremium={() => setIsLovelyModalOpen(true)}
+                    onResetApp={handleResetDay}
+                    streakInfo={streakInfo}
+                    onOpenEditProfile={() => setIsEditProfileOpen(true)}
+                    onOpenSky={() => setIsStreakModalOpen(true)}
+                    onOpenFingerprint={() => setIsStreakModalOpen(true)}
+                    onOpenThread={() => setIsStreakModalOpen(true)}
+                  />
+                )}
+              </div>
+            </main>
+
+            {/* Fixed Bottom Tab Bar */}
+            <BottomTabBar
+              activeTab={activeTab}
+              onTabChange={(tab) => {
+                setActiveTab(tab);
+                playSoftChime('tap', appState.settings.sounds);
+                triggerHaptic(appState.settings.haptic);
+              }}
+            />
+
+            {/* Dev / Partner Mock Control Floating Widget */}
+            <DevControls
+              onSimulatePartnerUpload={handleSimulatePartnerUpload}
+              onResetDay={handleResetDay}
+              onRestartOnboarding={handleRestartOnboarding}
+              onOpenLovely={() => setIsLovelyModalOpen(true)}
+              onOpenPremium={() => setIsLovelyModalOpen(true)}
+              onToggleLovely={handleToggleLovely}
+              onOpenSkyTester={() => setIsSkyTesterOpen(true)}
+              isLovely={Boolean(appState.couple.isLovely || appState.couple.subscription === 'premium')}
+              onFastForward={handleFastForwardCooldown}
+              isPartnerUploaded={isPartnerUploaded}
+              canSimulate={Boolean(activeMoment)}
+            />
+
+            {/* Stage 3: Developer Sandbox for Testing «Наше небо» */}
+            <DevSkyTesterModal
+              isOpen={isSkyTesterOpen}
+              onClose={() => setIsSkyTesterOpen(false)}
+              couple={appState.couple}
+              pairSeed={pairSeed}
+              todayMoments={appState.todayMoments}
+              history={appState.history}
+              onUpdateSimulatedDays={handleUpdateSimulatedSkyDays}
+              onOpenFullSky={() => setIsStreakModalOpen(true)}
+            />
+
+            {/* LOVELY One-Time Purchase Modal for the Couple */}
+            <LovelyModal
+              isOpen={isLovelyModalOpen}
+              onClose={() => setIsLovelyModalOpen(false)}
+              onPurchase={handlePurchaseLovely}
+              onResetLovely={handleResetLovely}
+              isLovely={Boolean(appState.couple.isLovely || appState.couple.subscription === 'premium')}
+              partnerAName={appState.couple.user.name}
+              partnerBName={appState.couple.partner.name}
+            />
+
+            {/* «Наше небо» Modal */}
+            <OurSkyModal
+              isOpen={isStreakModalOpen}
+              onClose={() => setIsStreakModalOpen(false)}
+              couple={appState.couple}
+              pairSeed={pairSeed}
+              todayMoments={appState.todayMoments}
+              history={appState.history}
+              matchedDates={matchedDates}
+              partnerAName={appState.couple.user.name}
+              partnerBName={appState.couple.partner.name}
+            />
+
+            {/* User Profile Editor Modal */}
+            <EditProfileModal
+              isOpen={isEditProfileOpen}
+              onClose={() => setIsEditProfileOpen(false)}
+              user={appState.couple.user}
+              daysTogether={appState.couple.daysTogether}
+              streakInfo={streakInfo}
+              onSaveProfile={handleSaveProfile}
+              onOpenSky={() => setIsStreakModalOpen(true)}
+              onOpenFingerprint={() => setIsStreakModalOpen(true)}
+              onOpenThread={() => setIsStreakModalOpen(true)}
+              soundEnabled={appState.settings.sounds}
+              hapticEnabled={appState.settings.haptic}
+            />
+
           </div>
-        </main>
-
-        {/* Fixed Bottom Tab Bar */}
-        <BottomTabBar
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setActiveTab(tab);
-            playSoftChime('tap', appState.settings.sounds);
-            triggerHaptic(appState.settings.haptic);
-          }}
-        />
-
-        {/* Dev / Partner Mock Control Floating Widget */}
-        <DevControls
-          onSimulatePartnerUpload={handleSimulatePartnerUpload}
-          onResetDay={handleResetDay}
-          onRestartOnboarding={handleRestartOnboarding}
-          onOpenPremium={() => setIsPremiumModalOpen(true)}
-          onFastForward={handleFastForwardCooldown}
-          isPartnerUploaded={isPartnerUploaded}
-          canSimulate={Boolean(activeMoment)}
-        />
-
-        {/* Premium Upgrade Modal / Screen */}
-        <PremiumModal
-          isOpen={isPremiumModalOpen}
-          onClose={() => setIsPremiumModalOpen(false)}
-          onUpgrade={handleUpgradeToPremium}
-          onResetSubscription={handleResetSubscription}
-          isAlreadyPremium={appState.couple.subscription === 'premium'}
-          currentTariff={appState.couple.subscriptionTariff || 'year'}
-        />
-
-        {/* Couple Streak and Thread Artifact Details Modal */}
-        <StreakDetailsModal
-          isOpen={isStreakModalOpen}
-          onClose={() => setIsStreakModalOpen(false)}
-          streakInfo={streakInfo}
-          partnerAName={appState.couple.user.name}
-          partnerBName={appState.couple.partner.name}
-          pairSeed={appState.couple.id || 'pair-default-1'}
-        />
-
-        {/* User Profile Editor Modal */}
-        <EditProfileModal
-          isOpen={isEditProfileOpen}
-          onClose={() => setIsEditProfileOpen(false)}
-          user={appState.couple.user}
-          daysTogether={appState.couple.daysTogether}
-          streakInfo={streakInfo}
-          onSaveProfile={handleSaveProfile}
-          onOpenThread={() => setIsStreakModalOpen(true)}
-          soundEnabled={appState.settings.sounds}
-          hapticEnabled={appState.settings.haptic}
-        />
-
-      </div>
-    </div>
+        </div>
+      )}
+    </ThemeProvider>
   );
 }

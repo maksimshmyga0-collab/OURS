@@ -14,6 +14,8 @@ export interface IPairService {
   getCurrentPair(userId: string): Promise<Pair>;
   createPair(userA: User): Promise<Pair>;
   joinPairWithInvite(inviteCode: string, userB: User): Promise<Pair>;
+  purchaseLovely(pairId: string): Promise<Pair>;
+  resetLovely(pairId: string): Promise<Pair>;
   updateSubscription(pairId: string, tier: 'free' | 'premium'): Promise<Pair>;
   subscribeToPair(pairId: string, callback: (pair: Pair) => void): () => void;
 }
@@ -73,6 +75,7 @@ export class AppPairService implements IPairService {
       },
       startDate: '12 сентября 2026',
       daysTogether: 12,
+      isLovely: false,
       subscription: 'free',
     };
 
@@ -97,6 +100,7 @@ export class AppPairService implements IPairService {
         year: 'numeric',
       }),
       daysTogether: 1,
+      isLovely: false,
       subscription: 'free',
     };
 
@@ -128,6 +132,40 @@ export class AppPairService implements IPairService {
     return updated;
   }
 
+  async purchaseLovely(pairId: string): Promise<Pair> {
+    const pair = await this.getCurrentPair('current');
+    if (pair.id !== pairId) {
+      pair.id = pairId;
+    }
+    const updated: Pair = {
+      ...pair,
+      isLovely: true,
+      lovelyPurchasedAt: new Date().toISOString(),
+      subscription: 'premium',
+    };
+    this.currentPair = updated;
+    await this.storage.setItem(PAIR_STORAGE_KEY, JSON.stringify(updated));
+    this.notify();
+    return updated;
+  }
+
+  async resetLovely(pairId: string): Promise<Pair> {
+    const pair = await this.getCurrentPair('current');
+    if (pair.id !== pairId) {
+      pair.id = pairId;
+    }
+    const updated: Pair = {
+      ...pair,
+      isLovely: false,
+      lovelyPurchasedAt: undefined,
+      subscription: 'free',
+    };
+    this.currentPair = updated;
+    await this.storage.setItem(PAIR_STORAGE_KEY, JSON.stringify(updated));
+    this.notify();
+    return updated;
+  }
+
   async updateSubscription(pairId: string, tier: 'free' | 'premium'): Promise<Pair> {
     const pair = await this.getCurrentPair('current');
     if (pair.id !== pairId) {
@@ -135,6 +173,7 @@ export class AppPairService implements IPairService {
     }
     const updated: Pair = {
       ...pair,
+      isLovely: tier === 'premium',
       subscription: tier,
     };
     this.currentPair = updated;
