@@ -15,8 +15,8 @@
   --color-ours-divider: var(--ours-border);
   --color-ours-disabled: #CEC5C8;
 
-  --font-sans: 'Manrope', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Unbounded', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Unbounded', 'Outfit', 'Manrope', -apple-system, sans-serif;
 }
 
 /* ==========================================================================
@@ -85,11 +85,33 @@ html.dark,
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-feature-settings: inherit;
+  font-variation-settings: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
 html {
   background-color: #FFF9FA;
   color: #343033;
   -webkit-tap-highlight-color: transparent;
-  font-family: 'Manrope', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
 html.dark {

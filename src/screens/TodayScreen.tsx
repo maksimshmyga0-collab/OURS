@@ -254,8 +254,8 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                 {activeMoment.prompt}
               </h2>
               {isCurrentMomentReady && (
-                <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] pt-0.5">
-                  Новое касание готово 💗
+                <p className="font-display text-sm sm:text-[15px] font-bold text-[#343033] dark:text-white pt-1 tracking-tight animate-in fade-in duration-200">
+                  Новое касание готово
                 </p>
               )}
               <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">

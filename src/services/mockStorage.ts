@@ -6,8 +6,7 @@ import {
   createFreshDayMoments,
 } from './moments/momentTiming';
 
-const STORAGE_KEY = 'ours_app_state_v1';
-const ONBOARDING_KEY = 'ours_onboarding_completed_v1';
+const STORAGE_KEY = 'ours_app_state_v2';
 
 export interface AppState {
   hasCompletedOnboarding: boolean;
@@ -18,8 +17,7 @@ export interface AppState {
   settings: AppSettings;
 }
 
-const DEFAULT_TODAY_MOMENTS: Moment[] = createFreshDayMoments('OURS-4821', getLocalDateKey());
-
+const DEFAULT_TODAY_MOMENTS: Moment[] = createFreshDayMoments('OURS', getLocalDateKey());
 const DEFAULT_HISTORY: HistoryDay[] = [];
 
 export function getInitialAppState(): AppState {
@@ -30,7 +28,6 @@ export function getInitialAppState(): AppState {
       if (
         parsed &&
         Array.isArray(parsed.todayMoments) &&
-        parsed.todayMoments.length > 0 &&
         parsed.couple &&
         parsed.couple.user
       ) {
@@ -46,23 +43,6 @@ export function getInitialAppState(): AppState {
           parsed.couple.isLovely = parsed.couple.subscription === 'premium';
         }
 
-        // Clean out any legacy sample/beta test moments from history
-        if (Array.isArray(parsed.history)) {
-          parsed.history = parsed.history.filter(
-            (h: HistoryDay) =>
-              h &&
-              h.id &&
-              !h.id.startsWith('hist-yesterday') &&
-              !h.id.startsWith('hist-20-sep') &&
-              !h.id.startsWith('hist-18-sep') &&
-              !h.id.startsWith('hist-14-sep') &&
-              !h.id.startsWith('hist-week-ago') &&
-              !h.id.startsWith('hist-first-day')
-          );
-        } else {
-          parsed.history = [];
-        }
-
         return syncAppStateForDate(parsed);
       }
     }
@@ -71,15 +51,15 @@ export function getInitialAppState(): AppState {
   }
 
   return {
-    hasCompletedOnboarding: true,
+    hasCompletedOnboarding: false,
     couple: {
-      id: 'pair-default-1',
-      pairSeed: 'ours-4821-anya-max',
-      user: { name: 'Аня', avatarColor: '#F6DCE1' },
-      partner: { name: 'Макс', avatarColor: '#DDEAF7' },
-      inviteCode: 'OURS-4821',
-      connected: true,
-      startDate: '12 сентября 2026',
+      id: '',
+      pairSeed: '',
+      user: { id: '', name: '', avatarColor: '#F6DCE1' },
+      partner: { id: '', name: 'Партнёр', avatarColor: '#DDEAF7' },
+      inviteCode: '',
+      connected: false,
+      startDate: '',
       daysTogether: 1,
       isLovely: false,
       lovelyPurchasedAt: undefined,
@@ -105,34 +85,26 @@ export function saveAppState(state: AppState): void {
   }
 }
 
-export function resetAppToDefault(): AppState {
-  try {
-    appStorage.removeItem(STORAGE_KEY);
-    appStorage.removeItem(ONBOARDING_KEY);
-  } catch {
-    // ignore
-  }
-  const defaultState = getInitialAppState();
-  return defaultState;
-}
-
-export function resetToOnboarding(): AppState {
-  const freshState: AppState = {
-    hasCompletedOnboarding: false,
+export function createDemoAppState(): AppState {
+  const demoMoments = createFreshDayMoments('OURS-4821', getLocalDateKey());
+  return {
+    hasCompletedOnboarding: true,
     couple: {
-      user: { name: 'Аня', avatarColor: '#F6DCE1' },
-      partner: { name: 'Макс', avatarColor: '#DDEAF7' },
+      id: 'pair-demo-1',
+      pairSeed: 'ours-4821-anya-max',
+      user: { id: 'usr-demo-a', name: 'Аня', avatarColor: '#F6DCE1' },
+      partner: { id: 'usr-demo-b', name: 'Макс', avatarColor: '#DDEAF7' },
       inviteCode: 'OURS-4821',
       connected: true,
       startDate: '12 сентября 2026',
-      daysTogether: 1,
+      daysTogether: 12,
       isLovely: false,
       lovelyPurchasedAt: undefined,
       subscription: 'free',
     },
-    todayMoments: JSON.parse(JSON.stringify(DEFAULT_TODAY_MOMENTS)),
-    activeMomentId: 'moment-today-1',
-    history: JSON.parse(JSON.stringify(DEFAULT_HISTORY)),
+    todayMoments: demoMoments,
+    activeMomentId: demoMoments[0]?.id || 'moment-today-1',
+    history: [],
     settings: {
       notifications: true,
       sounds: true,
@@ -140,6 +112,17 @@ export function resetToOnboarding(): AppState {
       theme: 'system',
     },
   };
-  saveAppState(freshState);
-  return freshState;
+}
+
+export function resetAppToDefault(): AppState {
+  try {
+    appStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+  return getInitialAppState();
+}
+
+export function resetToOnboarding(): AppState {
+  return resetAppToDefault();
 }

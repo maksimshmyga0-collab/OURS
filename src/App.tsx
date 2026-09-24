@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   AppState,
   getInitialAppState,
   saveAppState,
-  resetAppToDefault,
-  resetToOnboarding,
+  createDemoAppState,
 } from './services/mockStorage';
-import { NavigationTab, Moment, AppSettings, MomentPhoto, UserProfile, ThemeMode } from './types';
+import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode } from './types';
+import { apiClient } from './services/api/apiClient';
 import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
 import { BottomTabBar } from './components/BottomTabBar';
@@ -33,13 +33,125 @@ export default function App() {
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isSkyTesterOpen, setIsSkyTesterOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isLoadingSession, setIsLoadingSession] = useState<boolean>(true);
+
+  const isDemoModeRef = useRef<boolean>(false);
+
+  // 1. Initialize anonymous session and restore multi-device state
+  useEffect(() => {
+    let isMounted = true;
+
+    async function init() {
+      try {
+        const session = await apiClient.initSession();
+        if (!isMounted) return;
+
+        if (session.hasCompletedOnboarding && session.pair) {
+          setAppState((prev) => ({
+            ...prev,
+            hasCompletedOnboarding: true,
+            couple: session.pair!,
+            todayMoments:
+              session.moments && session.moments.length > 0
+                ? session.moments
+                : prev.todayMoments,
+            activeMomentId: session.moments?.[0]?.id || prev.activeMomentId,
+            history: session.history || [],
+          }));
+        } else {
+          setAppState((prev) => ({
+            ...prev,
+            hasCompletedOnboarding: false,
+            couple: {
+              ...prev.couple,
+              user: {
+                ...prev.couple.user,
+                id: session.user?.id || '',
+                name: session.user?.displayName || '',
+                avatarColor: session.user?.avatarColor || '#F6DCE1',
+              },
+              partner: {
+                id: '',
+                name: 'Партнёр',
+                avatarColor: '#DDEAF7',
+              },
+              inviteCode: '',
+              connected: false,
+            },
+          }));
+        }
+      } catch (err) {
+        console.error('[OURS] Failed to initialize session:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingSession(false);
+        }
+      }
+    }
+
+    init();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // 2. Multi-device live polling to synchronize pair status, partner photos, and reactions
+  useEffect(() => {
+    if (!appState.hasCompletedOnboarding || !appState.couple.id || isDemoModeRef.current) {
+      return;
+    }
+
+    let isPolling = false;
+
+    const pollState = async () => {
+      if (document.hidden || isPolling) return;
+      isPolling = true;
+
+      try {
+        const res = await apiClient.fetchPairState();
+        if (res.success && res.pair) {
+          setAppState((prev) => {
+            const moments = res.moments && res.moments.length > 0 ? res.moments : prev.todayMoments;
+            const validActiveId = moments.find((m) => m.id === prev.activeMomentId)
+              ? prev.activeMomentId
+              : moments[0]?.id || prev.activeMomentId;
+
+            return {
+              ...prev,
+              couple: {
+                ...res.pair!,
+                // preserve local seed if present
+                pairSeed: prev.couple.pairSeed || res.pair!.pairSeed,
+              },
+              todayMoments: moments,
+              activeMomentId: validActiveId,
+              history: res.history || prev.history,
+            };
+          });
+        }
+      } catch (err) {
+        // Silent catch for brief network drop
+      } finally {
+        isPolling = false;
+      }
+    };
+
+    const interval = setInterval(pollState, 2500);
+    window.addEventListener('focus', pollState);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', pollState);
+    };
+  }, [appState.hasCompletedOnboarding, appState.couple.id]);
 
   // Sync state to local storage on changes
   useEffect(() => {
     saveAppState(appState);
   }, [appState]);
 
-  // Check calendar date change periodically and on window focus
+  // Check calendar date change periodically
   useEffect(() => {
     const handleDateSync = () => {
       setAppState((prev) => syncAppStateForDate(prev));
@@ -66,36 +178,67 @@ export default function App() {
 
   const pairSeed = appState.couple.pairSeed || getCoupleSeed(appState.couple);
 
-
-  // Handle Onboarding Completion
-  const handleOnboardingComplete = (
+  // Handle Onboarding Completion (Create Pair or Join Pair)
+  const handleOnboardingComplete = async (
     userName: string,
     options?: { isJoin?: boolean; inviteCode?: string }
   ) => {
-    setAppState((prev) => {
-      const inviteCode = options?.inviteCode || prev.couple.inviteCode || 'OURS-4821';
-      const partnerName = prev.couple.partner?.name || 'Макс';
-      const pairSeed = `${inviteCode}-${userName}-${partnerName}`.toLowerCase().replace(/\s+/g, '-');
-      return {
-        ...prev,
-        hasCompletedOnboarding: true,
-        couple: {
-          ...prev.couple,
-          pairSeed,
-          user: {
-            ...prev.couple.user,
-            name: userName,
+    try {
+      let res;
+      if (options?.isJoin && options.inviteCode) {
+        res = await apiClient.joinPair(userName, options.inviteCode);
+      } else {
+        res = await apiClient.createPair(userName, options?.inviteCode);
+      }
+
+      if (res.success && res.pair) {
+        const partnerName = res.pair.partner?.name || 'Партнёр';
+        const pairSeedVal = `${res.pair.inviteCode || 'OURS'}-${userName}-${partnerName}`
+          .toLowerCase()
+          .replace(/\s+/g, '-');
+
+        setAppState((prev) => ({
+          ...prev,
+          hasCompletedOnboarding: true,
+          couple: {
+            ...res.pair!,
+            pairSeed: pairSeedVal,
           },
-          inviteCode,
-          connected: options?.isJoin ? true : prev.couple.connected,
-        },
-      };
-    });
-    setActiveTab('today');
+          todayMoments: res.moments || prev.todayMoments,
+          activeMomentId: res.moments?.[0]?.id || prev.activeMomentId,
+          history: res.history || [],
+        }));
+        setActiveTab('today');
+      }
+    } catch (err: any) {
+      console.error('Onboarding complete error:', err);
+      // Fallback local state if offline
+      setAppState((prev) => {
+        const inviteCode = options?.inviteCode || prev.couple.inviteCode || 'OURS-4821';
+        const partnerName = prev.couple.partner?.name || 'Партнёр';
+        const pairSeed = `${inviteCode}-${userName}-${partnerName}`.toLowerCase().replace(/\s+/g, '-');
+        return {
+          ...prev,
+          hasCompletedOnboarding: true,
+          couple: {
+            ...prev.couple,
+            pairSeed,
+            user: {
+              ...prev.couple.user,
+              name: userName,
+            },
+            inviteCode,
+            connected: options?.isJoin ? true : prev.couple.connected,
+          },
+        };
+      });
+      setActiveTab('today');
+    }
   };
 
-  // Update a moment in today's moments list
-  const handleUpdateMoment = (updated: Moment) => {
+  // Update a moment in today's moments list with server synchronization
+  const handleUpdateMoment = async (updated: Moment) => {
+    // Optimistic UI update
     setAppState((prev) => {
       const nextMoments = prev.todayMoments.map((m) =>
         m.id === updated.id ? updated : m
@@ -105,6 +248,28 @@ export default function App() {
         todayMoments: nextMoments,
       };
     });
+
+    if (isDemoModeRef.current) return;
+
+    try {
+      if (updated.status === 'COMPLETED') {
+        const res = await apiClient.completeMoment(updated.id);
+        if (res.success && res.moment) {
+          setAppState((prev) => ({
+            ...prev,
+            todayMoments: prev.todayMoments.map((m) => (m.id === res.moment.id ? res.moment : m)),
+          }));
+        }
+      } else if (updated.status === 'REVEALED') {
+        await apiClient.revealMoment(updated.id);
+      } else if (updated.userReaction) {
+        await apiClient.submitReaction(updated.id, updated.userReaction);
+      } else if (updated.userPhoto) {
+        await apiClient.uploadPhoto(updated.id, updated.userPhoto);
+      }
+    } catch (err) {
+      console.error('[OURS] Failed to sync moment update:', err);
+    }
   };
 
   // Switch active moment
@@ -135,7 +300,7 @@ export default function App() {
   };
 
   // One-time purchase for the couple: LOVELY ♡
-  const handlePurchaseLovely = () => {
+  const handlePurchaseLovely = async () => {
     const purchasedAt = new Date().toISOString();
     setAppState((prev) => ({
       ...prev,
@@ -145,15 +310,23 @@ export default function App() {
         lovelyPurchasedAt: purchasedAt,
         subscription: 'premium',
       },
-      // Unlock all history items
       history: prev.history.map((h) => ({ ...h, isLocked: false })),
     }));
+
+    if (!isDemoModeRef.current) {
+      try {
+        await apiClient.purchaseLovely();
+      } catch (err) {
+        console.error('[OURS] Failed to sync LOVELY purchase:', err);
+      }
+    }
+
     playSoftChime('success', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
   };
 
   // Reset LOVELY status for demo testing
-  const handleResetLovely = () => {
+  const handleResetLovely = async () => {
     setAppState((prev) => ({
       ...prev,
       couple: {
@@ -163,9 +336,17 @@ export default function App() {
         subscription: 'free',
         subscriptionTariff: undefined,
       },
-      // Lock history older than 7 days
       history: prev.history.map((h, i) => ({ ...h, isLocked: i > 2 })),
     }));
+
+    if (!isDemoModeRef.current) {
+      try {
+        await apiClient.resetLovely();
+      } catch (err) {
+        console.error('[OURS] Failed to reset LOVELY:', err);
+      }
+    }
+
     playSoftChime('tap', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
   };
@@ -179,7 +360,7 @@ export default function App() {
   };
 
   // Update Current User Profile (Name & Photo)
-  const handleSaveProfile = (updated: Partial<UserProfile>) => {
+  const handleSaveProfile = async (updated: Partial<UserProfile>) => {
     setAppState((prev) => ({
       ...prev,
       couple: {
@@ -190,6 +371,18 @@ export default function App() {
         },
       },
     }));
+
+    if (!isDemoModeRef.current) {
+      try {
+        await apiClient.updateProfile({
+          name: updated.name,
+          avatarUrl: updated.avatarUrl,
+          avatarColor: updated.avatarColor,
+        });
+      } catch (err) {
+        console.error('[OURS] Failed to save profile:', err);
+      }
+    }
   };
 
   // Simulate Partner Upload for testing (Moment Duo)
@@ -204,7 +397,7 @@ export default function App() {
       PARTNER_SAMPLE_PHOTOS[(activeMoment.order - 1) % PARTNER_SAMPLE_PHOTOS.length];
 
     const nowIso = new Date().toISOString();
-    const userPhotoItem: MomentPhoto[] = activeMoment.userPhoto
+    const userPhotoItem = activeMoment.userPhoto
       ? [
           {
             userId: appState.couple.user.id || 'user-a-default',
@@ -213,7 +406,7 @@ export default function App() {
           },
         ]
       : [];
-    const partnerPhotoItem: MomentPhoto = {
+    const partnerPhotoItem = {
       userId: appState.couple.partner.id || 'user-b-default',
       imageUrl: partnerPhotoUrl,
       createdAt: nowIso,
@@ -226,14 +419,13 @@ export default function App() {
       ...activeMoment,
       partnerPhoto: partnerPhotoUrl,
       photos: newPhotos,
-      status: newStatus,
+      status: newStatus as any,
     };
 
     handleUpdateMoment(updated);
     playSoftChime('tap', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
   };
-
 
   // Fast forward cooldown by 4 hours for demo and testing
   const handleFastForwardCooldown = () => {
@@ -272,16 +464,52 @@ export default function App() {
     triggerHaptic(appState.settings.haptic);
   };
 
-  // Reset to default
+  // Reset to default demo account
   const handleResetDay = () => {
-    const resetState = resetAppToDefault();
-    setAppState(resetState);
+    isDemoModeRef.current = true;
+    const demoState = createDemoAppState();
+    setAppState(demoState);
   };
 
-  // Restart Onboarding
-  const handleRestartOnboarding = () => {
-    const onboardingState = resetToOnboarding();
-    setAppState(onboardingState);
+  // Restart Onboarding (Clears user session completely to test brand new anonymous user)
+  const handleRestartOnboarding = async () => {
+    isDemoModeRef.current = false;
+    try {
+      await apiClient.resetUser();
+      const session = await apiClient.initSession();
+      setAppState((prev) => ({
+        ...prev,
+        hasCompletedOnboarding: false,
+        couple: {
+          id: '',
+          pairSeed: '',
+          user: {
+            id: session.user.id,
+            name: '',
+            avatarColor: session.user.avatarColor,
+          },
+          partner: {
+            id: '',
+            name: 'Партнёр',
+            avatarColor: '#DDEAF7',
+          },
+          inviteCode: '',
+          connected: false,
+          startDate: '',
+          daysTogether: 1,
+          isLovely: false,
+          subscription: 'free',
+        },
+        todayMoments: [],
+        history: [],
+      }));
+    } catch {
+      // fallback
+      setAppState((prev) => ({
+        ...prev,
+        hasCompletedOnboarding: false,
+      }));
+    }
   };
 
   const activeMoment =
@@ -289,6 +517,19 @@ export default function App() {
     appState.todayMoments[0];
 
   const isPartnerUploaded = Boolean(activeMoment?.partnerPhoto);
+
+  if (isLoadingSession) {
+    return (
+      <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-2 border-[#E98787] border-t-transparent animate-spin" />
+          <span className="font-display text-sm font-semibold tracking-widest text-[#777277] dark:text-[#B8B2B5]">
+            OURS
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ThemeProvider
@@ -439,7 +680,6 @@ export default function App() {
               soundEnabled={appState.settings.sounds}
               hapticEnabled={appState.settings.haptic}
             />
-
           </div>
         </div>
       )}
