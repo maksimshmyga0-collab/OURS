@@ -17,6 +17,22 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      proxy: {
+        '/supabase-api': {
+          target: 'https://dcaryfwvjattucxbckgw.supabase.co',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/supabase-api/, ''),
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('[Vite Proxy error]:', err);
+            });
+            proxy.on('proxyReq', (proxyReq, req, _res) => {
+              proxyReq.setHeader('host', 'dcaryfwvjattucxbckgw.supabase.co');
+            });
+          },
+        },
+      },
     },
   };
 });

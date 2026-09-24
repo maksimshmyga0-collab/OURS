@@ -71,10 +71,10 @@ export class ApiClient {
     }
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
       let user = sessionData?.session?.user;
 
-      if (!user) {
+      if (!user || sessionErr) {
         const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
         if (signInError) {
           console.warn('[OURS Auth] Anonymous sign in warning:', signInError.message);
@@ -84,7 +84,7 @@ export class ApiClient {
         }
       }
 
-      if (user) {
+      if (user?.id) {
         this.currentUserId = user.id;
         return user.id;
       }
@@ -92,8 +92,10 @@ export class ApiClient {
       console.warn('[OURS Auth] Exception getting auth session:', err);
     }
 
-    // Fallback ID if Supabase Auth is unavailable in offline environment
-    const fallbackId = 'anon_' + Math.random().toString(36).substring(2, 10);
+    // Fallback valid UUID if offline or temporary network issue
+    const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : '00000000-0000-4000-8000-' + Math.random().toString(16).substring(2, 14).padEnd(12, '0');
     this.currentUserId = fallbackId;
     return fallbackId;
   }
@@ -135,9 +137,7 @@ export class ApiClient {
       await supabase.from('profiles').upsert(
         {
           id: userId,
-          display_name: defaultName,
-          avatar_color: '#F6DCE1',
-          created_at: new Date().toISOString(),
+          name: defaultName,
         },
         { onConflict: 'id' }
       );
@@ -539,9 +539,7 @@ export class ApiClient {
     await supabase.from('profiles').upsert(
       {
         id: userId,
-        display_name: cleanName,
-        avatar_color: '#F6DCE1',
-        updated_at: new Date().toISOString(),
+        name: cleanName,
       },
       { onConflict: 'id' }
     );
@@ -549,69 +547,21 @@ export class ApiClient {
     let pairId: string | null = null;
     let inviteCode: string | null = null;
 
-    // 2. Attempt calling Supabase RPC 'create_pair'
-    try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc('create_pair');
-      if (!rpcError && rpcData) {
-        if (typeof rpcData === 'object') {
-          pairId = rpcData.pair_id || rpcData.id;
-          inviteCode = rpcData.pair_code || rpcData.code;
-        } else if (typeof rpcData === 'string') {
-          pairId = rpcData;
-        }
-      }
-    } catch {
-      // RPC not present, proceed with direct table operations
+    // 2. Call Supabase RPC 'create_pair'
+    const { data: rpcData, error: rpcError } = await supabase.rpc('create_pair');
+
+    if (rpcError) {
+      throw new Error(rpcError.message || 'Ошибка создания пары');
     }
 
-    // 3. Direct table creation fallback
-    if (!pairId) {
-      // Find a collision-free invite code
-      for (let attempt = 0; attempt < 50; attempt++) {
-        const candidate = generateRandomInviteCode();
-        const { data: existing } = await supabase
-          .from('pairs')
-          .select('id')
-          .eq('code', candidate)
-          .maybeSingle();
+    const rpcRow = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
-        if (!existing) {
-          inviteCode = candidate;
-          break;
-        }
-      }
-
-      if (!inviteCode) {
-        inviteCode = generateRandomInviteCode();
-      }
-
-      const { data: newPair, error: pairInsertError } = await supabase
-        .from('pairs')
-        .insert({
-          code: inviteCode,
-          status: 'pending',
-          start_date: formatRussianDate(getLocalDateKey()),
-          is_lovely: false,
-          subscription: 'free',
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
-
-      if (pairInsertError || !newPair) {
-        throw new Error(pairInsertError?.message || 'Failed to create pair');
-      }
-
-      pairId = newPair.id;
-
-      // Add current user to pair_members as creator
-      await supabase.from('pair_members').insert({
-        pair_id: pairId,
-        user_id: userId,
-        role: 'creator',
-        joined_at: new Date().toISOString(),
-      });
+    if (!rpcRow?.pair_id || !rpcRow?.pair_code) {
+      throw new Error('create_pair RPC returned invalid data');
     }
+
+    pairId = rpcRow.pair_id;
+    inviteCode = rpcRow.pair_code;
 
     this.currentPairId = pairId;
     const assembled = await this.assemblePairData(pairId!, userId);
@@ -636,8 +586,6 @@ export class ApiClient {
       {
         id: userId,
         name: cleanName,
-        avatar_color: '#DDEAF7',
-        updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }
     );

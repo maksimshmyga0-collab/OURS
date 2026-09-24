@@ -199,7 +199,7 @@ export default function App() {
 
         setAppState((prev) => ({
           ...prev,
-          hasCompletedOnboarding: true,
+          hasCompletedOnboarding: Boolean(options?.isJoin),
           couple: {
             ...res.pair!,
             pairSeed: pairSeedVal,
@@ -208,11 +208,30 @@ export default function App() {
           activeMomentId: res.moments?.[0]?.id || prev.activeMomentId,
           history: res.history || [],
         }));
-        setActiveTab('today');
+
+        if (options?.isJoin) {
+          setActiveTab('today');
+        }
+
+        return {
+          success: true,
+          inviteCode: res.pair.inviteCode,
+          pairId: res.pair.id,
+        };
       }
+      return { success: false, error: 'Не удалось создать пару' };
     } catch (err: any) {
       console.error('Onboarding complete error:', err);
+      return { success: false, error: err.message || 'Ошибка соединения' };
     }
+  };
+
+  const handleFinishOnboarding = () => {
+    setAppState((prev) => ({
+      ...prev,
+      hasCompletedOnboarding: true,
+    }));
+    setActiveTab('today');
   };
 
   // Update a moment in today's moments list with server synchronization
@@ -519,6 +538,7 @@ export default function App() {
       {!appState.hasCompletedOnboarding ? (
         <OnboardingFlow
           onComplete={handleOnboardingComplete}
+          onFinish={handleFinishOnboarding}
         />
       ) : (
         <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] flex flex-col justify-between selection:bg-[#F6DCE1]">

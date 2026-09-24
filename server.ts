@@ -1,4 +1,5 @@
 import express from 'express';
+import https from 'https';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,6 +11,41 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
   const isProd = process.env.NODE_ENV === 'production';
+
+  // Supabase same-origin stream proxy to eliminate browser CORS/blocking issues in Preview
+  app.use('/supabase-api', (req, res) => {
+    const targetUrl = new URL(req.url, 'https://dcaryfwvjattucxbckgw.supabase.co');
+
+    const headers: Record<string, string | string[]> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (!value) continue;
+      const lowerKey = key.toLowerCase();
+      if (lowerKey === 'host' || lowerKey === 'connection') continue;
+      headers[key] = value;
+    }
+    headers['host'] = 'dcaryfwvjattucxbckgw.supabase.co';
+
+    const proxyReq = https.request(
+      targetUrl,
+      {
+        method: req.method,
+        headers,
+      },
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+        proxyRes.pipe(res);
+      }
+    );
+
+    proxyReq.on('error', (err) => {
+      console.error('[Supabase Stream Proxy Error]:', err);
+      if (!res.headersSent) {
+        res.status(502).json({ error: err.message || 'Supabase proxy error' });
+      }
+    });
+
+    req.pipe(proxyReq);
+  });
 
   app.use(express.json({ limit: '10mb' }));
 

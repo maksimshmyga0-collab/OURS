@@ -13,16 +13,13 @@ export interface AppEnvConfig {
 }
 
 export function getEnvConfig(): AppEnvConfig {
-  const meta = import.meta as unknown as { env?: Record<string, string | boolean | undefined> };
-  const metaEnv = meta?.env || {};
-
   return {
-    supabaseUrl: (metaEnv.VITE_SUPABASE_URL as string) || '',
-    supabaseAnonKey: (metaEnv.VITE_SUPABASE_ANON_KEY as string) || '',
-    storageBucket: (metaEnv.VITE_STORAGE_BUCKET as string) || 'moments',
-    apiUrl: (metaEnv.VITE_API_URL as string) || '',
-    isProduction: metaEnv.PROD === true || metaEnv.MODE === 'production',
-    isDevelopment: metaEnv.DEV === true || metaEnv.MODE === 'development',
+    supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
+    supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
+    storageBucket: import.meta.env.VITE_STORAGE_BUCKET || 'moments',
+    apiUrl: import.meta.env.VITE_API_URL || '',
+    isProduction: import.meta.env.PROD === true || import.meta.env.MODE === 'production',
+    isDevelopment: import.meta.env.DEV === true || import.meta.env.MODE === 'development',
   };
 }
 

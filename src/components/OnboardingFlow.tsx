@@ -9,26 +9,38 @@ import {
   Link as LinkIcon,
   Heart,
   Coffee,
+  Copy,
 } from 'lucide-react';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { PRESET_PHOTOS } from '../services/samplePhotos';
+
+export interface OnboardingCompleteResult {
+  success: boolean;
+  inviteCode?: string;
+  pairId?: string;
+  error?: string;
+}
 
 interface OnboardingFlowProps {
   onComplete: (
     userName: string,
     options?: { isJoin?: boolean; inviteCode?: string }
-  ) => void;
+  ) => Promise<OnboardingCompleteResult | void> | void;
+  onFinish?: () => void;
 }
 
-type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join';
+type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join' | 'created-code';
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onComplete,
+  onFinish,
 }) => {
   const [view, setView] = useState<OnboardingView>('slide-1');
   const [userName, setUserName] = useState<string>('');
   const [joinName, setJoinName] = useState<string>('');
   const [joinCode, setJoinCode] = useState<string>('');
+  const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [shakeField, setShakeField] = useState<'create-name' | 'join-name' | 'join-code' | null>(null);
 
@@ -70,7 +82,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   };
 
   // Create couple submission
-  const handleCreateSubmit = (e?: React.FormEvent) => {
+  const handleCreateSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = userName.trim();
     if (!trimmed) {
@@ -78,13 +90,26 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       showToast('Напиши, как тебя зовут');
       return;
     }
-    triggerHaptic(true);
-    playSoftChime('match', true);
-    onComplete(trimmed, { isJoin: false });
+    setIsSubmitting(true);
+    try {
+      const result = await onComplete(trimmed, { isJoin: false });
+      if (result && result.inviteCode) {
+        setCreatedInviteCode(result.inviteCode);
+        triggerHaptic(true);
+        playSoftChime('match', true);
+        setView('created-code');
+      } else if (result?.error) {
+        showToast(result.error);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Ошибка создания пары');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Join couple submission
-  const handleJoinSubmit = (e?: React.FormEvent) => {
+  const handleJoinSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmedName = joinName.trim();
     const trimmedCode = joinCode.trim();
@@ -101,9 +126,17 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       return;
     }
 
-    triggerHaptic(true);
-    playSoftChime('match', true);
-    onComplete(trimmedName, { isJoin: true, inviteCode: trimmedCode });
+    setIsSubmitting(true);
+    try {
+      const result = await onComplete(trimmedName, { isJoin: true, inviteCode: trimmedCode });
+      if (result?.error) {
+        showToast(result.error);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Ошибка подключения к паре');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -623,8 +656,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
             {/* Bottom Button */}
             <div className="pb-4 pt-8">
-              <PrimaryButton variant="coral" type="submit">
-                Готово
+              <PrimaryButton variant="coral" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Создание...' : 'Готово'}
               </PrimaryButton>
             </div>
           </form>
@@ -698,11 +731,92 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
             {/* Bottom Button */}
             <div className="pb-4 pt-8">
-              <PrimaryButton variant="coral" type="submit">
-                Готово
+              <PrimaryButton variant="coral" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Подключение...' : 'Готово'}
               </PrimaryButton>
             </div>
           </form>
+        )}
+
+        {/* ========================================================= */}
+        {/* SUB-SCREEN: КОД ПРИГЛАШЕНИЯ                              */}
+        {/* ========================================================= */}
+        {view === 'created-code' && (
+          <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
+            <div className="pt-2">
+              {/* Header branding */}
+              <div className="flex items-center gap-2 mb-6">
+                <div className="flex items-center -space-x-1.5">
+                  <span className="w-4 h-4 rounded-full bg-[#FFA4B4] border border-white/85 dark:border-[#242024]/80" />
+                  <span className="w-4 h-4 rounded-full bg-[#9BC4F5] border border-white/85 dark:border-[#242024]/80 opacity-95" />
+                </div>
+                <span className="font-display font-bold tracking-wider text-sm text-[#343033] dark:text-white">
+                  OURS
+                </span>
+              </div>
+
+              {/* Title & Description */}
+              <h1 className="font-display text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white tracking-tight mb-2">
+                Код для партнёра
+              </h1>
+              <p className="text-sm text-[#777277] dark:text-[#B8B2B5] leading-relaxed mb-6">
+                Отправь этот код своей второй половинке. Партнёр сможет ввести его при входе в OURS.
+              </p>
+
+              {/* Large Prominent Invite Code Card */}
+              <div className="p-6 rounded-[24px] bg-gradient-to-br from-[#FAF0F2] via-white to-[#FAF0F2] dark:from-[#181416] dark:via-[#141214] dark:to-[#181416] border border-[#EED7DC] dark:border-[#332227] shadow-xs text-center space-y-4">
+                <span className="text-[11px] font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase">
+                  Код приглашения
+                </span>
+
+                <div className="font-mono text-3xl sm:text-4xl font-extrabold tracking-widest text-[#E98787] dark:text-[#F0B9C6] select-all py-1">
+                  {createdInviteCode || 'OURS-XXXX'}
+                </div>
+
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (createdInviteCode) {
+                        navigator.clipboard.writeText(createdInviteCode);
+                        showToast('Код скопирован в буфер ✨');
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white dark:bg-[#201518] text-xs font-bold text-[#343033] dark:text-white border border-[#EBE3E5] dark:border-[#382329] shadow-2xs hover:bg-[#FAF0F2] dark:hover:bg-[#2A181E] transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Copy size={14} className="text-[#E98787] dark:text-[#F0B9C6]" />
+                    <span>Скопировать код</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Note card */}
+              <div className="mt-4 p-4 rounded-[18px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#FAF0F2] dark:bg-[#201518] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] shrink-0">
+                  <Sparkles size={16} />
+                </div>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                  Код также всегда доступен в вашем профиле в настройках.
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Action */}
+            <div className="pb-4 pt-8">
+              <PrimaryButton
+                variant="coral"
+                onClick={() => {
+                  triggerHaptic(true);
+                  playSoftChime('tap', true);
+                  if (onFinish) {
+                    onFinish();
+                  }
+                }}
+              >
+                Продолжить
+              </PrimaryButton>
+            </div>
+          </div>
         )}
       </div>
     </div>

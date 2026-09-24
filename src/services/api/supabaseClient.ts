@@ -8,8 +8,14 @@ export interface SupabaseConfig {
 }
 
 export function getSupabaseConfig(): SupabaseConfig {
+  const isBrowser = typeof window !== 'undefined';
+  const shouldUseProxy = isBrowser && (env.isDevelopment || window.location.hostname.includes('run.app') || window.location.hostname === 'localhost');
+  const targetUrl = shouldUseProxy
+    ? `${window.location.origin}/supabase-api`
+    : env.supabaseUrl;
+
   return {
-    url: env.supabaseUrl,
+    url: targetUrl,
     anonKey: env.supabaseAnonKey,
     isConfigured: Boolean(env.supabaseUrl && env.supabaseAnonKey),
   };
