@@ -15,7 +15,7 @@ export interface AppEnvConfig {
 export function getEnvConfig(): AppEnvConfig {
   return {
     supabaseUrl: import.meta.env.VITE_SUPABASE_URL || '',
-    supabaseAnonKey: 'public-anon-key',
+    supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || '',
     storageBucket: import.meta.env.VITE_STORAGE_BUCKET || 'moments',
     apiUrl: import.meta.env.VITE_API_URL || '',
     isProduction: import.meta.env.PROD === true || import.meta.env.MODE === 'production',

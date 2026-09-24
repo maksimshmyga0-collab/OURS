@@ -15,9 +15,10 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
   const isProd = process.env.NODE_ENV === 'production';
   const SUPABASE_TARGET = process.env.VITE_SUPABASE_URL || 'https://dcaryfwvjattucxbckgw.supabase.co';
-  const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+  const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || '';
 
-  // Supabase same-origin stream proxy to securely forward requests without exposing secret key to browser
+  // Supabase same-origin stream proxy to securely route API requests without CORS issues
   app.use('/supabase-api', (req, res) => {
     const targetUrl = new URL(req.url, SUPABASE_TARGET);
 
@@ -30,13 +31,14 @@ async function startServer() {
     }
     headers['host'] = new URL(SUPABASE_TARGET).host;
 
-    if (SUPABASE_KEY) {
-      headers['apikey'] = SUPABASE_KEY;
-      const clientAuth = req.headers['authorization'];
-      // If client auth is missing or using placeholder key, provide server key bearer for public endpoints like signup
-      if (!clientAuth || clientAuth.includes('public-anon-key') || clientAuth.includes('placeholder')) {
-        headers['authorization'] = `Bearer ${SUPABASE_KEY}`;
-      }
+    // Use publishable anon key for client requests; fallback to secret key if no publishable key configured
+    const clientKey = req.headers['apikey'];
+    const effectiveKey = (typeof clientKey === 'string' && (clientKey.startsWith('sb_publishable_') || clientKey.startsWith('eyJ')))
+      ? clientKey
+      : (SUPABASE_ANON_KEY || SUPABASE_SECRET_KEY);
+
+    if (effectiveKey) {
+      headers['apikey'] = effectiveKey;
     }
 
     const proxyReq = https.request(
