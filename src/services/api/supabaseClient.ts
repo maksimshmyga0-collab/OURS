@@ -8,16 +8,14 @@ export interface SupabaseConfig {
 }
 
 export function getSupabaseConfig(): SupabaseConfig {
-  const isBrowser = typeof window !== 'undefined';
-  // All browser requests are routed safely through same-origin proxy /supabase-api
-  const targetUrl = isBrowser
-    ? `${window.location.origin}/supabase-api`
-    : (env.supabaseUrl || 'http://localhost:3000/supabase-api');
+  const fallbackUrl = 'https://dcaryfwvjattucxbckgw.supabase.co';
+  const targetUrl = env.supabaseUrl || fallbackUrl;
+  const anonKey = env.supabaseAnonKey || '';
 
   return {
     url: targetUrl,
-    anonKey: env.supabaseAnonKey || 'public-anon-key',
-    isConfigured: Boolean(env.supabaseUrl),
+    anonKey,
+    isConfigured: Boolean(targetUrl && anonKey),
   };
 }
 
@@ -25,7 +23,7 @@ export const supabaseConfig = getSupabaseConfig();
 
 export const supabase: SupabaseClient = createClient(
   supabaseConfig.url,
-  supabaseConfig.anonKey,
+  supabaseConfig.anonKey || 'dummy-anon-key',
   {
     auth: {
       persistSession: true,
