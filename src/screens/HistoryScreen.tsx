@@ -13,28 +13,32 @@ interface HistoryScreenProps {
   onNavigateToToday: () => void;
 }
 
-function resolveUserPhoto(m: Moment): string | null {
+function resolveUserPhoto(m: Moment, currentUserId?: string): string | null {
   if (m.userPhoto) return m.userPhoto;
   if (m.photos && m.photos.length > 0) {
-    const userP = m.photos.find((p) => p.userId === m.createdBy || p.userId?.includes('user-a') || p.userId?.includes('user'));
-    if (userP?.imageUrl) return userP.imageUrl;
+    if (currentUserId) {
+      const userP = m.photos.find((p) => p.userId === currentUserId);
+      if (userP?.imageUrl) return userP.imageUrl;
+    }
     return m.photos[0].imageUrl;
   }
   return m.imageUrl || null;
 }
 
-function resolvePartnerPhoto(m: Moment): string | null {
+function resolvePartnerPhoto(m: Moment, currentUserId?: string): string | null {
   if (m.partnerPhoto) return m.partnerPhoto;
   if (m.photos && m.photos.length > 1) {
-    const partnerP = m.photos.find((p) => p.userId !== m.createdBy && !p.userId?.includes('user-a') && !p.userId?.includes('user'));
-    if (partnerP?.imageUrl) return partnerP.imageUrl;
+    if (currentUserId) {
+      const partnerP = m.photos.find((p) => p.userId !== currentUserId);
+      if (partnerP?.imageUrl) return partnerP.imageUrl;
+    }
     return m.photos[1].imageUrl;
   }
   return null;
 }
 
-function resolveMomentThumbnail(m: Moment): string | null {
-  return resolveUserPhoto(m) || resolvePartnerPhoto(m) || m.imageUrl || m.photos?.[0]?.imageUrl || null;
+function resolveMomentThumbnail(m: Moment, currentUserId?: string): string | null {
+  return resolveUserPhoto(m, currentUserId) || resolvePartnerPhoto(m, currentUserId) || m.imageUrl || m.photos?.[0]?.imageUrl || null;
 }
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
@@ -48,8 +52,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const handleOpenLovely = onOpenLovely || onOpenPremium || (() => {});
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
 
-  // Filter out any legacy test/beta moments
-  const cleanHistory = history.filter(
+  // Filter out any legacy test/mock IDs if any
+  const cleanHistory = (history || []).filter(
     (d) =>
       d &&
       d.id &&
@@ -61,12 +65,16 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       !d.id.startsWith('hist-first-day')
   );
 
-  // Completed today moments
-  const completedTodayMoments = todayMoments.filter((m) => m.status === 'COMPLETED');
+  // Completed/matched today moments from local state
+  const completedTodayMoments = todayMoments.filter(
+    (m) => (m.status === 'COMPLETED' || m.status === 'REVEALED' || m.status === 'REACTED') && Boolean(m.userPhoto && m.partnerPhoto)
+  );
 
-  // Combined history list including today if any moments completed
+  const hasTodayInHistory = cleanHistory.some((d) => d.dateKey === 'today' || d.title === 'Сегодня');
+
+  // Combined real history days list
   const displayHistory: HistoryDay[] = [
-    ...(completedTodayMoments.length > 0
+    ...(!hasTodayInHistory && completedTodayMoments.length > 0
       ? [
           {
             id: 'hist-today-dynamic',
@@ -84,7 +92,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   ];
 
   const totalMomentsCount = displayHistory.reduce((acc, day) => acc + day.moments.length, 0);
-
   const selectedDay = displayHistory.find((d) => d.id === selectedDayId);
 
   // If a specific day is selected, show the Day Detail View
@@ -114,8 +121,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             const cardColor =
               m.themeColor === 'blue' ? 'blue' : m.themeColor === 'pink' ? 'pink' : 'peach';
 
-            const userPhoto = resolveUserPhoto(m);
-            const partnerPhoto = resolvePartnerPhoto(m);
+            const userPhoto = resolveUserPhoto(m, couple.user.id);
+            const partnerPhoto = resolvePartnerPhoto(m, couple.user.id);
 
             return (
               <PastelCard key={m.id} color={cardColor} className="space-y-4">
@@ -274,7 +281,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 {isUnlocked ? (
                   <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar pt-1">
                     {day.moments.map((m, mIdx) => {
-                      const photoUrl = resolveMomentThumbnail(m);
+                      const photoUrl = resolveMomentThumbnail(m, couple.user.id);
                       return (
                         <div
                           key={m.id || mIdx}
