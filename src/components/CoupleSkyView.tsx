@@ -5,7 +5,6 @@ export interface CoupleSkyViewProps {
   sky: SkyState;
   compact?: boolean;
   className?: string;
-  showMeaning?: boolean;
 }
 
 /**
@@ -13,7 +12,7 @@ export interface CoupleSkyViewProps {
  * - Deep serene dark background
  * - 0 stars = pure empty sky waiting for the first day
  * - Exactly 1 star per real completed calendar MATCH day
- * - New star blooms softly once (500ms) -> line draws gently once (800ms) -> everything stops.
+ * - New star blooms softly once (500ms) -> line draws gently once (800ms) -> completely static.
  * - Zero infinite animations, no screensaver particles, no moving objects.
  * - Rock-solid direct SVG coordinate rendering (never clobbered or hidden).
  */
@@ -21,7 +20,6 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
   sky,
   compact = false,
   className = '',
-  showMeaning = false,
 }) => {
   const litPoints = (sky?.points || []).filter((p) => p && p.isLit);
   const litLines = (sky?.lines || []).filter((l) => l && l.isLit);
@@ -100,7 +98,7 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
           })}
         </g>
 
-        {/* 2. Constellation Stars (direct (x, y) placement, guaranteed visible) */}
+        {/* 2. Constellation Stars (direct deterministic (x, y) placement) */}
         <g className="constellation-stars">
           {litPoints.map((point) => {
             const isNew = Boolean(point.isNewest);
@@ -135,7 +133,7 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
                   opacity={0.6}
                 />
 
-                {/* 3. Star shape: 4-point Diamond sparkle for anchors, or solid star core */}
+                {/* 3. Star shape: 4-point Diamond sparkle for anchors, or solid circle for body */}
                 {point.role === 'anchor' ? (
                   <path
                     d={`M ${point.x} ${point.y - 3.2} Q ${point.x} ${point.y} ${point.x + 3.2} ${point.y} Q ${point.x} ${point.y} ${point.x} ${point.y + 3.2} Q ${point.x} ${point.y} ${point.x - 3.2} ${point.y} Q ${point.x} ${point.y} ${point.x} ${point.y - 3.2} Z`}
@@ -178,15 +176,6 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
           </text>
         )}
       </svg>
-
-      {/* Optional meaning footnote if requested */}
-      {showMeaning && !isEmpty && sky?.template?.meaning && (
-        <div className="absolute bottom-2.5 inset-x-3 text-center pointer-events-none">
-          <span className="text-[10px] text-[#C4B7C1] bg-[#0A0910]/70 backdrop-blur-xs px-2 py-0.5 rounded-full border border-white/10">
-            {sky.template.meaning}
-          </span>
-        </div>
-      )}
 
       <style>{`
         @keyframes drawQuietLine {

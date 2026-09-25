@@ -11,7 +11,7 @@ import {
   HistoryDay,
   ReactionEmoji,
   MomentPhoto,
-} from '../../types';
+} from '../../types/index';
 import {
   getLocalDateKey,
   getPromptForPairMoment,
@@ -244,55 +244,22 @@ export class ApiClient {
       subscription,
     };
 
-    // Temporary development-only debug log
-    if (typeof window !== 'undefined') {
-      console.log(`[OURS DEBUG]
-AUTH USER: ${currentUserId}
-PROFILE ID: ${myProfile.id}
-PROFILE NAME: ${myProfile.name}
-PAIR ID: ${pairId}
-PAIR MEMBERS: ${memberUserIds.join(', ')}`);
-    }
-
     // 3. Fetch or initialize today's moments from public.moments
     let { data: rawMoments } = await supabase
       .from('moments')
       .select('*')
       .eq('pair_id', pairId)
-      .eq('date_key', todayKey)
-      .order('order', { ascending: true });
-
-    // If moments table uses `moment_date` or `order_index` column
-    if (!rawMoments || rawMoments.length === 0) {
-      const { data: altMoments } = await supabase
-        .from('moments')
-        .select('*')
-        .eq('pair_id', pairId)
-        .eq('moment_date', todayKey)
-        .order('order_index', { ascending: true });
-      if (altMoments && altMoments.length > 0) {
-        rawMoments = altMoments;
-      }
-    }
+      .eq('moment_date', todayKey)
+      .order('created_at', { ascending: true });
 
     // If no moments exist for today, create the 3 moments in Supabase
     if (!rawMoments || rawMoments.length === 0) {
       const newMomentsToInsert = ([1, 2, 3] as const).map((order) => {
         const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
         return {
-          id: `moment_${pairId}_${todayKey}_${order}`,
           pair_id: pairId,
-          date_key: todayKey,
           moment_date: todayKey,
-          order: order,
-          order_index: order,
-          label: `МОМЕНТ ${order}`,
           prompt: promptInfo.prompt,
-          subtext: promptInfo.subtext,
-          theme_color: promptInfo.themeColor,
-          status: 'EMPTY',
-          revealed: false,
-          created_at: new Date().toISOString(),
         };
       });
 
@@ -301,10 +268,24 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
           .from('moments')
           .insert(newMomentsToInsert)
           .select();
-        rawMoments = inserted || newMomentsToInsert;
-      } catch {
-        rawMoments = newMomentsToInsert;
+        rawMoments = inserted || [];
+      } catch (err) {
+        console.warn('Failed to insert moments:', err);
       }
+    }
+
+    // Fallback if offline/uninitialized
+    if (!rawMoments || rawMoments.length === 0) {
+      rawMoments = ([1, 2, 3] as const).map((order) => {
+        const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
+        return {
+          id: `moment_${pairId}_${todayKey}_${order}`,
+          pair_id: pairId,
+          moment_date: todayKey,
+          prompt: promptInfo.prompt,
+          created_at: new Date().toISOString(),
+        };
+      });
     }
 
     // 4. Fetch all photos & reactions for today's moments
@@ -319,7 +300,7 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
           .select('*')
           .in('moment_id', momentIds);
         allPhotos = pData || [];
-      } catch (e) {
+      } catch {
         // silent
       }
 
@@ -329,45 +310,47 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
           .select('*')
           .in('moment_id', momentIds);
         allReactions = rData || [];
-      } catch (e) {
+      } catch {
         // silent
       }
     }
 
     // 5. Assemble formatted Moment objects with strict user/partner photo isolation
-    const assembledMoments: Moment[] = (rawMoments || []).map((dbM: any) => {
-      const order = (dbM.order || dbM.order_index || 1) as 1 | 2 | 3;
+    const assembledMoments: Moment[] = (rawMoments || []).map((dbM: any, idx: number) => {
+      const order = ((idx % 3) + 1) as 1 | 2 | 3;
+      const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
+
       const mPhotos = allPhotos.filter((p) => p.moment_id === dbM.id);
       const mReactions = allReactions.filter((r) => r.moment_id === dbM.id);
 
       const userPhotoObj = mPhotos.find((p) => p.user_id === currentUserId);
       const partnerPhotoObj = mPhotos.find((p) => p.user_id !== currentUserId);
 
-      const userPhotoUrl = userPhotoObj?.image_url || userPhotoObj?.imageUrl || null;
-      const partnerPhotoUrl = partnerPhotoObj?.image_url || partnerPhotoObj?.imageUrl || null;
+      const userPhotoUrl = userPhotoObj?.storage_path || userPhotoObj?.image_url || null;
+      const partnerPhotoUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
 
       const userReactionObj = mReactions.find((r) => r.user_id === currentUserId);
       const partnerReactionObj = mReactions.find((r) => r.user_id !== currentUserId);
 
       const photosList: MomentPhoto[] = mPhotos.map((p) => ({
         userId: p.user_id,
-        imageUrl: p.image_url || p.imageUrl,
+        imageUrl: p.storage_path || p.image_url,
         createdAt: p.created_at,
       }));
 
       // Determine authoritative status
-      let status = dbM.status || 'EMPTY';
       const hasBoth = Boolean(userPhotoUrl && partnerPhotoUrl);
       const hasUser = Boolean(userPhotoUrl);
 
+      let status = 'EMPTY';
       if (hasBoth) {
-        if (status !== 'COMPLETED' && status !== 'REVEALED' && status !== 'REACTED') {
+        if (userReactionObj || partnerReactionObj) {
+          status = 'REACTED';
+        } else {
           status = 'BOTH_UPLOADED';
         }
       } else if (hasUser) {
-        if (status === 'EMPTY') {
-          status = 'USER_UPLOADED';
-        }
+        status = 'USER_UPLOADED';
       }
 
       return {
@@ -375,22 +358,22 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
         pairId,
         createdBy: currentUserId,
         createdAt: dbM.created_at || new Date().toISOString(),
-        dateKey: dbM.date_key || dbM.moment_date || todayKey,
+        dateKey: dbM.moment_date || todayKey,
         imageUrl: userPhotoUrl,
         caption: null,
         order,
-        label: dbM.label || `МОМЕНТ ${order}`,
-        prompt: dbM.prompt,
-        subtext: dbM.subtext || 'Сделайте по одному фото и откройте их вместе.',
+        label: `МОМЕНТ ${order}`,
+        prompt: dbM.prompt || promptInfo.prompt,
+        subtext: promptInfo.subtext || 'Сделайте по одному фото и откройте их вместе.',
         status: status as any,
-        themeColor: dbM.theme_color || 'pink',
+        themeColor: promptInfo.themeColor || 'pink',
         userPhoto: userPhotoUrl,
         partnerPhoto: partnerPhotoUrl,
         photos: photosList,
-        userReaction: (userReactionObj?.emoji || null) as ReactionEmoji | null,
-        partnerReaction: (partnerReactionObj?.emoji || null) as ReactionEmoji | null,
-        completedAt: dbM.completed_at || undefined,
-        completedTimestamp: dbM.completed_timestamp || (dbM.completed_at ? new Date(dbM.completed_at).getTime() : undefined),
+        userReaction: (userReactionObj?.reaction || userReactionObj?.emoji || null) as ReactionEmoji | null,
+        partnerReaction: (partnerReactionObj?.reaction || partnerReactionObj?.emoji || null) as ReactionEmoji | null,
+        completedAt: dbM.created_at || undefined,
+        completedTimestamp: dbM.created_at ? new Date(dbM.created_at).getTime() : undefined,
       };
     });
 
@@ -401,7 +384,7 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
         .from('moments')
         .select('*')
         .eq('pair_id', pairId)
-        .neq('date_key', todayKey)
+        .neq('moment_date', todayKey)
         .order('created_at', { ascending: false });
 
       if (pastMoments && pastMoments.length > 0) {
@@ -419,12 +402,13 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
         });
 
         const dayMap = new Map<string, Moment[]>();
-        pastMoments.forEach((pm: any) => {
-          const dKey = pm.date_key || pm.moment_date || todayKey;
+        pastMoments.forEach((pm: any, idx: number) => {
+          const dKey = pm.moment_date || todayKey;
           const pPhotos = photosByMoment.get(pm.id) || [];
-          const uPhoto = pPhotos.find((p) => p.user_id === currentUserId)?.image_url || null;
-          const pPhoto = pPhotos.find((p) => p.user_id !== currentUserId)?.image_url || null;
+          const uPhoto = pPhotos.find((p) => p.user_id === currentUserId)?.storage_path || null;
+          const pPhoto = pPhotos.find((p) => p.user_id !== currentUserId)?.storage_path || null;
 
+          const order = ((idx % 3) + 1) as 1 | 2 | 3;
           const hMoment: Moment = {
             id: pm.id,
             pairId,
@@ -433,17 +417,17 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
             dateKey: dKey,
             imageUrl: uPhoto,
             caption: null,
-            order: pm.order || pm.order_index || 1,
-            label: pm.label || `МОМЕНТ ${pm.order || 1}`,
+            order,
+            label: `МОМЕНТ ${order}`,
             prompt: pm.prompt,
-            subtext: pm.subtext || '',
-            status: pm.status || 'COMPLETED',
-            themeColor: pm.theme_color || 'peach',
+            subtext: '',
+            status: 'COMPLETED',
+            themeColor: 'peach',
             userPhoto: uPhoto,
             partnerPhoto: pPhoto,
             photos: pPhotos.map((p) => ({
               userId: p.user_id,
-              imageUrl: p.image_url,
+              imageUrl: p.storage_path,
               createdAt: p.created_at,
             })),
             userReaction: null,
@@ -698,36 +682,24 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
     const userId = await this.ensureAuthenticatedUser();
     const pairId = this.currentPairId || 'pair';
 
-    // 1. Upload to Supabase Storage
-    const publicUrl = await photoStorageService.uploadMomentPhoto(
+    // 1. Upload to Supabase Storage or process as Data URI
+    const storageUrl = await photoStorageService.uploadMomentPhoto(
       pairId,
       momentId,
       userId,
       photoData
     );
 
-    // 2. Upsert photo metadata into public.photos
+    // 2. Upsert photo metadata into public.photos with correct column storage_path
     await supabase.from('photos').upsert(
       {
         moment_id: momentId,
         user_id: userId,
-        image_url: publicUrl,
+        storage_path: storageUrl,
         created_at: new Date().toISOString(),
       },
       { onConflict: 'moment_id,user_id' }
     );
-
-    // 3. Check if partner has uploaded
-    const { data: momentPhotos } = await supabase
-      .from('photos')
-      .select('user_id')
-      .eq('moment_id', momentId);
-
-    const hasPartner = (momentPhotos || []).some((p: any) => p.user_id !== userId);
-    const newStatus = hasPartner ? 'BOTH_UPLOADED' : 'USER_UPLOADED';
-
-    // Update moment status in public.moments
-    await supabase.from('moments').update({ status: newStatus }).eq('id', momentId);
 
     if (this.currentPairId) {
       const state = await this.assemblePairData(this.currentPairId, userId);
@@ -742,10 +714,12 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
    * Reveal Moment in public.moments
    */
   async revealMoment(momentId: string): Promise<{ success: boolean; moment?: Moment }> {
-    await supabase
-      .from('moments')
-      .update({ revealed: true, status: 'REVEALED' })
-      .eq('id', momentId);
+    if (this.currentPairId) {
+      const userId = await this.ensureAuthenticatedUser();
+      const state = await this.assemblePairData(this.currentPairId, userId);
+      const moment = state.moments.find((m) => m.id === momentId);
+      return { success: true, moment };
+    }
 
     return { success: true };
   }
@@ -759,16 +733,11 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
       {
         moment_id: momentId,
         user_id: userId,
-        emoji: emoji,
+        reaction: emoji,
         created_at: new Date().toISOString(),
       },
       { onConflict: 'moment_id,user_id' }
     );
-
-    await supabase
-      .from('moments')
-      .update({ status: 'REACTED' })
-      .eq('id', momentId);
 
     if (this.currentPairId) {
       const state = await this.assemblePairData(this.currentPairId, userId);
@@ -783,17 +752,6 @@ PAIR MEMBERS: ${memberUserIds.join(', ')}`);
    * Complete Moment in public.moments
    */
   async completeMoment(momentId: string): Promise<{ success: boolean; moment?: Moment }> {
-    const completedAt = new Date().toISOString();
-    await supabase
-      .from('moments')
-      .update({
-        status: 'COMPLETED',
-        revealed: true,
-        completed_at: completedAt,
-        completed_timestamp: Date.now(),
-      })
-      .eq('id', momentId);
-
     if (this.currentPairId) {
       const userId = await this.ensureAuthenticatedUser();
       const state = await this.assemblePairData(this.currentPairId, userId);

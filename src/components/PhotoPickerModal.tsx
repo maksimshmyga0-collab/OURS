@@ -24,20 +24,16 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (typeof URL !== 'undefined' && URL.createObjectURL) {
-        const objectUrl = URL.createObjectURL(file);
-        onSelectPhoto(objectUrl);
-        onClose();
-        return;
-      }
       const reader = new FileReader();
       reader.onload = (event) => {
-        if (event.target?.result) {
-          onSelectPhoto(event.target.result as string);
+        const result = event.target?.result as string;
+        if (result) {
+          onSelectPhoto(result);
           onClose();
         }
       };
       reader.readAsDataURL(file);
+      e.target.value = '';
     }
   };
 

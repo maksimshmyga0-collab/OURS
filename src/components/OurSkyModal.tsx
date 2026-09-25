@@ -1,14 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { X, Sparkles, Share2, Check, ChevronLeft, ChevronRight, Moon } from 'lucide-react';
+import { X, Sparkles, Download, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CoupleSkyView } from './CoupleSkyView';
 import {
   getCoupleMatchedDates,
   getMatchedDatesForMonth,
   getSkyForMonth,
-  getMonthNameRu,
 } from '../services/sky/skyService';
-import { copyToClipboard } from '../services/device/clipboard';
+import { exportSkyPolaroid } from '../services/sky/exportSkyPolaroid';
 import { pluralizeWord } from '../services/gamification';
+import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { Moment, HistoryDay, CoupleState } from '../types';
 
 export interface OurSkyModalProps {
@@ -31,10 +31,9 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   todayMoments = [],
   history = [],
   matchedDates: passedMatchedDates,
-  partnerAName,
-  partnerBName,
 }) => {
-  const [copied, setCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   // Current calendar date anchor
   const now = useMemo(() => new Date(), []);
@@ -50,7 +49,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     return getCoupleMatchedDates(couple, todayMoments, history, now);
   }, [couple, todayMoments, history, now, passedMatchedDates]);
 
-  // Determine available historical months + current month
+  // Determine available historical months + current month (strictly from real history)
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
     // Always include current month
@@ -76,6 +75,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     const [y, m] = targetKey.split('-').map(Number);
     setSelectedYear(y);
     setSelectedMonth(m);
+    triggerHaptic(true);
   };
 
   const handleNextMonth = () => {
@@ -84,6 +84,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     const [y, m] = targetKey.split('-').map(Number);
     setSelectedYear(y);
     setSelectedMonth(m);
+    triggerHaptic(true);
   };
 
   // Determine if viewing the active current month
@@ -101,13 +102,26 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     return getSkyForMonth(pairSeed, selectedYear, selectedMonth, starsCount, isCurrentMonth);
   }, [pairSeed, selectedYear, selectedMonth, starsCount, isCurrentMonth]);
 
-  const handleShareClick = async () => {
-    const monthName = getMonthNameRu(selectedMonth);
-    const starText = `${starsCount} ${pluralizeWord(starsCount, 'звезда', 'звезды', 'звёзд')}`;
-    const text = `OURS · Наше небо за ${monthName} · ${starText} пары ${partnerAName} и ${partnerBName}`;
-    await copyToClipboard(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2400);
+  // Download Polaroid Card
+  const handleDownloadCard = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    triggerHaptic(true);
+    playSoftChime('tap', true);
+
+    try {
+      const success = await exportSkyPolaroid(sky);
+      if (success) {
+        setDownloaded(true);
+        triggerHaptic(true);
+        playSoftChime('success', true);
+        setTimeout(() => setDownloaded(false), 2600);
+      }
+    } catch (err) {
+      console.error('[OURS] Export error:', err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -153,7 +167,11 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
             type="button"
             onClick={handlePrevMonth}
             disabled={!canGoPrev}
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-all active:scale-95 cursor-pointer"
+            className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+              canGoPrev
+                ? 'text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white active:scale-95 cursor-pointer'
+                : 'text-[#C5BFC2] dark:text-[#4A4549] cursor-not-allowed opacity-35'
+            }`}
             title="Предыдущий месяц"
           >
             <ChevronLeft size={18} />
@@ -175,7 +193,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
             className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
               canGoNext
                 ? 'text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white active:scale-95 cursor-pointer'
-                : 'text-[#C5BFC2] dark:text-[#4A4549] cursor-not-allowed opacity-40'
+                : 'text-[#C5BFC2] dark:text-[#4A4549] cursor-not-allowed opacity-35'
             }`}
             title="Следующий месяц"
           >
@@ -190,36 +208,42 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
           {/* Calm emotional caption below the canvas */}
           <div className="mt-3.5 space-y-1">
             <h4 className="font-display text-base font-semibold text-[#343033] dark:text-white tracking-tight flex items-center justify-center gap-1.5">
-              <span>{starsCount > 3 ? sky.template.name : 'Ваше небо'}</span>
+              <span>{starsCount > 0 ? 'Ваше созвездие' : 'Ваше небо'}</span>
             </h4>
             <p className="text-xs text-[#777277] dark:text-[#B8B2B5] max-w-xs mx-auto leading-relaxed">
-              {starsCount > 3 ? sky.template.meaning : 'Каждый день вместе зажигает новую звезду.'}
+              Каждый день с MATCH зажигает ровно одну новую звезду.
             </p>
           </div>
         </div>
 
-        {/* Minimal Summary Badge (Restrained, not a dashboard) */}
+        {/* Minimal Summary Badge (Restrained status indicator) */}
         <div className="my-4 p-3 rounded-2xl bg-[#FAF5F7] dark:bg-[#161416] border border-[#EBE3E5] dark:border-[#242024] text-center">
           <p className="text-xs font-medium text-[#343033] dark:text-white leading-relaxed">
             {sky.statusText}
           </p>
         </div>
 
-        {/* Share Button */}
+        {/* Single Action Button: Скачать карточку */}
         <button
           type="button"
-          onClick={handleShareClick}
-          className="w-full py-3.5 px-4 rounded-[18px] bg-white dark:bg-[#1A181A] border border-[#EBE3E5] dark:border-[#2D282D] flex items-center justify-center gap-2 text-xs font-semibold text-[#343033] dark:text-white transition-all hover:bg-[#FAF7F8] dark:hover:bg-[#221F22] active:scale-98 cursor-pointer shadow-2xs"
+          onClick={handleDownloadCard}
+          disabled={isExporting}
+          className="w-full py-3.5 px-4 rounded-[18px] bg-white dark:bg-[#1A181A] border border-[#EBE3E5] dark:border-[#2D282D] flex items-center justify-center gap-2 text-xs font-semibold text-[#343033] dark:text-white transition-all hover:bg-[#FAF7F8] dark:hover:bg-[#221F22] active:scale-98 cursor-pointer shadow-2xs disabled:opacity-60"
         >
-          {copied ? (
+          {downloaded ? (
             <>
               <Check size={16} className="text-[#649A6E]" />
-              <span>Скопировано в буфер обмена</span>
+              <span>Карточка скачана</span>
+            </>
+          ) : isExporting ? (
+            <>
+              <Sparkles size={16} className="text-[#E98787] animate-spin" />
+              <span>Создание карточки...</span>
             </>
           ) : (
             <>
-              <Share2 size={16} className="text-[#E98787]" />
-              <span>Поделиться небом</span>
+              <Download size={16} className="text-[#E98787]" />
+              <span>Скачать карточку</span>
             </>
           )}
         </button>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Camera, Lock, CheckCircle2 } from 'lucide-react';
 import { ReactionEmoji } from '../types';
 import { ReactionIcon } from './ReactionIcon';
@@ -10,6 +10,7 @@ interface PhotoSlotProps {
   isRevealed: boolean;
   isPartnerUploaded?: boolean;
   onAddPhoto?: () => void;
+  onPhotoSelected?: (photoDataUrl: string) => void;
   reaction?: ReactionEmoji | null;
   className?: string;
 }
@@ -21,9 +22,42 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   isRevealed,
   isPartnerUploaded: _isPartnerUploaded = false,
   onAddPhoto,
+  onPhotoSelected,
   reaction,
   className = '',
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSlotClick = () => {
+    if (type !== 'user') return;
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else if (onAddPhoto) {
+      onAddPhoto();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        if (onPhotoSelected) {
+          onPhotoSelected(result);
+        } else if (onAddPhoto) {
+          onAddPhoto();
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input value so same file can be re-selected if needed
+    e.target.value = '';
+  };
+
   // 1. REVEALED STATE (MATCH completed / Saved moment)
   // Both user and partner photos are shown crisp and clear
   if (isRevealed && photoUrl) {
@@ -55,6 +89,13 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
     if (photoUrl) {
       return (
         <div className={`flex-1 flex flex-col items-center ${className} animate-in fade-in duration-250 ease-out`}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
           <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow">
             <img
               src={photoUrl}
@@ -65,15 +106,13 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             <div className="absolute top-2.5 right-2.5 bg-white/95 dark:bg-[#1E1C1E] rounded-full p-1 border border-[#EBE3E5] dark:border-[#352F35] text-[#E98787] shadow-xs animate-in zoom-in-75 duration-200 ease-out">
               <CheckCircle2 size={17} />
             </div>
-            {onAddPhoto && (
-              <button
-                type="button"
-                onClick={onAddPhoto}
-                className="absolute inset-x-3 bottom-2.5 bg-white/95 dark:bg-[#1C1A1C] border border-[#EBE3E5] dark:border-[#352F35] shadow-xs py-1.5 rounded-xl text-[11px] font-semibold text-[#343033] dark:text-white text-center transition-all duration-200 ease-out hover:bg-white dark:hover:bg-[#252225] active:scale-97 cursor-pointer"
-              >
-                Заменить
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSlotClick}
+              className="absolute inset-x-3 bottom-2.5 bg-white/95 dark:bg-[#1C1A1C] border border-[#EBE3E5] dark:border-[#352F35] shadow-xs py-1.5 rounded-xl text-[11px] font-semibold text-[#343033] dark:text-white text-center transition-all duration-200 ease-out hover:bg-white dark:hover:bg-[#252225] active:scale-97 cursor-pointer"
+            >
+              Заменить
+            </button>
           </div>
           <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight transition-colors duration-200">
             {title} · Готово
@@ -84,9 +123,16 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
 
     return (
       <div className={`flex-1 flex flex-col items-center ${className}`}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
         <button
           type="button"
-          onClick={onAddPhoto}
+          onClick={handleSlotClick}
           className="w-full aspect-square rounded-[22px] bg-white dark:bg-[#141214] border-2 border-dashed border-[#E5D7DA] dark:border-[#35252A] hover:border-[#E98787] dark:hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-200 ease-out active:scale-98 cursor-pointer group shadow-2xs"
         >
           <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] dark:bg-[#25161A] group-hover:bg-[#F6DCE1] dark:group-hover:bg-[#341B22] flex items-center justify-center text-[#E98787] mb-2 transition-colors duration-200 ease-out">

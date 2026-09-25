@@ -98,10 +98,6 @@ export const DevSkyTesterModal: React.FC<DevSkyTesterModalProps> = ({
     onUpdateSimulatedDays(count, selectedYear, selectedMonth);
   };
 
-  const handleReset = () => {
-    onUpdateSimulatedDays(0, selectedYear, selectedMonth);
-  };
-
   const handlePrevMonth = () => {
     if (selectedMonth === 1) {
       setSelectedMonth(12);
@@ -122,29 +118,24 @@ export const DevSkyTesterModal: React.FC<DevSkyTesterModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[8px] animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#000000]/65 backdrop-blur-[8px] animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#FFF9FA] dark:bg-[#121118] border border-[#F0E6E8] dark:border-[#2C2738] rounded-t-[32px] sm:rounded-[28px] p-5 pb-7 shadow-2xl max-h-[94vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 ease-out text-[#343033] dark:text-white"
+        className="w-full max-w-md bg-[#FAF7F9] dark:bg-[#12111A] border border-[#EBE3E5] dark:border-[#282436] rounded-[28px] p-5 shadow-2xl max-h-[92vh] overflow-y-auto no-scrollbar animate-in zoom-in-[0.98] duration-250 transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header with Developer Stage 3 Badge */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#F0E6E8] dark:border-[#262230] mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#0B0A12] border border-[#2B243B] flex items-center justify-center text-[#E98787] shadow-sm">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-[#F6DCE1] dark:bg-[#2D1B28] flex items-center justify-center text-[#E98787]">
               <Sparkles size={18} />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#FAF0F2] dark:bg-[#251720] text-[#E98787] uppercase tracking-wider">
-                  Demo Mode
-                </span>
-                <span className="text-[10px] font-semibold text-[#777277] dark:text-[#A6A0B0]">
-                  Этап 3
-                </span>
-              </div>
-              <h3 className="font-display text-base font-bold leading-tight mt-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#E98787]">
+                Sandbox Test Mode
+              </span>
+              <h3 className="font-display text-base font-bold text-[#343033] dark:text-white leading-none">
                 Тестирование «Нашего неба»
               </h3>
             </div>
@@ -198,10 +189,10 @@ export const DevSkyTesterModal: React.FC<DevSkyTesterModalProps> = ({
 
           <div className="mt-2 text-center">
             <span className="text-xs font-bold text-[#343033] dark:text-white">
-              Созвездие «{sky.template.name}»
+              {sky.title}
             </span>
             <p className="text-[11px] text-[#777277] dark:text-[#A6A0B0]">
-              {sky.template.meaning}
+              {sky.statusText}
             </p>
           </div>
         </div>
@@ -250,78 +241,76 @@ export const DevSkyTesterModal: React.FC<DevSkyTesterModalProps> = ({
             type="button"
             onClick={handleAddStar}
             disabled={starsCount >= maxDays}
-            className="py-2.5 px-3 rounded-xl bg-[#FAF0F2] dark:bg-[#251722] border border-[#EED7DC] dark:border-[#422237] text-[#E98787] hover:bg-[#F6E2E6] text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
+            className="py-2.5 px-3 rounded-xl bg-[#E98787] text-white hover:bg-[#DE7777] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
           >
-            <Plus size={14} />
-            <span>+ Добавить звезду</span>
+            <Plus size={15} />
+            <span>+1 звезда (MATCH)</span>
           </button>
 
           <button
             type="button"
             onClick={handleRemoveStar}
             disabled={starsCount <= 0}
-            className="py-2.5 px-3 rounded-xl bg-white dark:bg-[#1C1A26] border border-[#EBE3E5] dark:border-[#302B3E] text-[#777277] dark:text-[#A6A0B0] hover:bg-[#FAF5F7] text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
+            className="py-2.5 px-3 rounded-xl bg-white dark:bg-[#1C1A26] border border-[#EBE3E5] dark:border-[#302B3E] hover:bg-[#FAF5F7] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
           >
-            <Minus size={14} />
-            <span>- Убрать звезду</span>
+            <Minus size={15} />
+            <span>-1 звезда</span>
           </button>
         </div>
 
-        {/* Fast Preset Jump Chips */}
-        <div className="space-y-1.5 mb-4">
-          <span className="text-[10px] font-bold text-[#777277] dark:text-[#A6A0B0] uppercase tracking-wider block">
-            Быстрые пресеты для проверки:
+        {/* Presets Grid */}
+        <div className="mb-4">
+          <span className="text-[11px] font-bold text-[#777277] dark:text-[#8E8799] uppercase tracking-wider block mb-2">
+            Быстрые пресеты прогресса:
           </span>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="grid grid-cols-4 gap-1.5">
             {[
-              { label: '0 (Чистое)', count: 0 },
-              { label: '1 звезда', count: 1 },
-              { label: '5 звёзд', count: 5 },
-              { label: '10 звёзд', count: 10 },
-              { label: '15 звёзд', count: 15 },
-              { label: '20 звёзд', count: 20 },
-              { label: 'Всё созвездие', count: sky.points.length },
-            ].map((preset) => {
-              const isActive = starsCount === preset.count;
-              return (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => handleSetPreset(preset.count)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer active:scale-95 ${
-                    isActive
-                      ? 'bg-[#E98787] text-white shadow-xs font-semibold'
-                      : 'bg-white dark:bg-[#1C1A26] text-[#343033] dark:text-[#DDD8E5] border border-[#EBE3E5] dark:border-[#302B3E] hover:bg-[#FAF5F7]'
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
+              { label: '0 дней', count: 0 },
+              { label: '1 день', count: 1 },
+              { label: '3 дня', count: 3 },
+              { label: '7 дней', count: 7 },
+              { label: '14 дней', count: 14 },
+              { label: '21 день', count: 21 },
+              { label: '28 дней', count: 28 },
+              { label: 'Финал', count: maxDays },
+            ].map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => handleSetPreset(p.count)}
+                className={`py-1.5 px-2 rounded-lg text-[11px] font-medium transition-all active:scale-95 cursor-pointer border ${
+                  starsCount === p.count
+                    ? 'bg-[#E98787] text-white border-[#E98787] shadow-xs'
+                    : 'bg-white dark:bg-[#1A1824] border-[#EBE3E5] dark:border-[#2D283A] text-[#343033] dark:text-[#D5D0E0] hover:bg-[#FAF5F7]'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Bottom Actions: Reset & Open Full Screen Modal */}
-        <div className="pt-2 border-t border-[#F0E6E8] dark:border-[#262230] flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex-1 py-2 px-3 rounded-xl bg-white dark:bg-[#1C1A26] border border-[#EBE3E5] dark:border-[#302B3E] text-[#777277] dark:text-[#A6A0B0] hover:text-[#343033] text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98"
-          >
-            <RotateCcw size={13} />
-            <span>Сбросить тест</span>
-          </button>
-
+        {/* Action Bottom Buttons */}
+        <div className="space-y-2 pt-2 border-t border-[#EBE3E5] dark:border-[#272335]">
           <button
             type="button"
             onClick={() => {
               onClose();
               onOpenFullSky();
             }}
-            className="flex-1 py-2 px-3 rounded-xl bg-[#0B0A12] text-[#FAD2DC] hover:bg-[#1A1828] border border-[#2B243B] text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-98 shadow-sm"
+            className="w-full py-3 px-4 rounded-xl bg-white dark:bg-[#1E1C28] border border-[#EBE3E5] dark:border-[#332E42] text-xs font-semibold text-[#343033] dark:text-white flex items-center justify-center gap-2 hover:bg-[#FAF5F7] transition-all cursor-pointer active:scale-98 shadow-2xs"
           >
-            <Eye size={13} className="text-[#E98787]" />
-            <span>В полное Небо</span>
+            <Eye size={15} className="text-[#E98787]" />
+            <span>Открыть полное окно «Наше небо»</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onUpdateSimulatedDays(0, selectedYear, selectedMonth)}
+            className="w-full py-2.5 px-4 rounded-xl text-xs font-medium text-[#8F8895] hover:text-[#5E5764] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+          >
+            <RotateCcw size={13} />
+            <span>Сбросить тест для этого месяца</span>
           </button>
         </div>
       </div>

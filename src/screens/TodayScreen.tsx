@@ -296,11 +296,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                   activeMoment.status === 'REACTED' ||
                   activeMoment.status === 'COMPLETED'
                 }
-                onAddPhoto={
-                  !activeMoment.userPhoto
-                    ? () => setIsPhotoPickerOpen(true)
-                    : undefined
-                }
+                onPhotoSelected={handlePhotoSelected}
                 reaction={activeMoment.partnerReaction}
               />
 
