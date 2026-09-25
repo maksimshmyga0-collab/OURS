@@ -326,7 +326,9 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                 variant="coral"
                 onClick={() => setIsPhotoPickerOpen(true)}
               >
-                <span>{isCurrentMomentReady ? 'Новое касание готово 💗' : 'Добавить фото'}</span>
+                <span className="font-display font-bold text-[15px] sm:text-base tracking-tight text-[#FFFFFF]">
+                  {isCurrentMomentReady ? 'Новое касание готово' : 'Добавить фото'}
+                </span>
               </PrimaryButton>
             </div>
           )}
@@ -410,13 +412,15 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                     </div>
                   ) : availability.isNextMomentReady && availability.nextOrder ? (
                     <PrimaryButton
-                      variant="peach"
+                      variant="coral"
                       onClick={() => {
                         const next = moments.find((m) => m.order === availability.nextOrder);
                         if (next) onSelectActiveMoment(next.id);
                       }}
                     >
-                      <span>Новое касание готово 💗</span>
+                      <span className="font-display font-bold text-[15px] sm:text-base tracking-tight text-[#FFFFFF]">
+                        Новое касание готово
+                      </span>
                     </PrimaryButton>
                   ) : null}
                 </div>
@@ -435,11 +439,13 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             playSoftChime('tap', soundEnabled);
             onOpenStreak();
           }}
-          className="w-full py-3 px-6 rounded-[18px] bg-white/80 dark:bg-[#141214]/80 hover:bg-white dark:hover:bg-[#1C181A] active:scale-[0.99] border border-[#EBE3E5] dark:border-[#242024] text-center text-xs font-medium text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-all duration-150 cursor-pointer shadow-2xs flex items-center justify-center gap-2"
+          className="w-full min-h-[48px] py-3.5 px-6 rounded-[20px] bg-[#97B2EB] dark:bg-[#97B2EB] hover:bg-[#88A6E7] dark:hover:bg-[#88A6E7] active:bg-[#7A99E1] dark:active:bg-[#7A99E1] active:scale-[0.98] border border-[#86A4E6]/30 dark:border-[#86A4E6]/30 text-center transition-all duration-150 cursor-pointer shadow-2xs flex items-center justify-center gap-2"
           title="Открыть Наше небо"
         >
-          <Sparkles size={14} className="text-[#E98787] dark:text-[#F0B9C6] shrink-0" />
-          <span>Наше небо</span>
+          <Sparkles size={14} className="text-[#FFFFFF] shrink-0 opacity-90" />
+          <span className="font-sans font-semibold text-[13px] tracking-wide text-[#FFFFFF]">
+            Наше небо
+          </span>
         </button>
       )}
 

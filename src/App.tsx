@@ -8,6 +8,7 @@ import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode } from './ty
 import { apiClient } from './services/api/apiClient';
 import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
+import { OursLogo } from './components/OursLogo';
 import { BottomTabBar } from './components/BottomTabBar';
 import { LovelyModal } from './components/LovelyModal';
 import { OurSkyModal } from './components/OurSkyModal';
@@ -28,6 +29,7 @@ export default function App() {
   const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isPreviewOnboarding, setIsPreviewOnboarding] = useState<boolean>(false);
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(true);
 
   // 1. Initialize anonymous session and restore multi-device state
@@ -403,9 +405,9 @@ export default function App() {
   if (isLoadingSession) {
     return (
       <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-2 border-[#E98787] border-t-transparent animate-spin" />
-          <span className="font-display text-sm font-semibold tracking-widest text-[#777277] dark:text-[#B8B2B5]">
+        <div className="flex flex-col items-center gap-4 animate-pulse">
+          <OursLogo size={148} />
+          <span className="font-display text-sm font-bold tracking-widest text-[#777277] dark:text-[#B8B2B5]">
             OURS
           </span>
         </div>
@@ -418,7 +420,16 @@ export default function App() {
       initialTheme={appState.settings.theme}
       onThemePersist={handleUpdateTheme}
     >
-      {!appState.hasCompletedOnboarding ? (
+      {isPreviewOnboarding ? (
+        <OnboardingFlow
+          isPreview={true}
+          onClose={() => setIsPreviewOnboarding(false)}
+          onComplete={async () => {
+            setIsPreviewOnboarding(false);
+          }}
+          onFinish={() => setIsPreviewOnboarding(false)}
+        />
+      ) : !appState.hasCompletedOnboarding ? (
         <OnboardingFlow
           onComplete={handleOnboardingComplete}
           onFinish={handleFinishOnboarding}
@@ -481,6 +492,7 @@ export default function App() {
                     onOpenSky={() => setIsStreakModalOpen(true)}
                     onOpenFingerprint={() => setIsStreakModalOpen(true)}
                     onOpenThread={() => setIsStreakModalOpen(true)}
+                    onOpenOnboardingPreview={() => setIsPreviewOnboarding(true)}
                   />
                 )}
               </div>

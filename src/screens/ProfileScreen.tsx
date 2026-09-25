@@ -30,6 +30,7 @@ export interface ProfileScreenProps {
   onOpenSky?: () => void;
   onOpenFingerprint?: () => void;
   onOpenThread?: () => void;
+  onOpenOnboardingPreview?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -44,6 +45,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenSky,
   onOpenFingerprint,
   onOpenThread,
+  onOpenOnboardingPreview,
 }) => {
   const handleOpenLovely = onOpenLovely || onOpenPremium;
   const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
@@ -166,8 +168,23 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* «Уровень нашей истории» Card */}
         <div className="w-full rounded-[18px] bg-[#FFF9FA] dark:bg-[#121212] border border-[#EBE3E5] dark:border-[#242024] p-3 text-left space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="text-base">{coupleLevel.levelIcon}</span>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC]/80 dark:border-[#382329] shrink-0"
+                aria-hidden="true"
+              >
+                <svg
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="w-3.5 h-3.5"
+                >
+                  <path
+                    d="M10 2.5C10 6.64 6.64 10 2.5 10C6.64 10 10 13.36 10 17.5C10 13.36 13.36 10 17.5 10C13.36 10 10 6.64 10 2.5Z"
+                    opacity={coupleLevel.progressPercent > 0 ? 0.95 : 0.8}
+                  />
+                  <circle cx="10" cy="10" r="1.2" fill="#FFFFFF" opacity="0.9" />
+                </svg>
+              </span>
               <span className="font-display text-xs font-bold text-[#343033] dark:text-white">
                 {coupleLevel.levelTitle}
               </span>
@@ -382,6 +399,29 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               Защищено
             </span>
           </div>
+
+          {/* Demo Button: Посмотреть онборд */}
+          {onOpenOnboardingPreview && (
+            <div
+              onClick={onOpenOnboardingPreview}
+              className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#FAF0F2] dark:bg-[#201518] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6]">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-[#343033] dark:text-white block">
+                    Посмотреть онборд
+                  </span>
+                  <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
+                    Открыть экран знакомства
+                  </span>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+            </div>
+          )}
         </div>
       </div>
     </div>

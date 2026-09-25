@@ -12,6 +12,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
+import { OursLogo } from './OursLogo';
 
 export interface OnboardingCompleteResult {
   success: boolean;
@@ -26,6 +27,8 @@ interface OnboardingFlowProps {
     options?: { isJoin?: boolean; inviteCode?: string }
   ) => Promise<OnboardingCompleteResult | void> | void;
   onFinish?: () => void;
+  onClose?: () => void;
+  isPreview?: boolean;
 }
 
 type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join' | 'created-code';
@@ -33,6 +36,8 @@ type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'c
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onComplete,
   onFinish,
+  onClose,
+  isPreview = false,
 }) => {
   const [view, setView] = useState<OnboardingView>('slide-1');
   const [userName, setUserName] = useState<string>('');
@@ -158,44 +163,31 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         {/* ========================================================= */}
         {view === 'slide-1' && (
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
-            {/* Top Bar: Skip right */}
+            {/* Top Bar: Skip right or Close if preview */}
             <div className="flex items-center justify-end h-10">
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white px-2 py-1 rounded-full transition-colors cursor-pointer"
-              >
-                Пропустить
-              </button>
+              {isPreview && onClose ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-xs font-semibold px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC] dark:border-[#382329] hover:bg-[#F6E2E6] dark:hover:bg-[#2A181E] transition-all cursor-pointer active:scale-95 shadow-2xs"
+                >
+                  Закрыть
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white px-2 py-1 rounded-full transition-colors cursor-pointer"
+                >
+                  Пропустить
+                </button>
+              )}
             </div>
 
-            {/* Center Motif: OURS two soft overlapping spheres (+30% saturated) */}
-            <div className="my-auto py-8 flex flex-col items-center text-center">
-              <div className="relative mb-8 w-44 h-44 flex items-center justify-center animate-gentle-float">
-                {/* Background ambient warm aura */}
-                <div className="absolute w-40 h-40 rounded-full bg-gradient-to-tr from-[#F6DCE1]/50 via-[#F7D8D0]/30 to-[#DDEAF7]/50 dark:from-[#26151B]/40 dark:to-[#141C26]/40 blur-2xl pointer-events-none" />
-
-                {/* Overlapping spheres (Pink + Blue) */}
-                <div className="relative flex items-center justify-center -space-x-8">
-                  {/* Left Pink Sphere */}
-                  <div
-                    style={{
-                      background:
-                        'radial-gradient(circle at 35% 32%, #FFA4B4 0%, #F5869A 55%, #E66C82 100%)',
-                      boxShadow: '0 10px 28px -4px rgba(230, 108, 130, 0.38)',
-                    }}
-                    className="w-22 h-22 rounded-full shrink-0 border border-white/85 dark:border-[#242024]/80"
-                  />
-                  {/* Right Blue Sphere */}
-                  <div
-                    style={{
-                      background:
-                        'radial-gradient(circle at 35% 32%, #CDE3FD 0%, #9BC4F5 55%, #7BAEE8 100%)',
-                      boxShadow: '0 10px 28px -4px rgba(123, 174, 232, 0.4)',
-                    }}
-                    className="w-22 h-22 rounded-full shrink-0 border border-white/85 dark:border-[#242024]/80 opacity-95"
-                  />
-                </div>
+            {/* Center Motif: Official OURS hugging stars logo */}
+            <div className="my-auto py-4 flex flex-col items-center text-center">
+              <div className="relative mb-4 w-full max-w-[340px] h-72 sm:h-80 flex items-center justify-center">
+                <OursLogo size={665} animate />
               </div>
 
               {/* Title & Description */}
@@ -254,19 +246,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             <div className="my-auto py-8 flex flex-col items-center text-center">
               <div className="relative mb-8 animate-gentle-float">
                 {/* Background aura */}
-                <div className="absolute inset-0 rounded-[32px] bg-gradient-to-tr from-[#DDEAF7]/50 via-white to-[#F6DCE1]/40 dark:from-[#151D26]/40 dark:to-[#221518]/40 blur-xl pointer-events-none" />
+                <div className="absolute inset-0 rounded-[32px] bg-gradient-to-tr from-[#DDEAF7]/50 via-white to-[#F6DCE1]/40 dark:from-[#151D26]/40 dark:via-transparent dark:to-[#221518]/40 blur-xl pointer-events-none" />
 
                 {/* Card Container */}
                 <div className="relative w-56 rounded-[28px] bg-white dark:bg-[#141214] soft-card-shadow border border-[#F0E6E8] dark:border-[#242024] p-4 flex flex-col items-center gap-3">
                   {/* Badge */}
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF9FA] dark:bg-[#201518] border border-[#F6DCE1] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF9FA] dark:!bg-[#201518] border border-[#F6DCE1] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide">
                     <Sparkles size={12} />
                     <span>Касание дня</span>
                   </span>
 
                   {/* Visual card content: cozy prompt */}
-                  <div className="w-full rounded-[22px] bg-gradient-to-br from-[#FFF5F7] via-[#FFF9FA] to-[#F7D8D0]/40 dark:from-[#1C1417] dark:to-[#171418] p-4 border border-[#F0E6E8]/70 dark:border-[#2D2024] flex flex-col items-center text-center gap-2">
-                    <div className="w-11 h-11 rounded-2xl bg-white dark:bg-[#201518] soft-card-shadow flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] border border-[#F0E6E8] dark:border-[#382329]">
+                  <div className="w-full rounded-[22px] bg-gradient-to-br from-[#FFF5F7] via-[#FFF9FA] to-[#F7D8D0]/40 dark:from-[#1C1417] dark:via-[#191417] dark:to-[#171418] p-4 border border-[#F0E6E8]/70 dark:border-[#2D2024] flex flex-col items-center text-center gap-2">
+                    <div className="w-11 h-11 rounded-2xl bg-white dark:!bg-[#201518] soft-card-shadow flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] border border-[#F0E6E8] dark:border-[#382329]">
                       <Coffee size={20} />
                     </div>
                     <div>
@@ -343,7 +335,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             <div className="my-auto py-8 flex flex-col items-center text-center">
               <div className="relative mb-8 animate-gentle-float">
                 {/* Background aura */}
-                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/30 via-white to-[#DDEAF7]/30 dark:from-[#221518]/30 dark:to-[#151D26]/30 blur-lg pointer-events-none" />
+                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/30 via-white to-[#DDEAF7]/30 dark:from-[#221518]/30 dark:via-transparent dark:to-[#151D26]/30 blur-lg pointer-events-none" />
 
                 {/* Slots Stage */}
                 <div className="relative flex items-center justify-center gap-3 p-3.5 rounded-[26px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs">
@@ -434,34 +426,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </button>
             </div>
 
-            {/* Center Motif: Converging Spheres + MATCH Effect (+30% saturated) */}
-            <div className="my-auto py-8 flex flex-col items-center text-center">
-              <div className="relative mb-8 w-52 h-44 flex items-center justify-center">
-                {/* Expanding Match wave aura */}
-                <div className="absolute w-36 h-36 rounded-full bg-gradient-to-tr from-[#FFA4B4]/40 via-[#F5869A]/30 to-[#9BC4F5]/40 dark:from-[#E66C82]/20 dark:to-[#7BAEE8]/20 pointer-events-none animate-match-wave opacity-60" />
+            {/* Center Motif: Official OURS hugging stars logo + MATCH Effect */}
+            <div className="my-auto py-4 flex flex-col items-center text-center">
+              <div className="relative mb-4 w-full max-w-[340px] h-72 sm:h-80 flex items-center justify-center">
+                <OursLogo size={630} animate />
 
-                {/* Left pink sphere converging */}
-                <div
-                  style={{
-                    background:
-                      'radial-gradient(circle at 35% 32%, #FFA4B4 0%, #F5869A 55%, #E66C82 100%)',
-                    boxShadow: '0 12px 28px -6px rgba(230, 108, 130, 0.4)',
-                  }}
-                  className="w-20 h-20 rounded-full shrink-0 border border-white/85 dark:border-[#242024]/80 animate-sphere-left z-10"
-                />
-
-                {/* Right blue sphere converging */}
-                <div
-                  style={{
-                    background:
-                      'radial-gradient(circle at 35% 32%, #CDE3FD 0%, #9BC4F5 55%, #7BAEE8 100%)',
-                    boxShadow: '0 12px 28px -6px rgba(123, 174, 232, 0.42)',
-                  }}
-                  className="w-20 h-20 rounded-full shrink-0 border border-white/85 dark:border-[#242024]/80 opacity-95 animate-sphere-right z-10"
-                />
-
-                {/* Floating MATCH badge that emerges when spheres meet */}
-                <div className="absolute z-20 pointer-events-none animate-match-pill flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1E1C1E] shadow-xs border border-[#EBE3E5] dark:border-[#242024]">
+                {/* Floating MATCH badge that emerges with the logo */}
+                <div className="absolute -bottom-1 z-20 pointer-events-none animate-match-pill flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1E1C1E] shadow-xs border border-[#EBE3E5] dark:border-[#242024]">
                   <span className="w-2 h-2 rounded-full bg-[#E98787] dark:bg-[#F0B9C6] animate-ping" />
                   <span className="font-display text-xs font-bold tracking-widest text-[#343033] dark:text-white">
                     MATCH
@@ -502,15 +473,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         {/* ========================================================= */}
         {view === 'hub' && (
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
-            {/* Header branding */}
+            {/* Header branding lockup */}
             <div className="pt-2">
-              <div className="flex items-center gap-2 mb-8">
-                {/* OURS mini spheres mark (+30% saturated) */}
-                <div className="flex items-center -space-x-1.5">
-                  <span className="w-4 h-4 rounded-full bg-[#FFA4B4] border border-white/85 dark:border-[#242024]/80" />
-                  <span className="w-4 h-4 rounded-full bg-[#9BC4F5] border border-white/85 dark:border-[#242024]/80 opacity-95" />
-                </div>
-                <span className="font-display font-bold tracking-wider text-sm text-[#343033] dark:text-white">
+              <div className="flex items-center gap-1.5 mb-8">
+                <OursLogo size={120} className="shrink-0" />
+                <span className="font-display font-semibold tracking-wider text-xl text-[#343033] dark:text-white leading-none select-none">
                   OURS
                 </span>
               </div>
@@ -535,7 +502,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     playSoftChime('tap', true);
                     setView('create');
                   }}
-                  className="w-full text-left p-5 rounded-[22px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#E98787]/60 cursor-pointer"
+                  className="w-full text-left p-5 rounded-[24px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#E98787]/60 cursor-pointer"
                 >
                   <div className="flex items-center gap-4">
                     {/* Pink Icon Area */}
@@ -562,7 +529,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     playSoftChime('tap', true);
                     setView('join');
                   }}
-                  className="w-full text-left p-5 rounded-[22px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#5B89AC]/60 cursor-pointer"
+                  className="w-full text-left p-5 rounded-[24px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#5B89AC]/60 cursor-pointer"
                 >
                   <div className="flex items-center gap-4">
                     {/* Blue Icon Area */}
@@ -630,7 +597,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   onChange={(e) => setUserName(e.target.value)}
                   placeholder="Например, Аня"
                   autoFocus
-                  className={`w-full h-[52px] px-4 rounded-[18px] bg-white dark:bg-[#141214] border ${
+                  className={`w-full h-[52px] px-4 rounded-[20px] bg-white dark:bg-[#141214] border ${
                     shakeField === 'create-name'
                       ? 'border-[#E98787] animate-shake ring-2 ring-[#E98787]/25'
                       : 'border-[#EBE3E5] dark:border-[#242024]'
@@ -639,7 +606,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </div>
 
               {/* Pink Information Card */}
-              <div className="p-5 rounded-[22px] bg-[#FAF0F2] dark:bg-[#181416] border border-[#EED7DC] dark:border-[#332227] space-y-2">
+              <div className="p-5 rounded-[24px] bg-[#FAF0F2] dark:bg-[#181416] border border-[#EED7DC] dark:border-[#332227] space-y-2">
                 <h3 className="font-display text-sm font-bold text-[#343033] dark:text-white">
                   Пригласи партнёра
                 </h3>
@@ -696,7 +663,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     onChange={(e) => setJoinName(e.target.value)}
                     placeholder="Например, Макс"
                     autoFocus
-                    className={`w-full h-[52px] px-4 rounded-[18px] bg-white dark:bg-[#141214] border ${
+                    className={`w-full h-[52px] px-4 rounded-[20px] bg-white dark:bg-[#141214] border ${
                       shakeField === 'join-name'
                         ? 'border-[#E98787] animate-shake ring-2 ring-[#E98787]/25'
                         : 'border-[#EBE3E5] dark:border-[#242024]'
@@ -714,7 +681,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     placeholder="OURS-7K4M"
-                    className={`w-full h-[52px] px-4 rounded-[18px] bg-white dark:bg-[#141214] border ${
+                    className={`w-full h-[52px] px-4 rounded-[20px] bg-white dark:bg-[#141214] border ${
                       shakeField === 'join-code'
                         ? 'border-[#E98787] animate-shake ring-2 ring-[#E98787]/25'
                         : 'border-[#EBE3E5] dark:border-[#242024]'
@@ -739,13 +706,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         {view === 'created-code' && (
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
             <div className="pt-2">
-              {/* Header branding */}
-              <div className="flex items-center gap-2 mb-6">
-                <div className="flex items-center -space-x-1.5">
-                  <span className="w-4 h-4 rounded-full bg-[#FFA4B4] border border-white/85 dark:border-[#242024]/80" />
-                  <span className="w-4 h-4 rounded-full bg-[#9BC4F5] border border-white/85 dark:border-[#242024]/80 opacity-95" />
-                </div>
-                <span className="font-display font-bold tracking-wider text-sm text-[#343033] dark:text-white">
+              {/* Header branding lockup */}
+              <div className="flex items-center gap-1.5 mb-6">
+                <OursLogo size={120} className="shrink-0" />
+                <span className="font-display font-semibold tracking-wider text-xl text-[#343033] dark:text-white leading-none select-none">
                   OURS
                 </span>
               </div>

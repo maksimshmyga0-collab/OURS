@@ -4,7 +4,7 @@ export type AvatarVariant = 'user' | 'partner';
 
 interface AvatarProps {
   name: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   bgColor?: string;
   imageUrl?: string | null;
   className?: string;
@@ -145,6 +145,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   }, [imageUrl]);
 
   const sizeClasses = {
+    xs: 'w-5 h-5 text-[10px]',
     sm: 'w-7 h-7 text-xs',
     md: 'w-9 h-9 text-sm',
     lg: 'w-12 h-12 text-base font-semibold',

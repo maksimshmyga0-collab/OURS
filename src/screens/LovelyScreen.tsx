@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { OursLogo } from '../components/OursLogo';
 import { X, Heart, Clock, Sparkles, Shield, Check } from 'lucide-react';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 
@@ -64,9 +65,12 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
       >
         {/* Top Bar with dismiss button */}
         <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#777277] dark:text-[#B8B2B5]">
-            OURS · Для двоих
-          </span>
+          <div className="flex items-center gap-2.5">
+            <OursLogo size={57} className="shrink-0" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#777277] dark:text-[#B8B2B5]">
+              OURS · Для двоих
+            </span>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -105,7 +109,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
             </div>
 
             {/* Confirmation Banner */}
-            <div className="w-full rounded-[22px] p-4 bg-white dark:bg-[#181517] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs text-left mb-6 space-y-1.5">
+            <div className="w-full rounded-[24px] p-4 bg-white dark:bg-[#181517] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs text-left mb-6 space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-[#343033] dark:text-white">
                   Одна покупка — для вас двоих
@@ -205,7 +209,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
               </div>
 
               {/* Single Clear One-Time Purchase Card */}
-              <div className="p-4 rounded-[22px] bg-white dark:bg-[#181517] border-2 border-[#F0B9C6] dark:border-[#522934] shadow-2xs mb-5 flex items-center justify-between">
+              <div className="p-4 rounded-[24px] bg-white dark:bg-[#181517] border-2 border-[#F0B9C6] dark:border-[#522934] shadow-2xs mb-5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-2xl bg-[#FFF0F3] dark:bg-[#2B171E] flex items-center justify-center text-[#E98787] shrink-0">
                     <Heart size={18} className="fill-[#E98787]" />

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { X, Sparkles, Download, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { OursLogo } from './OursLogo';
 import { CoupleSkyView } from './CoupleSkyView';
 import {
   getCoupleMatchedDates,
@@ -141,9 +142,9 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
       >
         {/* Top Header: Title & Close */}
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] flex items-center justify-center text-[#E98787]">
-              <Sparkles size={19} />
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] flex items-center justify-center shrink-0">
+              <OursLogo size={65} className="shrink-0" />
             </div>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#777277] dark:text-[#B8B2B5]">
@@ -166,7 +167,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
         </div>
 
         {/* Month Selector Bar */}
-        <div className="flex items-center justify-between px-2 py-1.5 rounded-2xl bg-[#FAF5F7] dark:bg-[#161416] border border-[#EBE3E5] dark:border-[#242024] mb-3">
+        <div className="flex items-center justify-between px-3 py-2 rounded-[20px] bg-[#FAF5F7] dark:bg-[#161416] border border-[#EBE3E5] dark:border-[#242024] mb-3">
           <button
             type="button"
             onClick={handlePrevMonth}
@@ -220,8 +221,8 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
           </div>
         </div>
 
-        {/* Minimal Summary Badge (Restrained status indicator) */}
-        <div className="my-4 p-3 rounded-2xl bg-[#FAF5F7] dark:bg-[#161416] border border-[#EBE3E5] dark:border-[#242024] text-center">
+        {/* Minimal Summary Badge */}
+        <div className="my-4 p-3.5 rounded-[20px] bg-[#FAF5F7] dark:bg-[#161416] border border-[#EBE3E5] dark:border-[#242024] text-center">
           <p className="text-xs font-medium text-[#343033] dark:text-white leading-relaxed">
             {sky.statusText}
           </p>
@@ -232,7 +233,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
           type="button"
           onClick={handleDownloadCard}
           disabled={isExporting}
-          className="w-full py-3.5 px-4 rounded-[18px] bg-white dark:bg-[#1A181A] border border-[#EBE3E5] dark:border-[#2D282D] flex items-center justify-center gap-2 text-xs font-semibold text-[#343033] dark:text-white transition-all hover:bg-[#FAF7F8] dark:hover:bg-[#221F22] active:scale-98 cursor-pointer shadow-2xs disabled:opacity-60"
+          className="w-full min-h-[48px] py-3.5 px-4 rounded-[20px] bg-white dark:bg-[#1A181A] border border-[#EBE3E5] dark:border-[#2D282D] flex items-center justify-center gap-2 text-xs font-semibold text-[#343033] dark:text-white transition-all hover:bg-[#FAF7F8] dark:hover:bg-[#221F22] active:scale-[0.98] cursor-pointer shadow-2xs disabled:opacity-60"
         >
           {downloaded ? (
             <>

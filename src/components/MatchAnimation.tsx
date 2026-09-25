@@ -113,8 +113,8 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({ onComplete }) =>
                 : 'opacity-0 scale-85 pointer-events-none absolute'
             }`}
           >
-            <div className="relative p-5 rounded-full bg-white/95 shadow-lg border border-white/60">
-              <OursLogo size={52} variant="coral" />
+            <div className="relative p-6 rounded-full bg-white/95 shadow-lg border border-white/60">
+              <OursLogo size={156} />
             </div>
           </div>
         </div>

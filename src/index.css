@@ -6,6 +6,7 @@
   --color-ours-soft-pink: var(--ours-card-pink);
   --color-ours-dusty-pink: #EFC1CB;
   --color-ours-soft-blue: var(--ours-card-blue);
+  --color-ours-blue: var(--ours-blue);
   --color-ours-peach: var(--ours-card-peach);
   --color-ours-cream: var(--ours-card-cream);
   --color-ours-lilac: var(--ours-card-lilac);
@@ -25,6 +26,8 @@
 :root,
 html.light {
   color-scheme: light;
+  --blue: #97B2EB;
+  --ours-blue: #97B2EB;
   --ours-bg: #FFF9FA;
   --ours-surface: #FFFFFF;
   --ours-surface-subtle: #FAF5F7;
@@ -55,6 +58,8 @@ html.dark,
 :root.dark,
 [data-theme="dark"] {
   color-scheme: dark;
+  --blue: #97B2EB;
+  --ours-blue: #97B2EB;
   --ours-bg: #000000;
   --ours-surface: #111111;
   --ours-surface-subtle: #181618;
@@ -405,21 +410,6 @@ html.dark .liquid-glass-floating {
 html.dark .main-moment-card-shadow,
 html.dark .soft-card-shadow {
   box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.6) !important;
-}
-
-/* Brand logo adaptive blending */
-.ours-logo-right-sphere {
-  mix-blend-mode: multiply;
-  opacity: 0.9;
-}
-
-html.dark .ours-logo-right-sphere {
-  mix-blend-mode: screen;
-  opacity: 0.95;
-}
-
-html.dark .ours-logo-left-sphere {
-  box-shadow: 0 2px 10px rgba(240, 185, 198, 0.35) !important;
 }
 
 /* ==========================================================================

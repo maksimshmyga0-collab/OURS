@@ -201,14 +201,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Твоё имя"
-                  className="w-full min-w-0 px-3.5 py-2.5 rounded-[16px] bg-[#FFF9FA] dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] text-sm font-semibold text-[#343033] dark:text-white focus:outline-none focus:border-[#E98787] focus:ring-1 focus:ring-[#E98787]/30 transition-all placeholder:text-[#A8A1A4] dark:placeholder:text-[#6E686B]"
+                  className="w-full min-w-0 px-4 py-3 rounded-[20px] bg-[#FFF9FA] dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] text-sm font-semibold text-[#343033] dark:text-white focus:outline-none focus:border-[#E98787] focus:ring-1 focus:ring-[#E98787]/30 transition-all placeholder:text-[#A8A1A4] dark:placeholder:text-[#6E686B]"
                 />
               </div>
               <button
                 type="button"
                 disabled={!isFormDirty && !isSavedRecently}
                 onClick={handleSave}
-                className={`w-full min-h-[44px] px-4 py-2.5 rounded-[16px] text-xs font-bold transition-all duration-200 ease-out cursor-pointer flex items-center justify-center gap-1.5 select-none ${
+                className={`w-full min-h-[48px] px-4 py-2.5 rounded-[20px] text-xs font-bold transition-all duration-200 ease-out cursor-pointer flex items-center justify-center gap-1.5 select-none ${
                   isSavedRecently
                     ? 'bg-[#E5F3EC] dark:bg-[#152419] text-[#2B7348] dark:text-[#649A6E] border border-[#CDE5D8] dark:border-[#22452B]'
                     : isFormDirty

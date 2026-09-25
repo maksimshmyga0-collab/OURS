@@ -16,6 +16,7 @@ export const lightThemeTokens = {
   divider: '#F0E6E8',
   accent: '#F0B9C6',
   coral: '#E98787',
+  blue: '#97B2EB',
   softPink: '#F6DCE1',
   dustyPink: '#EFC1CB',
   softBlue: '#DDEAF7',
@@ -38,6 +39,7 @@ export const darkThemeTokens = {
   divider: '#242024',
   accent: '#F0B9C6', // Yogurt pink accent preserved in dark mode
   coral: '#E98787',
+  blue: '#97B2EB',
   softPink: '#1E1417',
   dustyPink: '#2E1920',
   softBlue: '#141A22',

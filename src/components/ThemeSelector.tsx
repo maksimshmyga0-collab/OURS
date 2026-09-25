@@ -2,6 +2,7 @@ import React from 'react';
 import { useTheme } from '../services/theme/ThemeContext';
 import { ThemeMode } from '../types';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
+import { Sun, Moon, Settings, type LucideIcon } from 'lucide-react';
 
 interface ThemeSelectorProps {
   className?: string;
@@ -12,13 +13,13 @@ interface ThemeSelectorProps {
 interface ThemeOption {
   id: ThemeMode;
   label: string;
-  icon: string;
+  icon: LucideIcon;
 }
 
 const THEME_OPTIONS: ThemeOption[] = [
-  { id: 'light', label: 'Светлая', icon: '☀️' },
-  { id: 'dark', label: 'Тёмная', icon: '🌙' },
-  { id: 'system', label: 'Системная', icon: '⚙️' },
+  { id: 'light', label: 'Светлая', icon: Sun },
+  { id: 'dark', label: 'Тёмная', icon: Moon },
+  { id: 'system', label: 'Системная', icon: Settings },
 ];
 
 export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
@@ -45,6 +46,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
       >
         {THEME_OPTIONS.map((opt) => {
           const isSelected = theme === opt.id;
+          const Icon = opt.icon;
           return (
             <button
               key={opt.id}
@@ -58,9 +60,16 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
                   : 'text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white hover:bg-white/40 dark:hover:bg-[#201D20]'
               }`}
             >
-              <span className="text-sm shrink-0 leading-none" aria-hidden="true">
-                {opt.icon}
-              </span>
+              <Icon
+                size={15}
+                strokeWidth={isSelected ? 2.1 : 1.8}
+                className={`shrink-0 transition-colors duration-200 ${
+                  isSelected
+                    ? 'text-[#E98787] dark:text-[#F0B9C6]'
+                    : 'text-[#777277] dark:text-[#B8B2B5]'
+                }`}
+                aria-hidden="true"
+              />
               <span className="truncate leading-none">{opt.label}</span>
             </button>
           );

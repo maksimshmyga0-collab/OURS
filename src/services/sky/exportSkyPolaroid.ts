@@ -1,4 +1,5 @@
 import { SkyState } from './skyService';
+import { OURS_LOGO_URL } from '../../components/OursLogo';
 
 /**
  * Exports the couple's exact currently viewed Sky as a 1080x1350 px minimalist Polaroid card.
@@ -175,47 +176,26 @@ export async function exportSkyPolaroid(sky: SkyState): Promise<boolean> {
     ctx.textBaseline = 'middle';
     ctx.fillText('Наше небо', width / 2, bottomCenterY - 24);
 
-    // 8.2 Official OURS Logo: Two overlapping soft spheres (Pink & Blue)
-    const logoSphereRadius = 14;
-    const logoOverlap = 10;
-    const logoCenterX = width / 2;
-    const logoCenterY = bottomCenterY + 32;
+    // 8.2 Official OURS Logo: Exact original PNG asset from single source URL
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    logoImg.src = OURS_LOGO_URL;
+    await new Promise<void>((resolve) => {
+      logoImg.onload = () => resolve();
+      logoImg.onerror = () => resolve();
+      setTimeout(resolve, 600);
+    });
 
-    // Left Pink/Coral Sphere
-    const pinkGrad = ctx.createRadialGradient(
-      logoCenterX - logoSphereRadius + 4,
-      logoCenterY - 4,
-      0,
-      logoCenterX - logoSphereRadius,
-      logoCenterY,
-      logoSphereRadius
-    );
-    pinkGrad.addColorStop(0, '#FFA4B4');
-    pinkGrad.addColorStop(0.55, '#F5869A');
-    pinkGrad.addColorStop(1, '#E66C82');
-
-    ctx.fillStyle = pinkGrad;
-    ctx.beginPath();
-    ctx.arc(logoCenterX - logoOverlap / 2, logoCenterY, logoSphereRadius, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Right Blue Sphere
-    const blueGrad = ctx.createRadialGradient(
-      logoCenterX + logoSphereRadius - 4,
-      logoCenterY - 4,
-      0,
-      logoCenterX + logoSphereRadius,
-      logoCenterY,
-      logoSphereRadius
-    );
-    blueGrad.addColorStop(0, '#CDE3FD');
-    blueGrad.addColorStop(0.55, '#9BC4F5');
-    blueGrad.addColorStop(1, '#7BAEE8');
-
-    ctx.fillStyle = blueGrad;
-    ctx.beginPath();
-    ctx.arc(logoCenterX + logoOverlap / 2, logoCenterY, logoSphereRadius, 0, Math.PI * 2);
-    ctx.fill();
+    const logoRenderSize = 160;
+    if (logoImg.complete && logoImg.naturalWidth > 0) {
+      ctx.drawImage(
+        logoImg,
+        width / 2 - logoRenderSize / 2,
+        bottomCenterY - 14,
+        logoRenderSize,
+        logoRenderSize
+      );
+    }
 
     // 9. Trigger File Download
     const monthStr = String(sky.month).padStart(2, '0');

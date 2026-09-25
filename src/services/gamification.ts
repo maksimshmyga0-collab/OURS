@@ -14,11 +14,11 @@ export interface CoupleLevelInfo {
 
 /**
  * Calculates emotional couple milestones level based strictly on total moments
- * 0–4   → 🌱 «Начало»
- * 5–14  → 🌿 «Привыкаем»
- * 15–29 → 🌸 «Своя атмосфера»
- * 30–59 → 💕 «Наша история»
- * 60+   → ✨ «Особенная история»
+ * 0–4   → ✨ «Начало» (Первая звезда)
+ * 5–14  → ✨ «Привыкаем» (Две звезды)
+ * 15–29 → ✨ «Своя атмосфера» (Созвездие)
+ * 30–59 → ✨ «Наша история» (Звёздное небо)
+ * 60+   → ✨ «Особенная история» (Вечное небо)
  */
 export function getCoupleLevel(totalMoments: number): CoupleLevelInfo {
   const count = Math.max(0, totalMoments || 0);
@@ -28,12 +28,12 @@ export function getCoupleLevel(totalMoments: number): CoupleLevelInfo {
     const progressPercent = Math.min(100, Math.round((count / nextLevelThreshold) * 100));
     return {
       levelTitle: 'Начало',
-      levelIcon: '🌱',
+      levelIcon: 'star-seed',
       currentMoments: count,
       nextLevelThreshold,
       progressPercent,
       remainingToNext: Math.max(0, nextLevelThreshold - count),
-      progressText: `${count} / ${nextLevelThreshold} моментов`,
+      progressText: `${count} из ${nextLevelThreshold}`,
     };
   }
 
@@ -42,12 +42,12 @@ export function getCoupleLevel(totalMoments: number): CoupleLevelInfo {
     const progressPercent = Math.min(100, Math.round((count / nextLevelThreshold) * 100));
     return {
       levelTitle: 'Привыкаем',
-      levelIcon: '🌿',
+      levelIcon: 'star-duo',
       currentMoments: count,
       nextLevelThreshold,
       progressPercent,
       remainingToNext: Math.max(0, nextLevelThreshold - count),
-      progressText: `${count} / ${nextLevelThreshold} моментов`,
+      progressText: `${count} из ${nextLevelThreshold}`,
     };
   }
 
@@ -56,12 +56,12 @@ export function getCoupleLevel(totalMoments: number): CoupleLevelInfo {
     const progressPercent = Math.min(100, Math.round((count / nextLevelThreshold) * 100));
     return {
       levelTitle: 'Своя атмосфера',
-      levelIcon: '🌸',
+      levelIcon: 'star-constellation',
       currentMoments: count,
       nextLevelThreshold,
       progressPercent,
       remainingToNext: Math.max(0, nextLevelThreshold - count),
-      progressText: `${count} / ${nextLevelThreshold} моментов`,
+      progressText: `${count} из ${nextLevelThreshold}`,
     };
   }
 
@@ -70,19 +70,19 @@ export function getCoupleLevel(totalMoments: number): CoupleLevelInfo {
     const progressPercent = Math.min(100, Math.round((count / nextLevelThreshold) * 100));
     return {
       levelTitle: 'Наша история',
-      levelIcon: '💕',
+      levelIcon: 'star-cluster',
       currentMoments: count,
       nextLevelThreshold,
       progressPercent,
       remainingToNext: Math.max(0, nextLevelThreshold - count),
-      progressText: `${count} / ${nextLevelThreshold} моментов`,
+      progressText: `${count} из ${nextLevelThreshold}`,
     };
   }
 
   // 60+ moments: highest milestone
   return {
     levelTitle: 'Особенная история',
-    levelIcon: '✨',
+    levelIcon: 'star-crown',
     currentMoments: count,
     nextLevelThreshold: null,
     progressPercent: 100,
