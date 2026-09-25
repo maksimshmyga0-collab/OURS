@@ -88,23 +88,16 @@ function toDateKey(d: Date): string {
  */
 export function isMomentMatched(moment: Moment): boolean {
   if (!moment) return false;
-  if (
+  const hasBoth = Boolean(
+    (moment.userPhoto && moment.partnerPhoto) ||
+    (moment.photos && moment.photos.length >= 2)
+  );
+  const isMatchStatus =
     moment.status === 'COMPLETED' ||
     moment.status === 'REVEALED' ||
-    moment.status === 'REACTED' ||
-    moment.status === 'BOTH_UPLOADED'
-  ) {
-    return true;
-  }
-  // Check if both photos exist
-  if (moment.userPhoto && moment.partnerPhoto) {
-    return true;
-  }
-  if (moment.photos && moment.photos.length >= 2) {
-    const userIds = new Set(moment.photos.map((p) => p.userId));
-    if (userIds.size >= 2) return true;
-  }
-  return false;
+    moment.status === 'REACTED';
+
+  return hasBoth && isMatchStatus;
 }
 
 /**
@@ -343,77 +336,4 @@ export function getSkyForMonth(
     isCompleted: effectiveStarsCount >= maxStarsInMonth,
     statusText,
   };
-}
-
-/**
- * Developer Sandbox helper exclusively for Demo Mode:
- * Creates or updates simulated matched days in history for the specified month and year.
- */
-export function createSimulatedSkyHistory(
-  targetCount: number,
-  year: number,
-  month: number,
-  existingHistory: HistoryDay[]
-): HistoryDay[] {
-  const prefix = `hist-sim-${year}-${String(month).padStart(2, '0')}`;
-  const baseHistory = existingHistory.filter((h) => !h.id.startsWith(prefix));
-
-  if (targetCount <= 0) {
-    return baseHistory;
-  }
-
-  const simulatedDays: HistoryDay[] = [];
-  const maxDays = getDaysInMonth(year, month);
-  const safeCount = Math.min(targetCount, maxDays);
-
-  for (let day = 1; day <= safeCount; day++) {
-    const dayStr = String(day).padStart(2, '0');
-    const monthStr = String(month).padStart(2, '0');
-    const dateKey = `${year}-${monthStr}-${dayStr}`;
-    const isoString = `${dateKey}T12:00:00.000Z`;
-
-    simulatedDays.push({
-      id: `${prefix}-${dayStr}`,
-      title: `${day} ${getMonthNameRu(month).toLowerCase()}`,
-      subtitle: 'Тестовый день MATCH',
-      dateStr: `${day} ${getMonthNameRu(month).toLowerCase()} ${year}`,
-      isLocked: false,
-      moments: [
-        {
-          id: `sim-moment-${dateKey}-1`,
-          pairId: 'pair-default-1',
-          createdBy: 'user',
-          createdAt: isoString,
-          dateKey,
-          imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80',
-          order: 1,
-          label: 'Тестовое касание',
-          prompt: 'Общий момент',
-          subtext: 'Успешный MATCH',
-          themeColor: 'pink',
-          userPhoto: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80',
-          partnerPhoto: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80',
-          photos: [
-            {
-              userId: 'user',
-              imageUrl: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?w=600&auto=format&fit=crop&q=80',
-              createdAt: isoString,
-            },
-            {
-              userId: 'partner',
-              imageUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&auto=format&fit=crop&q=80',
-              createdAt: isoString,
-            },
-          ],
-          userReaction: '❤️',
-          partnerReaction: '❤️',
-          status: 'COMPLETED',
-          completedAt: isoString,
-          completedTimestamp: new Date(isoString).getTime(),
-        },
-      ],
-    });
-  }
-
-  return [...baseHistory, ...simulatedDays];
 }

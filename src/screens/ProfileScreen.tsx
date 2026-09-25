@@ -9,7 +9,6 @@ import {
   Smartphone,
   Shield,
   Palette,
-  RefreshCw,
   Heart,
   ChevronRight,
   User,
@@ -24,7 +23,7 @@ export interface ProfileScreenProps {
   streakInfo: CoupleStreakInfo;
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
-  onResetApp: () => void;
+  onResetApp?: () => void;
   onOpenEditProfile?: () => void;
   onOpenLovely?: () => void;
   onOpenPremium?: () => void;
@@ -384,18 +383,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </span>
           </div>
         </div>
-      </div>
-
-      {/* App Reset for Demo Testing */}
-      <div className="pt-2 text-center">
-        <button
-          type="button"
-          onClick={onResetApp}
-          className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] hover:text-[#E98787] dark:hover:text-[#F0B9C6] transition-colors cursor-pointer inline-flex items-center gap-1.5 py-2 px-3"
-        >
-          <RefreshCw size={12} />
-          <span>Сбросить данные приложения</span>
-        </button>
       </div>
     </div>
   );

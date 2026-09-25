@@ -1,10 +1,15 @@
-import { CoupleState, HistoryDay, Moment, AppSettings } from '../types';
-import { appStorage } from './storage/keyValueStorage';
+/**
+ * OURS Local Client State Storage
+ * Caches UI preferences and active state.
+ */
+
+import { CoupleState, HistoryDay, Moment, AppSettings } from '../../types';
+import { appStorage } from './keyValueStorage';
 import {
   syncAppStateForDate,
   getLocalDateKey,
   createFreshDayMoments,
-} from './moments/momentTiming';
+} from '../moments/momentTiming';
 
 const STORAGE_KEY = 'ours_app_state_v2';
 
@@ -83,35 +88,6 @@ export function saveAppState(state: AppState): void {
   } catch {
     // ignore
   }
-}
-
-export function createDemoAppState(): AppState {
-  const demoMoments = createFreshDayMoments('OURS-DEMO', getLocalDateKey());
-  return {
-    hasCompletedOnboarding: true,
-    couple: {
-      id: 'pair-demo-1',
-      pairSeed: 'ours-demo-anya-max',
-      user: { id: 'usr-demo-a', name: 'Аня', avatarColor: '#F6DCE1' },
-      partner: { id: 'usr-demo-b', name: 'Макс', avatarColor: '#DDEAF7' },
-      inviteCode: 'OURS-DEMO',
-      connected: true,
-      startDate: '12 сентября 2026',
-      daysTogether: 12,
-      isLovely: false,
-      lovelyPurchasedAt: undefined,
-      subscription: 'free',
-    },
-    todayMoments: demoMoments,
-    activeMomentId: demoMoments[0]?.id || 'moment-today-1',
-    history: [],
-    settings: {
-      notifications: true,
-      sounds: true,
-      haptic: true,
-      theme: 'system',
-    },
-  };
 }
 
 export function resetAppToDefault(): AppState {

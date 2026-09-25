@@ -1,5 +1,5 @@
 import { Moment, HistoryDay } from '../../types/models';
-import { AppState } from '../mockStorage';
+import { AppState } from '../storage/appStateStorage';
 
 export const MOMENT_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 export const MAX_DAILY_MOMENTS = 3;

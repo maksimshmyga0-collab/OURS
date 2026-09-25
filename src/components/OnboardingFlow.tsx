@@ -12,7 +12,6 @@ import {
   Copy,
 } from 'lucide-react';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
-import { PRESET_PHOTOS } from '../services/samplePhotos';
 
 export interface OnboardingCompleteResult {
   success: boolean;
@@ -349,12 +348,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 {/* Slots Stage */}
                 <div className="relative flex items-center justify-center gap-3 p-3.5 rounded-[26px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs">
                   {/* Slot 1: Filled Photo */}
-                  <div className="w-24 h-32 rounded-[20px] overflow-hidden relative border border-[#EBE3E5] dark:border-[#242024] shadow-2xs bg-[#FAF1F3] dark:bg-[#1C1417]">
-                    <img
-                      src={PRESET_PHOTOS[0]?.url}
-                      alt="Твой снимок"
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-24 h-32 rounded-[20px] overflow-hidden relative border border-[#EBE3E5] dark:border-[#242024] shadow-2xs bg-gradient-to-tr from-[#FAF0ED] via-[#F6DCE1] to-[#EED7DC] dark:from-[#201518] dark:via-[#2A181C] dark:to-[#1C1417] flex items-center justify-center">
+                    <Sparkles size={24} className="text-[#E98787] opacity-80" />
                     {/* Badge: Ready */}
                     <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 text-[9px] font-bold text-[#343033] dark:text-white shadow-2xs">
                       Ты

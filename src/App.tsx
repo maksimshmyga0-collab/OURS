@@ -1,29 +1,25 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   AppState,
   getInitialAppState,
   saveAppState,
-  createDemoAppState,
-} from './services/mockStorage';
+} from './services/storage/appStateStorage';
 import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode } from './types';
 import { apiClient } from './services/api/apiClient';
 import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
 import { BottomTabBar } from './components/BottomTabBar';
-import { DevControls } from './components/DevControls';
 import { LovelyModal } from './components/LovelyModal';
 import { OurSkyModal } from './components/OurSkyModal';
-import { DevSkyTesterModal } from './components/DevSkyTesterModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { TodayScreen } from './screens/TodayScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
-import { PARTNER_SAMPLE_PHOTOS } from './services/samplePhotos';
 import { playSoftChime, triggerHaptic } from './services/feedback';
 import { calculateCoupleStreak } from './services/streak/streakService';
 import { syncAppStateForDate } from './services/moments/momentTiming';
-import { getCoupleMatchedDates, createSimulatedSkyHistory } from './services/sky/skyService';
+import { getCoupleMatchedDates } from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 
 export default function App() {
@@ -31,11 +27,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('today');
   const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
-  const [isSkyTesterOpen, setIsSkyTesterOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(true);
-
-  const isDemoModeRef = useRef<boolean>(false);
 
   // 1. Initialize anonymous session and restore multi-device state
   useEffect(() => {
@@ -96,10 +89,10 @@ export default function App() {
     };
   }, []);
 
-  // 2. Multi-device live polling and realtime subscription to synchronize pair status, partner photos, and reactions
+  // 2. Multi-device live polling & Realtime subscription to synchronize pair status, partner photos, and reactions
   useEffect(() => {
     const pairId = appState.couple.id;
-    if (!pairId || isDemoModeRef.current) {
+    if (!pairId) {
       return;
     }
 
@@ -122,7 +115,6 @@ export default function App() {
               ...prev,
               couple: {
                 ...res.pair!,
-                // preserve local seed if present
                 pairSeed: prev.couple.pairSeed || res.pair!.pairSeed,
               },
               todayMoments: moments,
@@ -141,10 +133,10 @@ export default function App() {
     // Immediate initial sync
     pollState();
 
-    // Fast polling interval
+    // Fast polling interval (1.5s)
     const interval = setInterval(pollState, 1500);
 
-    // Event listeners for focus & visibility change
+    // Sync on window focus and visibility change
     const onVisibilityOrFocus = () => {
       if (!document.hidden) {
         pollState();
@@ -153,7 +145,7 @@ export default function App() {
     window.addEventListener('focus', onVisibilityOrFocus);
     document.addEventListener('visibilitychange', onVisibilityOrFocus);
 
-    // Realtime channel subscription
+    // Supabase Realtime channel subscription
     const unsubscribeRealtime = apiClient.subscribeToPair(pairId, pollState);
 
     return () => {
@@ -176,7 +168,7 @@ export default function App() {
     };
 
     window.addEventListener('focus', handleDateSync);
-    const interval = setInterval(handleDateSync, 30000);
+    const interval = setInterval(handleDateSync, 60000);
 
     return () => {
       window.removeEventListener('focus', handleDateSync);
@@ -184,19 +176,34 @@ export default function App() {
     };
   }, []);
 
-  // Joint streak and history statistics
+  // Calculate real streak & metrics dynamically
   const streakInfo = useMemo(() => {
     return calculateCoupleStreak(appState.todayMoments, appState.history);
   }, [appState.todayMoments, appState.history]);
 
-  // Couple matched dates for «Наше небо» (1 calendar day with match = 1 star)
+  // Dynamic pair seed for deterministic constellation generation
+  const pairSeed = useMemo(() => {
+    return (
+      appState.couple.pairSeed ||
+      getCoupleSeed(
+        appState.couple.inviteCode,
+        appState.couple.user?.name,
+        appState.couple.partner?.name
+      )
+    );
+  }, [
+    appState.couple.pairSeed,
+    appState.couple.inviteCode,
+    appState.couple.user?.name,
+    appState.couple.partner?.name,
+  ]);
+
+  // Matched dates extracted from real history & today's moments
   const matchedDates = useMemo(() => {
     return getCoupleMatchedDates(appState.couple, appState.todayMoments, appState.history);
   }, [appState.couple, appState.todayMoments, appState.history]);
 
-  const pairSeed = appState.couple.pairSeed || getCoupleSeed(appState.couple);
-
-  // Handle Onboarding Completion (Create Pair or Join Pair)
+  // Handle Onboarding Completion (Create or Join Pair via Supabase)
   const handleOnboardingComplete = async (
     userName: string,
     options?: { isJoin?: boolean; inviteCode?: string }
@@ -210,8 +217,7 @@ export default function App() {
       }
 
       if (res.success && res.pair) {
-        const partnerName = res.pair.partner?.name || 'Партнёр';
-        const pairSeedVal = `${res.pair.inviteCode || 'OURS'}-${userName}-${partnerName}`
+        const pairSeedVal = `${res.pair.inviteCode}-${userName}-${res.pair.partner.name}`
           .toLowerCase()
           .replace(/\s+/g, '-');
 
@@ -227,29 +233,25 @@ export default function App() {
           history: res.history || [],
         }));
 
-        if (options?.isJoin) {
-          setActiveTab('today');
-        }
-
         return {
           success: true,
           inviteCode: res.pair.inviteCode,
           pairId: res.pair.id,
         };
       }
-      return { success: false, error: 'Не удалось создать пару' };
+      return { success: false, error: 'Не удалось синхронизировать пару' };
     } catch (err: any) {
-      console.error('Onboarding complete error:', err);
-      return { success: false, error: err.message || 'Ошибка соединения' };
+      console.error('[OURS] Onboarding completion error:', err);
+      return { success: false, error: err?.message || 'Ошибка подключения' };
     }
   };
 
+  // Close Onboarding after code shared
   const handleFinishOnboarding = () => {
     setAppState((prev) => ({
       ...prev,
       hasCompletedOnboarding: true,
     }));
-    setActiveTab('today');
   };
 
   // Update a moment in today's moments list with server synchronization
@@ -264,8 +266,6 @@ export default function App() {
         todayMoments: nextMoments,
       };
     });
-
-    if (isDemoModeRef.current) return;
 
     try {
       if (updated.status === 'COMPLETED') {
@@ -326,7 +326,7 @@ export default function App() {
     }));
   };
 
-  // Update Theme mode specifically
+  // Update Theme Mode
   const handleUpdateTheme = (theme: ThemeMode) => {
     setAppState((prev) => ({
       ...prev,
@@ -351,19 +351,17 @@ export default function App() {
       history: prev.history.map((h) => ({ ...h, isLocked: false })),
     }));
 
-    if (!isDemoModeRef.current) {
-      try {
-        await apiClient.purchaseLovely();
-      } catch (err) {
-        console.error('[OURS] Failed to sync LOVELY purchase:', err);
-      }
+    try {
+      await apiClient.purchaseLovely();
+    } catch (err) {
+      console.error('[OURS] Failed to sync LOVELY purchase:', err);
     }
 
     playSoftChime('success', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
   };
 
-  // Reset LOVELY status for demo testing
+  // Reset LOVELY status
   const handleResetLovely = async () => {
     setAppState((prev) => ({
       ...prev,
@@ -377,24 +375,14 @@ export default function App() {
       history: prev.history.map((h, i) => ({ ...h, isLocked: i > 2 })),
     }));
 
-    if (!isDemoModeRef.current) {
-      try {
-        await apiClient.resetLovely();
-      } catch (err) {
-        console.error('[OURS] Failed to reset LOVELY:', err);
-      }
+    try {
+      await apiClient.resetLovely();
+    } catch (err) {
+      console.error('[OURS] Failed to reset LOVELY:', err);
     }
 
     playSoftChime('tap', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
-  };
-
-  const handleToggleLovely = () => {
-    if (appState.couple.isLovely || appState.couple.subscription === 'premium') {
-      handleResetLovely();
-    } else {
-      handlePurchaseLovely();
-    }
   };
 
   // Update Current User Profile (Name & Photo)
@@ -410,151 +398,16 @@ export default function App() {
       },
     }));
 
-    if (!isDemoModeRef.current) {
-      try {
-        await apiClient.updateProfile({
-          name: updated.name,
-          avatarUrl: updated.avatarUrl,
-          avatarColor: updated.avatarColor,
-        });
-      } catch (err) {
-        console.error('[OURS] Failed to save profile:', err);
-      }
-    }
-  };
-
-  // Simulate Partner Upload for testing (Moment Duo)
-  const handleSimulatePartnerUpload = () => {
-    const activeMoment =
-      appState.todayMoments.find((m) => m.id === appState.activeMomentId) ||
-      appState.todayMoments[0];
-
-    if (!activeMoment) return;
-
-    const partnerPhotoUrl =
-      PARTNER_SAMPLE_PHOTOS[(activeMoment.order - 1) % PARTNER_SAMPLE_PHOTOS.length];
-
-    const nowIso = new Date().toISOString();
-    const userPhotoItem = activeMoment.userPhoto
-      ? [
-          {
-            userId: appState.couple.user.id || 'user-a-default',
-            imageUrl: activeMoment.userPhoto,
-            createdAt: nowIso,
-          },
-        ]
-      : [];
-    const partnerPhotoItem = {
-      userId: appState.couple.partner.id || 'user-b-default',
-      imageUrl: partnerPhotoUrl,
-      createdAt: nowIso,
-    };
-
-    const newPhotos = [...userPhotoItem, partnerPhotoItem];
-    const newStatus = activeMoment.userPhoto ? 'BOTH_UPLOADED' : 'EMPTY';
-
-    const updated: Moment = {
-      ...activeMoment,
-      partnerPhoto: partnerPhotoUrl,
-      photos: newPhotos,
-      status: newStatus as any,
-    };
-
-    handleUpdateMoment(updated);
-    playSoftChime('tap', appState.settings.sounds);
-    triggerHaptic(appState.settings.haptic);
-  };
-
-  // Fast forward cooldown by 4 hours for demo and testing
-  const handleFastForwardCooldown = () => {
-    setAppState((prev) => {
-      const completedMoments = prev.todayMoments.filter((m) => m.status === 'COMPLETED');
-      if (completedMoments.length === 0) return prev;
-      const last = completedMoments[completedMoments.length - 1];
-      const shiftedMoments = prev.todayMoments.map((m) => {
-        if (m.id === last.id) {
-          return {
-            ...m,
-            completedTimestamp: Date.now() - 4 * 60 * 60 * 1000 - 2000,
-          };
-        }
-        return m;
-      });
-      return {
-        ...prev,
-        todayMoments: shiftedMoments,
-      };
-    });
-    playSoftChime('tap', appState.settings.sounds);
-    triggerHaptic(appState.settings.haptic);
-  };
-
-  // Simulate Matched Days for Sky Testing (Developer Sandbox)
-  const handleUpdateSimulatedSkyDays = (count: number, year: number, month: number) => {
-    setAppState((prev) => {
-      const updatedHistory = createSimulatedSkyHistory(count, year, month, prev.history);
-      return {
-        ...prev,
-        history: updatedHistory,
-      };
-    });
-    playSoftChime('tap', appState.settings.sounds);
-    triggerHaptic(appState.settings.haptic);
-  };
-
-  // Reset to default demo account
-  const handleResetDay = () => {
-    isDemoModeRef.current = true;
-    const demoState = createDemoAppState();
-    setAppState(demoState);
-  };
-
-  // Restart Onboarding (Clears user session completely to test brand new anonymous user)
-  const handleRestartOnboarding = async () => {
-    isDemoModeRef.current = false;
     try {
-      await apiClient.resetUser();
-      const session = await apiClient.initSession();
-      setAppState((prev) => ({
-        ...prev,
-        hasCompletedOnboarding: false,
-        couple: {
-          id: '',
-          pairSeed: '',
-          user: {
-            id: session.user.id,
-            name: '',
-            avatarColor: session.user.avatarColor,
-          },
-          partner: {
-            id: '',
-            name: 'Партнёр',
-            avatarColor: '#DDEAF7',
-          },
-          inviteCode: '',
-          connected: false,
-          startDate: '',
-          daysTogether: 1,
-          isLovely: false,
-          subscription: 'free',
-        },
-        todayMoments: [],
-        history: [],
-      }));
-    } catch {
-      // fallback
-      setAppState((prev) => ({
-        ...prev,
-        hasCompletedOnboarding: false,
-      }));
+      await apiClient.updateProfile({
+        name: updated.name,
+        avatarUrl: updated.avatarUrl,
+        avatarColor: updated.avatarColor,
+      });
+    } catch (err) {
+      console.error('[OURS] Failed to save profile:', err);
     }
   };
-
-  const activeMoment =
-    appState.todayMoments.find((m) => m.id === appState.activeMomentId) ||
-    appState.todayMoments[0];
-
-  const isPartnerUploaded = Boolean(activeMoment?.partnerPhoto);
 
   if (isLoadingSession) {
     return (
@@ -632,7 +485,6 @@ export default function App() {
                     onUpdateSettings={handleUpdateSettings}
                     onOpenLovely={() => setIsLovelyModalOpen(true)}
                     onOpenPremium={() => setIsLovelyModalOpen(true)}
-                    onResetApp={handleResetDay}
                     streakInfo={streakInfo}
                     onOpenEditProfile={() => setIsEditProfileOpen(true)}
                     onOpenSky={() => setIsStreakModalOpen(true)}
@@ -651,33 +503,6 @@ export default function App() {
                 playSoftChime('tap', appState.settings.sounds);
                 triggerHaptic(appState.settings.haptic);
               }}
-            />
-
-            {/* Dev / Partner Mock Control Floating Widget */}
-            <DevControls
-              onSimulatePartnerUpload={handleSimulatePartnerUpload}
-              onResetDay={handleResetDay}
-              onRestartOnboarding={handleRestartOnboarding}
-              onOpenLovely={() => setIsLovelyModalOpen(true)}
-              onOpenPremium={() => setIsLovelyModalOpen(true)}
-              onToggleLovely={handleToggleLovely}
-              onOpenSkyTester={() => setIsSkyTesterOpen(true)}
-              isLovely={Boolean(appState.couple.isLovely || appState.couple.subscription === 'premium')}
-              onFastForward={handleFastForwardCooldown}
-              isPartnerUploaded={isPartnerUploaded}
-              canSimulate={Boolean(activeMoment)}
-            />
-
-            {/* Stage 3: Developer Sandbox for Testing «Наше небо» */}
-            <DevSkyTesterModal
-              isOpen={isSkyTesterOpen}
-              onClose={() => setIsSkyTesterOpen(false)}
-              couple={appState.couple}
-              pairSeed={pairSeed}
-              todayMoments={appState.todayMoments}
-              history={appState.history}
-              onUpdateSimulatedDays={handleUpdateSimulatedSkyDays}
-              onOpenFullSky={() => setIsStreakModalOpen(true)}
             />
 
             {/* LOVELY One-Time Purchase Modal for the Couple */}
