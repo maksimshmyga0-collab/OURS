@@ -3,7 +3,7 @@
  * Caches UI preferences and active state.
  */
 
-import { CoupleState, HistoryDay, Moment, AppSettings } from '../../types';
+import { CoupleState, HistoryDay, Moment, AppSettings, ThemeMode } from '../../types';
 import { appStorage } from './keyValueStorage';
 import {
   syncAppStateForDate,
@@ -26,6 +26,18 @@ const DEFAULT_TODAY_MOMENTS: Moment[] = createFreshDayMoments('OURS', getLocalDa
 const DEFAULT_HISTORY: HistoryDay[] = [];
 
 export function getInitialAppState(): AppState {
+  let savedThemePreference: ThemeMode | null = null;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      const t = localStorage.getItem('ours_theme_mode_v1');
+      if (t === 'light' || t === 'dark' || t === 'system') {
+        savedThemePreference = t as ThemeMode;
+      }
+    }
+  } catch {
+    // fallback
+  }
+
   try {
     const stored = appStorage.getItem(STORAGE_KEY);
     if (stored && typeof stored === 'string') {
@@ -37,9 +49,9 @@ export function getInitialAppState(): AppState {
         parsed.couple.user
       ) {
         if (!parsed.settings) {
-          parsed.settings = { notifications: true, sounds: true, haptic: true, theme: 'system' };
-        } else if (!parsed.settings.theme) {
-          parsed.settings.theme = 'system';
+          parsed.settings = { notifications: true, sounds: true, haptic: true, theme: savedThemePreference || 'system' };
+        } else {
+          parsed.settings.theme = savedThemePreference || parsed.settings.theme || 'system';
         }
         if (!parsed.couple.pairSeed) {
           parsed.couple.pairSeed = `${parsed.couple.inviteCode || 'OURS'}-${parsed.couple.user?.name || 'user'}-${parsed.couple.partner?.name || 'partner'}`.toLowerCase().replace(/\s+/g, '-');
@@ -77,7 +89,7 @@ export function getInitialAppState(): AppState {
       notifications: true,
       sounds: true,
       haptic: true,
-      theme: 'system',
+      theme: savedThemePreference || 'system',
     },
   };
 }
@@ -85,6 +97,9 @@ export function getInitialAppState(): AppState {
 export function saveAppState(state: AppState): void {
   try {
     appStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    if (typeof window !== 'undefined' && window.localStorage && state.settings?.theme) {
+      localStorage.setItem('ours_theme_mode_v1', state.settings.theme);
+    }
   } catch {
     // ignore
   }

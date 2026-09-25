@@ -30,14 +30,16 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   onThemePersist,
 }) => {
   const [theme, setThemeState] = useState<ThemeMode>(() => {
-    if (initialTheme) return initialTheme;
     try {
       const saved = localStorage.getItem(STORAGE_THEME_KEY);
       if (saved === 'light' || saved === 'dark' || saved === 'system') {
-        return saved;
+        return saved as ThemeMode;
       }
     } catch {
       // fallback
+    }
+    if (initialTheme === 'light' || initialTheme === 'dark' || initialTheme === 'system') {
+      return initialTheme;
     }
     return 'system';
   });
@@ -51,26 +53,45 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     }
   }, [initialTheme]);
 
-  // Dynamic listener for prefers-color-scheme
+  // Dynamic listener for prefers-color-scheme with Android/Capacitor focus & visibility fallback
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleSystemChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      setSystemPreference(e.matches ? 'dark' : 'light');
+    
+    const updateSystemPreference = () => {
+      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setSystemPreference(isDark ? 'dark' : 'light');
     };
 
     // Initialize current match
-    setSystemPreference(mediaQuery.matches ? 'dark' : 'light');
+    updateSystemPreference();
 
     if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleSystemChange);
-      return () => mediaQuery.removeEventListener('change', handleSystemChange);
+      mediaQuery.addEventListener('change', updateSystemPreference);
     } else if ('addListener' in mediaQuery) {
-      // Legacy Safari
-      (mediaQuery as any).addListener(handleSystemChange);
-      return () => (mediaQuery as any).removeListener(handleSystemChange);
+      (mediaQuery as any).addListener(updateSystemPreference);
     }
+
+    // Android WebView / Capacitor: updates when user returns from system settings or pulls notification shade
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState !== 'hidden') {
+        updateSystemPreference();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', updateSystemPreference);
+      } else if ('removeListener' in mediaQuery) {
+        (mediaQuery as any).removeListener(updateSystemPreference);
+      }
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+    };
   }, []);
 
   const resolvedTheme: ResolvedTheme = useMemo(() => {

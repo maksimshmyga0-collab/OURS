@@ -268,10 +268,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </div>
 
         {/* Photo Slots Section - Moment Duo (Max 2 photos per moment) */}
-        <div className="flex items-center justify-center gap-3 sm:gap-4 mb-5">
+        <div className="grid grid-cols-2 items-start gap-3 sm:gap-4 mb-5">
           {isCurrentMomentWaiting ? (
             // Calm waiting placeholders during cooldown
-            <div className="w-full py-6 px-4 rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
+            <div className="col-span-2 w-full py-6 px-4 rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
               <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
                 <Clock size={22} className="text-[#E98787] dark:text-[#F0B9C6]" />
               </div>

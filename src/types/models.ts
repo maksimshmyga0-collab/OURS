@@ -122,6 +122,7 @@ export interface HistoryDay {
   title: string;
   subtitle: string;
   dateStr: string;
+  dateKey?: string;
   moments: Moment[];
   isLocked: boolean;
 }

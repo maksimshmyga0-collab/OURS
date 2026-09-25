@@ -60,7 +60,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   if (type === 'user') {
     if (photoUrl) {
       return (
-        <div className={`flex-1 flex flex-col items-center ${className} animate-in fade-in duration-250 ease-out`}>
+        <div className={`w-full flex-1 flex flex-col items-center ${className} animate-in fade-in duration-250 ease-out`}>
           <input
             ref={fileInputRef}
             type="file"
@@ -96,7 +96,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
               </>
             )}
           </div>
-          <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight transition-colors duration-200">
+          <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight truncate max-w-full text-center transition-colors duration-200">
             {title}{isRevealed ? '' : ' · Готово'}
           </span>
         </div>
@@ -104,7 +104,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
     }
 
     return (
-      <div className={`flex-1 flex flex-col items-center ${className}`}>
+      <div className={`w-full flex-1 flex flex-col items-center ${className}`}>
         <input
           ref={fileInputRef}
           type="file"
@@ -127,7 +127,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             Только ты
           </span>
         </button>
-        <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-2 tracking-tight">
+        <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-2 tracking-tight truncate max-w-full text-center">
           {title}
         </span>
       </div>
@@ -140,7 +140,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
     const isBlurred = !isRevealed;
 
     return (
-      <div className={`flex-1 flex flex-col items-center select-none ${className} animate-in fade-in duration-250 ease-out pointer-events-none`}>
+      <div className={`w-full flex-1 flex flex-col items-center select-none ${className} animate-in fade-in duration-250 ease-out pointer-events-none`}>
         <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group">
           {/* Partner Photo: true CSS blur(18px) until MATCH is completed */}
           <img
@@ -182,7 +182,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             </div>
           )}
         </div>
-        <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight transition-colors duration-200">
+        <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight truncate max-w-full text-center transition-colors duration-200">
           {title}{isRevealed ? '' : ' · Готово'}
         </span>
       </div>
@@ -191,7 +191,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
 
   // Partner slot before upload -> clean, calm waiting state
   return (
-    <div className={`flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
+    <div className={`w-full flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
       <div className="w-full aspect-square rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden pointer-events-none">
         <div className="w-11 h-11 rounded-2xl bg-[#FAF1F3] dark:bg-[#20181B] flex items-center justify-center text-[#8A8488] dark:text-[#B8B2B5] mb-2">
           <Lock size={18} />
@@ -203,7 +203,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
           Ждём {title}
         </span>
       </div>
-      <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-2 tracking-tight">
+      <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-2 tracking-tight truncate max-w-full text-center">
         {title}
       </span>
     </div>
