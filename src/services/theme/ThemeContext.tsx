@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { ThemeMode, ResolvedTheme } from '../../types';
 
+export type ThemePreference = ThemeMode;
+export type { ResolvedTheme };
+
 interface ThemeContextType {
   theme: ThemeMode;
   resolvedTheme: ResolvedTheme;
@@ -111,11 +114,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     if (resolvedTheme === 'dark') {
       root.classList.remove('light');
       root.classList.add('dark');
+      root.dataset.theme = 'dark';
       root.setAttribute('data-theme', 'dark');
       root.style.colorScheme = 'dark';
     } else {
       root.classList.remove('dark');
       root.classList.add('light');
+      root.dataset.theme = 'light';
       root.setAttribute('data-theme', 'light');
       root.style.colorScheme = 'light';
     }

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
 @theme {
   --color-ours-bg: var(--ours-bg);
   --color-ours-surface: var(--ours-surface);
@@ -24,7 +26,9 @@
    OURS Theme Design Tokens
    ========================================================================== */
 :root,
-html.light {
+html.light,
+html[data-theme="light"],
+[data-theme="light"] {
   color-scheme: light;
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
@@ -60,6 +64,7 @@ html.light {
 
 html.dark,
 :root.dark,
+html[data-theme="dark"],
 [data-theme="dark"] {
   color-scheme: dark;
   --blue: #97B2EB;
@@ -118,12 +123,13 @@ textarea {
 }
 
 html {
-  background-color: #FFF9FA;
-  color: #343033;
+  background-color: var(--ours-bg);
+  color: var(--ours-text-primary);
   -webkit-tap-highlight-color: transparent;
 }
 
-html.dark {
+html.dark,
+html[data-theme="dark"] {
   background-color: #000000 !important;
   color: #FFFFFF !important;
 }
@@ -133,14 +139,15 @@ body {
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #FFF9FA;
-  color: #343033;
+  background-color: var(--ours-bg);
+  color: var(--ours-text-primary);
   user-select: none;
   -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
 }
 
-html.dark body {
+html.dark body,
+html[data-theme="dark"] body {
   background-color: #000000 !important;
   color: #FFFFFF !important;
 }
@@ -148,11 +155,12 @@ html.dark body {
 #root {
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: #FFF9FA;
-  color: #343033;
+  background-color: var(--ours-bg);
+  color: var(--ours-text-primary);
 }
 
-html.dark #root {
+html.dark #root,
+html[data-theme="dark"] #root {
   background-color: #000000 !important;
   color: #FFFFFF !important;
 }
