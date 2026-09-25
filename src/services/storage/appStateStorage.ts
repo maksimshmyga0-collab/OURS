@@ -108,6 +108,9 @@ export function saveAppState(state: AppState): void {
 export function resetAppToDefault(): AppState {
   try {
     appStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
   } catch {
     // ignore
   }

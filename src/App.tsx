@@ -3,6 +3,7 @@ import {
   AppState,
   getInitialAppState,
   saveAppState,
+  resetToOnboarding,
 } from './services/storage/appStateStorage';
 import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode } from './types';
 import { apiClient } from './services/api/apiClient';
@@ -19,7 +20,11 @@ import { HistoryScreen } from './screens/HistoryScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { playSoftChime, triggerHaptic } from './services/feedback';
 import { calculateCoupleStreak } from './services/streak/streakService';
-import { syncAppStateForDate } from './services/moments/momentTiming';
+import {
+  syncAppStateForDate,
+  createFreshDayMoments,
+  getLocalDateKey,
+} from './services/moments/momentTiming';
 import { getCoupleMatchedDates } from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 
@@ -29,7 +34,6 @@ export default function App() {
   const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [isPreviewOnboarding, setIsPreviewOnboarding] = useState<boolean>(false);
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(true);
 
   // 1. Initialize anonymous session and restore multi-device state
@@ -247,6 +251,56 @@ export default function App() {
     }));
   };
 
+  // Leave current pair
+  const handleLeavePair = async () => {
+    try {
+      await apiClient.leavePair();
+    } catch (err) {
+      console.warn('[OURS] Error leaving pair:', err);
+    }
+    const freshMoments = createFreshDayMoments('OURS', getLocalDateKey());
+    setAppState((prev) => {
+      const updated: AppState = {
+        ...prev,
+        hasCompletedOnboarding: false,
+        couple: {
+          ...prev.couple,
+          id: '',
+          pairSeed: '',
+          partner: {
+            id: '',
+            name: 'Партнёр',
+            avatarColor: '#DDEAF7',
+          },
+          inviteCode: '',
+          connected: false,
+          isLovely: false,
+          lovelyPurchasedAt: undefined,
+          subscription: 'free',
+        },
+        todayMoments: freshMoments,
+        activeMomentId: freshMoments[0]?.id || 'moment-today-1',
+        history: [],
+      };
+      saveAppState(updated);
+      return updated;
+    });
+    setActiveTab('today');
+  };
+
+  // Sign out and reset to clean onboarding
+  const handleSignOut = async () => {
+    try {
+      await apiClient.signOut();
+    } catch (err) {
+      console.warn('[OURS] Error signing out:', err);
+    }
+    const cleanState = resetToOnboarding();
+    setAppState(cleanState);
+    saveAppState(cleanState);
+    setActiveTab('today');
+  };
+
   // Update a moment in today's moments list with server synchronization
   const handleUpdateMoment = async (updated: Moment) => {
     // Optimistic UI update
@@ -420,16 +474,7 @@ export default function App() {
       initialTheme={appState.settings.theme}
       onThemePersist={handleUpdateTheme}
     >
-      {isPreviewOnboarding ? (
-        <OnboardingFlow
-          isPreview={true}
-          onClose={() => setIsPreviewOnboarding(false)}
-          onComplete={async () => {
-            setIsPreviewOnboarding(false);
-          }}
-          onFinish={() => setIsPreviewOnboarding(false)}
-        />
-      ) : !appState.hasCompletedOnboarding ? (
+      {!appState.hasCompletedOnboarding ? (
         <OnboardingFlow
           onComplete={handleOnboardingComplete}
           onFinish={handleFinishOnboarding}
@@ -492,7 +537,8 @@ export default function App() {
                     onOpenSky={() => setIsStreakModalOpen(true)}
                     onOpenFingerprint={() => setIsStreakModalOpen(true)}
                     onOpenThread={() => setIsStreakModalOpen(true)}
-                    onOpenOnboardingPreview={() => setIsPreviewOnboarding(true)}
+                    onLeavePair={handleLeavePair}
+                    onSignOut={handleSignOut}
                   />
                 )}
               </div>

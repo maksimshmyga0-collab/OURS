@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CoupleState, CoupleStreakInfo, AppSettings } from '../types';
 import { PastelCard } from '../components/PastelCard';
 import { Avatar } from '../components/Avatar';
@@ -14,6 +14,8 @@ import {
   User,
   Sparkles,
   Camera,
+  LogOut,
+  UserMinus,
 } from 'lucide-react';
 import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic } from '../services/feedback';
@@ -30,7 +32,8 @@ export interface ProfileScreenProps {
   onOpenSky?: () => void;
   onOpenFingerprint?: () => void;
   onOpenThread?: () => void;
-  onOpenOnboardingPreview?: () => void;
+  onLeavePair?: () => Promise<void> | void;
+  onSignOut?: () => Promise<void> | void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -45,8 +48,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenSky,
   onOpenFingerprint,
   onOpenThread,
-  onOpenOnboardingPreview,
+  onLeavePair,
+  onSignOut,
 }) => {
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const handleOpenLovely = onOpenLovely || onOpenPremium;
   const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
 
@@ -400,30 +407,175 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </span>
           </div>
 
-          {/* Demo Button: Посмотреть онборд */}
-          {onOpenOnboardingPreview && (
-            <div
-              onClick={onOpenOnboardingPreview}
-              className="p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors active:scale-[0.99]"
+          {/* Leave Pair Action */}
+          {onLeavePair && (couple.connected || couple.id) && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(true);
+                setIsLeaveModalOpen(true);
+              }}
+              className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-[#FAF0F2] dark:bg-[#201518] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6]">
-                  <Sparkles size={16} />
+                  <UserMinus size={16} />
                 </div>
                 <div>
-                  <span className="text-xs font-semibold text-[#343033] dark:text-white block">
-                    Посмотреть онборд
+                  <span className="text-xs font-medium text-[#343033] dark:text-white block">
+                    Покинуть пару
                   </span>
                   <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
-                    Открыть экран знакомства
+                    Перестать быть участником этой пары
                   </span>
                 </div>
               </div>
               <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
-            </div>
+            </button>
+          )}
+
+          {/* Sign Out Action */}
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(true);
+                setIsSignOutModalOpen(true);
+              }}
+              className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
+                  <LogOut size={16} />
+                </div>
+                <div>
+                  <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] block">
+                    Выйти
+                  </span>
+                  <span className="text-[10px] text-[#A89CA1] dark:text-[#7A7176]">
+                    Завершить сессию на этом устройстве
+                  </span>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+            </button>
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal: Покинуть пару */}
+      {isLeaveModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
+          onClick={() => !isProcessing && setIsLeaveModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.14)] animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 ease-out transition-colors space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#FAF0F2] dark:bg-[#26151A] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shrink-0">
+                <UserMinus size={22} />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
+                  Покинуть пару?
+                </h3>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
+                  После этого ты перестанешь быть участником этой пары.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={async () => {
+                  if (isProcessing) return;
+                  setIsProcessing(true);
+                  try {
+                    if (onLeavePair) {
+                      await onLeavePair();
+                    }
+                  } finally {
+                    setIsProcessing(false);
+                    setIsLeaveModalOpen(false);
+                  }
+                }}
+                className="w-full py-3.5 px-4 rounded-[20px] font-semibold text-sm text-white bg-[#E98787] hover:bg-[#E2768E] active:scale-[0.99] transition-all flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isProcessing ? 'Выходим из пары...' : 'Покинуть пару'}
+              </button>
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => setIsLeaveModalOpen(false)}
+                className="w-full py-3 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: Выйти */}
+      {isSignOutModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
+          onClick={() => !isProcessing && setIsSignOutModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.14)] animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 ease-out transition-colors space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-[#FAF5F7] dark:bg-[#181618] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
+                <LogOut size={22} />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
+                  Выйти из аккаунта?
+                </h3>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
+                  Сессия на этом устройстве будет завершена.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={async () => {
+                  if (isProcessing) return;
+                  setIsProcessing(true);
+                  try {
+                    if (onSignOut) {
+                      await onSignOut();
+                    }
+                  } finally {
+                    setIsProcessing(false);
+                    setIsSignOutModalOpen(false);
+                  }
+                }}
+                className="w-full py-3.5 px-4 rounded-[20px] font-semibold text-sm text-[#343033] dark:text-white bg-[#FAF5F7] dark:bg-[#1E1B1E] border border-[#EBE3E5] dark:border-[#2A262A] hover:bg-[#F2ECEE] dark:hover:bg-[#252225] active:scale-[0.99] transition-all flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isProcessing ? 'Выполняется выход...' : 'Выйти'}
+              </button>
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={() => setIsSignOutModalOpen(false)}
+                className="w-full py-3 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

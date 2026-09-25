@@ -921,7 +921,72 @@ export class ApiClient {
   }
 
   /**
-   * Reset LOVELY status for testing in public.pairs
+   * Leave the current pair by deleting the user's membership row from public.pair_members
+   */
+  async leavePair(): Promise<{ success: boolean; error?: string }> {
+    const userId = await this.ensureAuthenticatedUser();
+    let pairId = this.currentPairId;
+
+    if (!pairId && supabaseConfig.isConfigured) {
+      try {
+        const { data: member } = await supabase
+          .from('pair_members')
+          .select('pair_id')
+          .eq('user_id', userId)
+          .order('joined_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (member?.pair_id) {
+          pairId = member.pair_id;
+        }
+      } catch (err) {
+        console.warn('[OURS LeavePair] Error getting membership:', err);
+      }
+    }
+
+    if (supabaseConfig.isConfigured && pairId) {
+      const { error } = await supabase
+        .from('pair_members')
+        .delete()
+        .eq('pair_id', pairId)
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('[OURS LeavePair] Error leaving pair:', error);
+        throw new Error(error.message || 'Ошибка выхода из пары');
+      }
+    }
+
+    this.currentPairId = null;
+    return { success: true };
+  }
+
+  /**
+   * Sign out from Supabase Auth and reset in-memory session
+   */
+  async signOut(): Promise<void> {
+    try {
+      if (supabaseConfig.isConfigured) {
+        await supabase.auth.signOut();
+      }
+    } catch (err) {
+      console.warn('[OURS Auth] Error signing out from Supabase:', err);
+    } finally {
+      this.currentUserId = null;
+      this.currentPairId = null;
+    }
+  }
+
+  /**
+   * Reset in-memory session references
+   */
+  clearLocalSession(): void {
+    this.currentUserId = null;
+    this.currentPairId = null;
+  }
+
+  /**
+   * Reset LOVELY status in public.pairs
    */
   async resetLovely(): Promise<boolean> {
     if (!this.currentPairId) return false;
