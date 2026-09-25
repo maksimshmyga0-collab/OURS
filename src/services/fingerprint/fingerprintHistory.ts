@@ -27,13 +27,16 @@ export function parseDateKey(key: string): Date {
  * Get or compute a stable pairSeed for the couple
  */
 export function getCoupleSeed(couple: CoupleState): string {
+  if (couple.id && couple.id.trim()) {
+    return `pair_${couple.id.trim()}`;
+  }
   if (couple.pairSeed && couple.pairSeed.trim()) {
     return couple.pairSeed.trim();
   }
-  const uA = couple.user?.name || 'UserA';
-  const uB = couple.partner?.name || 'UserB';
-  const code = couple.inviteCode || 'OURS';
-  return `${code}-${uA}-${uB}`.toLowerCase().replace(/\s+/g, '-');
+  if (couple.inviteCode && couple.inviteCode.trim()) {
+    return `pair_code_${couple.inviteCode.trim().toLowerCase()}`;
+  }
+  return 'pair_default';
 }
 
 /**

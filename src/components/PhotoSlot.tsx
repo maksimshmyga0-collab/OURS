@@ -53,38 +53,10 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
       }
     };
     reader.readAsDataURL(file);
-
-    // Reset input value so same file can be re-selected if needed
     e.target.value = '';
   };
 
-  // 1. REVEALED STATE (MATCH completed / Saved moment)
-  // Both user and partner photos are shown crisp and clear
-  if (isRevealed && photoUrl) {
-    return (
-      <div className={`flex-1 flex flex-col items-center ${className} animate-in fade-in zoom-in-[0.98] duration-350 ease-out`}>
-        <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#EBE3E5] dark:border-[#242024] soft-card-shadow group">
-          <img
-            src={photoUrl}
-            alt={title}
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-102"
-          />
-          {/* Reaction badge if reacted */}
-          {reaction && (
-            <div className="absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] shadow-xs flex items-center justify-center animate-in zoom-in-75 fade-in duration-200 ease-out">
-              <ReactionIcon reaction={reaction} size={18} />
-            </div>
-          )}
-        </div>
-        <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight transition-colors duration-200">
-          {title}
-        </span>
-      </div>
-    );
-  }
-
-  // 2. USER SLOT (First window - interactive for the user)
+  // 1. USER SLOT
   if (type === 'user') {
     if (photoUrl) {
       return (
@@ -96,26 +68,36 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             onChange={handleFileChange}
             className="hidden"
           />
-          <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow">
+          <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow group">
             <img
               src={photoUrl}
               alt="Твоё фото"
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-102"
             />
-            <div className="absolute top-2.5 right-2.5 bg-white/95 dark:bg-[#1E1C1E] rounded-full p-1 border border-[#EBE3E5] dark:border-[#352F35] text-[#E98787] shadow-xs animate-in zoom-in-75 duration-200 ease-out">
-              <CheckCircle2 size={17} />
-            </div>
-            <button
-              type="button"
-              onClick={handleSlotClick}
-              className="absolute inset-x-3 bottom-2.5 bg-white/95 dark:bg-[#1C1A1C] border border-[#EBE3E5] dark:border-[#352F35] shadow-xs py-1.5 rounded-xl text-[11px] font-semibold text-[#343033] dark:text-white text-center transition-all duration-200 ease-out hover:bg-white dark:hover:bg-[#252225] active:scale-97 cursor-pointer"
-            >
-              Заменить
-            </button>
+            {isRevealed ? (
+              reaction && (
+                <div className="absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] shadow-xs flex items-center justify-center animate-in zoom-in-75 fade-in duration-200 ease-out">
+                  <ReactionIcon reaction={reaction} size={18} />
+                </div>
+              )
+            ) : (
+              <>
+                <div className="absolute top-2.5 right-2.5 bg-white/95 dark:bg-[#1E1C1E] rounded-full p-1 border border-[#EBE3E5] dark:border-[#352F35] text-[#E98787] shadow-xs animate-in zoom-in-75 duration-200 ease-out">
+                  <CheckCircle2 size={17} />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSlotClick}
+                  className="absolute inset-x-3 bottom-2.5 bg-white/95 dark:bg-[#1C1A1C] border border-[#EBE3E5] dark:border-[#352F35] shadow-xs py-1.5 rounded-xl text-[11px] font-semibold text-[#343033] dark:text-white text-center transition-all duration-200 ease-out hover:bg-white dark:hover:bg-[#252225] active:scale-97 cursor-pointer"
+                >
+                  Заменить
+                </button>
+              </>
+            )}
           </div>
           <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight transition-colors duration-200">
-            {title} · Готово
+            {title}{isRevealed ? '' : ' · Готово'}
           </span>
         </div>
       );
@@ -152,45 +134,62 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
     );
   }
 
-  // 3. PARTNER SLOT (Second window - STRICTLY NON-INTERACTIVE)
-  // If photo already exists before MATCH -> render BLURRED
+  // 2. PARTNER SLOT
+  // If photo is uploaded by partner
   if (photoUrl) {
+    const isBlurred = !isRevealed;
+
     return (
       <div className={`flex-1 flex flex-col items-center select-none ${className} animate-in fade-in duration-250 ease-out pointer-events-none`}>
-        <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow">
-          {/* Blurred partner photo with overflow clip and gentle scale to prevent border fringes */}
+        <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group">
+          {/* Partner Photo: true CSS blur(18px) until MATCH is completed */}
           <img
             src={photoUrl}
             alt={title}
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover scale-110 filter blur-[18px] transition-all duration-300 pointer-events-none"
+            className={`w-full h-full object-cover transition-[filter,transform] duration-500 ease-out ${
+              isBlurred
+                ? 'filter blur-[18px] scale-105 select-none pointer-events-none'
+                : 'filter blur-0 scale-100 group-hover:scale-102'
+            }`}
           />
 
-          {/* Calm overlay status indicator */}
-          <div className="absolute inset-0 bg-white/20 dark:bg-black/25 flex flex-col items-center justify-center p-3 text-center pointer-events-none">
-            <div className="w-10 h-10 rounded-2xl bg-white/85 dark:bg-[#1E1C1E]/90 backdrop-blur-md flex items-center justify-center text-[#E98787] shadow-xs mb-1.5 border border-white/60 dark:border-white/10">
-              <CheckCircle2 size={18} />
-            </div>
-            <span className="text-[11px] font-semibold text-[#343033] dark:text-white px-2 py-0.5 rounded-full bg-white/70 dark:bg-black/40 backdrop-blur-xs">
-              Взгляд добавлен
-            </span>
-            <span className="text-[9px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-              Скрыто до MATCH
-            </span>
-          </div>
+          {/* Calm overlay before MATCH */}
+          {isBlurred && (
+            <>
+              <div className="absolute inset-0 bg-white/20 dark:bg-black/25 flex flex-col items-center justify-center p-3 text-center pointer-events-none transition-opacity duration-300">
+                <div className="w-10 h-10 rounded-2xl bg-white/85 dark:bg-[#1E1C1E]/90 backdrop-blur-md flex items-center justify-center text-[#E98787] shadow-xs mb-1.5 border border-white/60 dark:border-white/10">
+                  <CheckCircle2 size={18} />
+                </div>
+                <span className="text-[11px] font-semibold text-[#343033] dark:text-white px-2 py-0.5 rounded-full bg-white/70 dark:bg-black/40 backdrop-blur-xs">
+                  Взгляд добавлен
+                </span>
+                <span className="text-[9px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
+                  Скрыто до MATCH
+                </span>
+              </div>
 
-          <div className="absolute top-2.5 right-2.5 text-[#8A8488] dark:text-[#B8B2B5] pointer-events-none">
-            <Lock size={14} />
-          </div>
+              <div className="absolute top-2.5 right-2.5 text-[#8A8488] dark:text-[#B8B2B5] pointer-events-none">
+                <Lock size={14} />
+              </div>
+            </>
+          )}
+
+          {/* Reaction badge after MATCH */}
+          {isRevealed && reaction && (
+            <div className="absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] shadow-xs flex items-center justify-center animate-in zoom-in-75 fade-in duration-200 ease-out pointer-events-auto">
+              <ReactionIcon reaction={reaction} size={18} />
+            </div>
+          )}
         </div>
         <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight transition-colors duration-200">
-          {title} · Готово
+          {title}{isRevealed ? '' : ' · Готово'}
         </span>
       </div>
     );
   }
 
-  // Partner slot when photo is not yet uploaded -> clean, calm placeholder (non-interactive)
+  // Partner slot before upload -> clean, calm waiting state
   return (
     <div className={`flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
       <div className="w-full aspect-square rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden pointer-events-none">

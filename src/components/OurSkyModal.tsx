@@ -97,10 +97,14 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
 
   const starsCount = monthMatchedDates.length;
 
+  const stablePairSeed = useMemo(() => {
+    return couple.id ? `pair_${couple.id}` : (couple.pairSeed || pairSeed || couple.inviteCode || 'ours_pair');
+  }, [couple.id, couple.pairSeed, couple.inviteCode, pairSeed]);
+
   // Generate deterministic sky state for selected month
   const sky = useMemo(() => {
-    return getSkyForMonth(pairSeed, selectedYear, selectedMonth, starsCount, isCurrentMonth);
-  }, [pairSeed, selectedYear, selectedMonth, starsCount, isCurrentMonth]);
+    return getSkyForMonth(stablePairSeed, selectedYear, selectedMonth, starsCount, isCurrentMonth);
+  }, [stablePairSeed, selectedYear, selectedMonth, starsCount, isCurrentMonth]);
 
   // Download Polaroid Card
   const handleDownloadCard = async () => {

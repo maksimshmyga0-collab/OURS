@@ -123,28 +123,39 @@ export function getCoupleMatchedDates(
   for (const day of history) {
     const hasMatch = day.moments.some(isMomentMatched);
     if (hasMatch) {
-      for (const m of day.moments) {
-        if (isMomentMatched(m)) {
-          let key: string | null = null;
-          if (m.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(m.dateKey)) {
-            key = m.dateKey;
-          } else if (day.id?.startsWith('hist-')) {
-            const rawId = day.id.replace('hist-', '');
-            if (/^\d{4}-\d{2}-\d{2}$/.test(rawId)) {
-              key = rawId;
-            }
-          } else if (m.createdAt) {
-            try {
-              const d = new Date(m.createdAt);
-              if (!isNaN(d.getTime())) key = toDateKey(d);
-            } catch {}
-          }
+      let key: string | null = null;
+      if (day.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(day.dateKey)) {
+        key = day.dateKey;
+      } else if (day.id?.startsWith('day-')) {
+        const rawId = day.id.replace('day-', '');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawId)) {
+          key = rawId;
+        }
+      } else if (day.id?.startsWith('hist-')) {
+        const rawId = day.id.replace('hist-', '');
+        if (/^\d{4}-\d{2}-\d{2}$/.test(rawId)) {
+          key = rawId;
+        }
+      }
 
-          if (key) {
-            matchedDatesSet.add(key);
-            break;
+      if (!key) {
+        for (const m of day.moments) {
+          if (isMomentMatched(m)) {
+            if (m.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(m.dateKey)) {
+              key = m.dateKey;
+            } else if (m.createdAt) {
+              try {
+                const d = new Date(m.createdAt);
+                if (!isNaN(d.getTime())) key = toDateKey(d);
+              } catch {}
+            }
+            if (key) break;
           }
         }
+      }
+
+      if (key) {
+        matchedDatesSet.add(key);
       }
     }
   }

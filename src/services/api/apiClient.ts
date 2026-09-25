@@ -225,9 +225,7 @@ export class ApiClient {
     }
 
     const isConnected = Boolean(partnerUserId);
-    const pairSeedVal = `${inviteCode}-${myProfile.name}-${partnerProfile.name}`
-      .toLowerCase()
-      .replace(/\s+/g, '-');
+    const pairSeedVal = `pair_${pairId}`;
 
     const coupleState: CoupleState = {
       id: pairId,

@@ -181,22 +181,15 @@ export default function App() {
     return calculateCoupleStreak(appState.todayMoments, appState.history);
   }, [appState.todayMoments, appState.history]);
 
-  // Dynamic pair seed for deterministic constellation generation
+  // Dynamic pair seed strictly derived from pairId for deterministic constellation generation
   const pairSeed = useMemo(() => {
     return (
+      appState.couple.id ||
       appState.couple.pairSeed ||
-      getCoupleSeed(
-        appState.couple.inviteCode,
-        appState.couple.user?.name,
-        appState.couple.partner?.name
-      )
+      appState.couple.inviteCode ||
+      'ours_pair'
     );
-  }, [
-    appState.couple.pairSeed,
-    appState.couple.inviteCode,
-    appState.couple.user?.name,
-    appState.couple.partner?.name,
-  ]);
+  }, [appState.couple.id, appState.couple.pairSeed, appState.couple.inviteCode]);
 
   // Matched dates extracted from real history & today's moments
   const matchedDates = useMemo(() => {
@@ -217,9 +210,7 @@ export default function App() {
       }
 
       if (res.success && res.pair) {
-        const pairSeedVal = `${res.pair.inviteCode}-${userName}-${res.pair.partner.name}`
-          .toLowerCase()
-          .replace(/\s+/g, '-');
+        const pairSeedVal = `pair_${res.pair.id}`;
 
         setAppState((prev) => ({
           ...prev,
