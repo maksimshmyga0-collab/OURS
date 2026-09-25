@@ -26,6 +26,10 @@
 :root,
 html.light {
   color-scheme: light;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   --blue: #97B2EB;
   --ours-blue: #97B2EB;
   --ours-bg: #FFF9FA;

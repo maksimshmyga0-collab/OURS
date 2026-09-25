@@ -31,7 +31,10 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
   return (
     <nav
-      className="sticky bottom-0 z-40 bg-[#FFF9FA]/92 dark:bg-black/92 backdrop-blur-xl border-t border-[#000000]/6 dark:border-[#242024] px-4 pt-1.5 pb-2 transition-colors"
+      className="sticky bottom-0 z-40 bg-[#FFF9FA]/92 dark:bg-black/92 backdrop-blur-xl border-t border-[#000000]/6 dark:border-[#242024] px-4 pt-1.5 transition-colors"
+      style={{
+        paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
+      }}
       aria-label="Нижняя навигация"
     >
       <div className="max-w-md mx-auto grid grid-cols-3 gap-1">
