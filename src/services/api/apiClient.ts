@@ -81,7 +81,6 @@ export class ApiClient {
       console.warn('[OURS Auth] Exception getting auth session:', err);
     }
 
-    // Fallback valid UUID if offline or temporary network issue
     const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : '00000000-0000-4000-8000-' + Math.random().toString(16).substring(2, 14).padEnd(12, '0');
@@ -676,10 +675,66 @@ export class ApiClient {
   }
 
   /**
+   * Realtime channel subscription for changes to photos, reactions, and pair members
+   */
+  subscribeToPair(pairId: string, onUpdate: () => void): () => void {
+    if (!supabaseConfig.isConfigured || !pairId) {
+      return () => {};
+    }
+
+    try {
+      const channel = supabase
+        .channel(`pair-sync-${pairId}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'photos' },
+          () => {
+            onUpdate();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'reactions' },
+          () => {
+            onUpdate();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'pair_members' },
+          () => {
+            onUpdate();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {};
+    }
+  }
+
+  /**
    * Upload Photo for a Moment to Supabase Storage + public.photos metadata
    */
   async uploadPhoto(momentId: string, photoData: string): Promise<{ success: boolean; moment?: Moment }> {
     const userId = await this.ensureAuthenticatedUser();
+
+    if (!this.currentPairId) {
+      const { data: membership } = await supabase
+        .from('pair_members')
+        .select('pair_id')
+        .eq('user_id', userId)
+        .order('joined_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (membership?.pair_id) {
+        this.currentPairId = membership.pair_id;
+      }
+    }
+
     const pairId = this.currentPairId || 'pair';
 
     // 1. Upload to Supabase Storage or process as Data URI
@@ -714,8 +769,18 @@ export class ApiClient {
    * Reveal Moment in public.moments
    */
   async revealMoment(momentId: string): Promise<{ success: boolean; moment?: Moment }> {
+    const userId = await this.ensureAuthenticatedUser();
+    if (!this.currentPairId) {
+      const { data: membership } = await supabase
+        .from('pair_members')
+        .select('pair_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+      if (membership?.pair_id) this.currentPairId = membership.pair_id;
+    }
+
     if (this.currentPairId) {
-      const userId = await this.ensureAuthenticatedUser();
       const state = await this.assemblePairData(this.currentPairId, userId);
       const moment = state.moments.find((m) => m.id === momentId);
       return { success: true, moment };
@@ -729,6 +794,16 @@ export class ApiClient {
    */
   async submitReaction(momentId: string, emoji: ReactionEmoji): Promise<{ success: boolean; moment?: Moment }> {
     const userId = await this.ensureAuthenticatedUser();
+    if (!this.currentPairId) {
+      const { data: membership } = await supabase
+        .from('pair_members')
+        .select('pair_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+      if (membership?.pair_id) this.currentPairId = membership.pair_id;
+    }
+
     await supabase.from('reactions').upsert(
       {
         moment_id: momentId,
@@ -752,8 +827,18 @@ export class ApiClient {
    * Complete Moment in public.moments
    */
   async completeMoment(momentId: string): Promise<{ success: boolean; moment?: Moment }> {
+    const userId = await this.ensureAuthenticatedUser();
+    if (!this.currentPairId) {
+      const { data: membership } = await supabase
+        .from('pair_members')
+        .select('pair_id')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+      if (membership?.pair_id) this.currentPairId = membership.pair_id;
+    }
+
     if (this.currentPairId) {
-      const userId = await this.ensureAuthenticatedUser();
       const state = await this.assemblePairData(this.currentPairId, userId);
       const moment = state.moments.find((m) => m.id === momentId);
       return { success: true, moment };
