@@ -96,16 +96,17 @@ export default function App() {
     };
   }, []);
 
-  // 2. Multi-device live polling to synchronize pair status, partner photos, and reactions
+  // 2. Multi-device live polling and realtime subscription to synchronize pair status, partner photos, and reactions
   useEffect(() => {
-    if (!appState.hasCompletedOnboarding || !appState.couple.id || isDemoModeRef.current) {
+    const pairId = appState.couple.id;
+    if (!pairId || isDemoModeRef.current) {
       return;
     }
 
     let isPolling = false;
 
     const pollState = async () => {
-      if (document.hidden || isPolling) return;
+      if (isPolling) return;
       isPolling = true;
 
       try {
@@ -137,14 +138,31 @@ export default function App() {
       }
     };
 
-    const interval = setInterval(pollState, 2500);
-    window.addEventListener('focus', pollState);
+    // Immediate initial sync
+    pollState();
+
+    // Fast polling interval
+    const interval = setInterval(pollState, 1500);
+
+    // Event listeners for focus & visibility change
+    const onVisibilityOrFocus = () => {
+      if (!document.hidden) {
+        pollState();
+      }
+    };
+    window.addEventListener('focus', onVisibilityOrFocus);
+    document.addEventListener('visibilitychange', onVisibilityOrFocus);
+
+    // Realtime channel subscription
+    const unsubscribeRealtime = apiClient.subscribeToPair(pairId, pollState);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', pollState);
+      window.removeEventListener('focus', onVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+      unsubscribeRealtime();
     };
-  }, [appState.hasCompletedOnboarding, appState.couple.id]);
+  }, [appState.couple.id]);
 
   // Sync state to local storage on changes
   useEffect(() => {
@@ -260,11 +278,32 @@ export default function App() {
           }));
         }
       } else if (updated.status === 'REVEALED') {
-        await apiClient.revealMoment(updated.id);
+        const res = await apiClient.revealMoment(updated.id);
+        if (res.success && res.moment) {
+          const revealedM = res.moment;
+          setAppState((prev) => ({
+            ...prev,
+            todayMoments: prev.todayMoments.map((m) => (m.id === revealedM.id ? revealedM : m)),
+          }));
+        }
       } else if (updated.userReaction) {
-        await apiClient.submitReaction(updated.id, updated.userReaction);
+        const res = await apiClient.submitReaction(updated.id, updated.userReaction);
+        if (res.success && res.moment) {
+          const reactedM = res.moment;
+          setAppState((prev) => ({
+            ...prev,
+            todayMoments: prev.todayMoments.map((m) => (m.id === reactedM.id ? reactedM : m)),
+          }));
+        }
       } else if (updated.userPhoto) {
-        await apiClient.uploadPhoto(updated.id, updated.userPhoto);
+        const res = await apiClient.uploadPhoto(updated.id, updated.userPhoto);
+        if (res.success && res.moment) {
+          const uploadedM = res.moment;
+          setAppState((prev) => ({
+            ...prev,
+            todayMoments: prev.todayMoments.map((m) => (m.id === uploadedM.id ? uploadedM : m)),
+          }));
+        }
       }
     } catch (err) {
       console.error('[OURS] Failed to sync moment update:', err);
