@@ -404,10 +404,10 @@ export default function App() {
 
   if (isLoadingSession) {
     return (
-      <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 animate-pulse">
-          <OursLogo size={148} />
-          <span className="font-display text-sm font-bold tracking-widest text-[#777277] dark:text-[#B8B2B5]">
+      <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] flex items-center justify-center p-6 selection:bg-transparent">
+        <div className="flex flex-col items-center gap-5 sm:gap-6 animate-pulse select-none">
+          <OursLogo size={296} className="max-w-[76vw] max-h-[76vw]" />
+          <span className="font-display text-[28px] sm:text-[32px] font-semibold tracking-[0.2em] text-[#343033] dark:text-white leading-none">
             OURS
           </span>
         </div>
