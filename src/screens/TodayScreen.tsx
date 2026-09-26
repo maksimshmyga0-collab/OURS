@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Moment, CoupleState, ReactionEmoji } from '../types';
 import { PastelCard, PastelCardColor } from '../components/PastelCard';
 import { PhotoSlot } from '../components/PhotoSlot';
@@ -16,6 +16,7 @@ import {
   getSynchronizedNow,
   isMomentMatchCompleted,
 } from '../services/moments/momentTiming';
+
 
 interface TodayScreenProps {
   couple: CoupleState;
@@ -122,6 +123,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     setIsPhotoPickerOpen(false);
   };
 
+  // Keep activeMoment in a ref to always have latest state for async callbacks
+  const activeMomentRef = useRef(activeMoment);
+  activeMomentRef.current = activeMoment;
+
   // Trigger Match animation when both uploaded (idempotent, single-trigger)
   const handleOpenMoment = () => {
     if (activeMoment.status !== 'BOTH_UPLOADED' || isMatching) return;
@@ -134,10 +139,11 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const handleMatchComplete = useCallback(() => {
     setIsMatching(false);
     onUpdateMoment({
-      ...activeMoment,
+      ...activeMomentRef.current,
       status: 'REVEALED',
     });
-  }, [activeMoment, onUpdateMoment]);
+  }, [onUpdateMoment]);
+
 
   // Handle reaction on partner photo
   const handleSelectReaction = (emoji: ReactionEmoji) => {
@@ -271,7 +277,19 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </div>
 
         {/* Photo Slots Section - Moment Duo (Max 2 photos per moment) */}
-        <div className="grid grid-cols-2 items-start gap-3 sm:gap-4 mb-5">
+        <div
+          className={`relative grid grid-cols-2 items-start gap-3 sm:gap-4 mb-5 transition-transform duration-300 ease-out ${
+            isMatching ? 'animate-match-impulse' : ''
+          }`}
+        >
+          {/* Subtle soft glow/highlight impulse around photo area during MATCH */}
+          {isMatching && (
+            <div
+              className="absolute -inset-2 sm:-inset-3 rounded-[28px] pointer-events-none z-10 animate-match-subtle-glow"
+              aria-hidden="true"
+            />
+          )}
+
           {isCurrentMomentWaiting ? (
             // Calm waiting placeholders during cooldown
             <div className="col-span-2 w-full py-6 px-4 rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
@@ -451,6 +469,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           </span>
         </button>
       )}
+
 
       {/* Photo Picker Modal */}
       <PhotoPickerModal
