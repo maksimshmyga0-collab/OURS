@@ -15,13 +15,13 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({ onComplete }) =>
   const hasFiredRef = useRef(false);
 
   useEffect(() => {
-    // 650ms total timing: synchronizes with photo slots impulse & subtle glow
+    // 850ms total timing: synchronizes with smooth photo approach, ambient glow & connection bridge
     const timer = setTimeout(() => {
       if (!hasFiredRef.current) {
         hasFiredRef.current = true;
         onCompleteRef.current?.();
       }
-    }, 650);
+    }, 850);
 
     return () => {
       clearTimeout(timer);

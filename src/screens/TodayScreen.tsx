@@ -282,12 +282,31 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             isMatching ? 'animate-match-impulse' : ''
           }`}
         >
-          {/* Subtle soft glow/highlight impulse around photo area during MATCH */}
+          {/* Subtle soft ambient glow & connection bridge during MATCH */}
           {isMatching && (
-            <div
-              className="absolute -inset-2 sm:-inset-3 rounded-[28px] pointer-events-none z-10 animate-match-subtle-glow"
-              aria-hidden="true"
-            />
+            <>
+              {/* Soft ambient aura around both photos */}
+              <div
+                className="absolute -inset-2.5 sm:-inset-3.5 rounded-[30px] pointer-events-none z-10 animate-match-ambient-glow"
+                aria-hidden="true"
+              />
+
+              {/* Delicate connection light impulse bridging the two photos */}
+              <div
+                className="absolute inset-y-4 left-1/2 -translate-x-1/2 w-8 pointer-events-none z-20 flex items-center justify-center overflow-visible"
+                aria-hidden="true"
+              >
+                <div className="w-1 h-20 rounded-full bg-gradient-to-b from-transparent via-[#F0B9C6]/90 to-transparent animate-match-bridge shadow-[0_0_12px_rgba(240,185,198,0.7)]" />
+              </div>
+
+              {/* Delicate final highlight sheen over revealed cards */}
+              <div
+                className="absolute inset-0 rounded-[22px] overflow-hidden pointer-events-none z-20"
+                aria-hidden="true"
+              >
+                <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-match-sheen" />
+              </div>
+            </>
           )}
 
           {isCurrentMomentWaiting ? (

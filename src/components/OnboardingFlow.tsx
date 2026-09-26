@@ -595,7 +595,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   type="text"
                   value={userName}
                   onChange={(e) => setUserName(e.target.value)}
-                  placeholder="Например, Аня"
+                  placeholder="например Максим"
                   autoFocus
                   className={`w-full h-[52px] px-4 rounded-[20px] bg-white dark:bg-[#141214] border ${
                     shakeField === 'create-name'
@@ -661,7 +661,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     type="text"
                     value={joinName}
                     onChange={(e) => setJoinName(e.target.value)}
-                    placeholder="Например, Макс"
+                    placeholder="например Таня"
                     autoFocus
                     className={`w-full h-[52px] px-4 rounded-[20px] bg-white dark:bg-[#141214] border ${
                       shakeField === 'join-name'

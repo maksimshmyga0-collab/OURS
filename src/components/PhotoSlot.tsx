@@ -156,14 +156,14 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             WebkitMaskImage: '-webkit-radial-gradient(white, black)',
           }}
         >
-          {/* Partner Photo: deep abstract blur(52px) until MATCH is completed */}
+          {/* Partner Photo: deep abstract blur(64px) until MATCH is completed */}
           <img
             src={photoUrl}
             alt={title}
             referrerPolicy="no-referrer"
             style={{
-              filter: isBlurred ? 'blur(52px)' : 'none',
-              transform: isBlurred ? 'scale(1.22)' : 'scale(1)',
+              filter: isBlurred ? 'blur(64px)' : 'none',
+              transform: isBlurred ? 'scale(1.28)' : 'scale(1)',
               willChange: 'filter, transform',
             }}
             className={`w-full h-full object-cover transition-[filter,transform] duration-500 ease-out ${
