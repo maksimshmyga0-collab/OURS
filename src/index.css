@@ -548,6 +548,54 @@ html.dark .soft-card-shadow {
    OURS Motion System Tokens (Micro: 150-220ms, Small: 250-350ms, Content: 350-500ms)
    ========================================================================== */
 
+/* Unified Bottom Sheet / Modal Motion Benchmark (350ms, cubic-bezier(0.25, 1, 0.4, 1)) */
+@keyframes sheet-backdrop-enter {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-slide-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sheet-slide-desktop-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-sheet-backdrop {
+  animation: sheet-backdrop-enter 350ms cubic-bezier(0.25, 1, 0.4, 1) forwards;
+  will-change: opacity;
+}
+
+.animate-sheet-enter {
+  animation: sheet-slide-enter 350ms cubic-bezier(0.25, 1, 0.4, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@media (min-width: 640px) {
+  .animate-sheet-enter {
+    animation-name: sheet-slide-desktop-enter;
+  }
+}
+
 /* Screen navigation transition: subtle fade + 4px translateY */
 @keyframes screen-enter {
   0% {

@@ -107,15 +107,15 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#000000]/60 backdrop-blur-[6px] p-0 sm:p-4 overflow-y-auto no-scrollbar animate-in fade-in duration-200 ease-out"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-sheet-backdrop"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md min-h-screen sm:min-h-0 sm:max-h-[92vh] sm:rounded-[32px] bg-[#FFF9FA] dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] shadow-lg flex flex-col justify-between p-5 sm:p-6 relative overflow-y-auto no-scrollbar animate-in fade-in slide-in-from-bottom-3 sm:zoom-in-[0.98] duration-250 ease-out transition-colors"
+        className="w-full max-w-md max-h-[92dvh] sm:max-h-[88vh] rounded-t-[32px] sm:rounded-[32px] bg-[#FFF9FA] dark:bg-[#111111] border-t sm:border border-[#EBE3E5] dark:border-[#242024] shadow-2xl flex flex-col p-5 sm:p-6 relative overflow-hidden animate-sheet-enter transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#F0E6E8] dark:border-[#242024]">
+        {/* Header - Always pinned at top */}
+        <div className="flex items-center justify-between pb-3 border-b border-[#F0E6E8] dark:border-[#242024] shrink-0">
           <h2 className="font-display font-bold text-lg text-[#343033] dark:text-white">
             Твой профиль
           </h2>
@@ -130,7 +130,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
         </div>
 
         {/* Scrollable Body Content */}
-        <div className="flex-1 py-4 space-y-5">
+        <div className="flex-1 overflow-y-auto no-scrollbar py-4 space-y-5 min-h-0">
           {/* SECTION 1: Avatar & Name Editor */}
           <div className="bg-white dark:bg-[#161416] rounded-[24px] p-4.5 border border-[#EBE3E5] dark:border-[#242024] shadow-2xs flex flex-col items-center text-center space-y-4">
             {/* Avatar with Camera Overlay */}
@@ -326,8 +326,23 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <span className="text-[11px] font-bold text-[#777277] dark:text-[#B8B2B5] uppercase tracking-wider block">
                   Уровень нашей истории
                 </span>
-                <h4 className="font-display text-base font-bold text-[#343033] dark:text-white flex items-center gap-1.5 mt-0.5">
-                  <span>{coupleLevel.levelIcon}</span>
+                <h4 className="font-display text-base font-bold text-[#343033] dark:text-white flex items-center gap-2 mt-0.5">
+                  <span
+                    className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC]/80 dark:border-[#382329] shrink-0"
+                    aria-hidden="true"
+                  >
+                    <svg
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      className="w-3.5 h-3.5"
+                    >
+                      <path
+                        d="M10 2.5C10 6.64 6.64 10 2.5 10C6.64 10 10 13.36 10 17.5C10 13.36 13.36 10 17.5 10C13.36 10 10 6.64 10 2.5Z"
+                        opacity={coupleLevel.progressPercent > 0 ? 0.95 : 0.8}
+                      />
+                      <circle cx="10" cy="10" r="1.2" fill="#FFFFFF" opacity="0.9" />
+                    </svg>
+                  </span>
                   <span>{coupleLevel.levelTitle}</span>
                 </h4>
               </div>
@@ -358,8 +373,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           </div>
         </div>
 
-        {/* Footer Action */}
-        <div className="pt-2">
+        {/* Footer Action - Pinned at bottom */}
+        <div className="pt-3 border-t border-[#F0E6E8]/70 dark:border-[#242024] shrink-0">
           <PrimaryButton
             variant="coral"
             onClick={() => {

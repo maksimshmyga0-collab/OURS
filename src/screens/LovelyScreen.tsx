@@ -56,11 +56,11 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-sheet-backdrop"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#FFF9FA] dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.12)] min-h-[580px] max-h-[92vh] flex flex-col justify-between overflow-y-auto no-scrollbar animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 transition-colors"
+        className="w-full max-w-md bg-[#FFF9FA] dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.12)] min-h-[580px] max-h-[92vh] flex flex-col justify-between overflow-y-auto no-scrollbar animate-sheet-enter transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Bar with dismiss button */}
@@ -221,14 +221,14 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                       </span>
                     </div>
                     <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-                      Один раз и навсегда для обоих
+                      Подписка распространяется на пару — 2 устройства.
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <span className="font-display text-lg font-bold text-[#343033] dark:text-white">
-                    1990 ₽
+                    199 ₽
                   </span>
                   <span className="block text-[10px] font-medium text-[#777277] dark:text-[#B8B2B5]">
                     разово

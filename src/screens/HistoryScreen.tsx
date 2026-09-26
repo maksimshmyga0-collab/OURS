@@ -99,7 +99,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   // If a specific day is selected, show the Day Detail View
   if (selectedDay) {
     return (
-      <div className="space-y-6 pb-8 animate-in fade-in duration-200">
+      <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full animate-in fade-in duration-200">
         {/* Day Detail Header */}
         <div className="flex items-center gap-3">
           <button
@@ -247,7 +247,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
   // Main History List
   return (
-    <div className="space-y-6 pb-8">
+    <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
       {/* Header */}
       <div>
         <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white">

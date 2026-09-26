@@ -50,20 +50,33 @@ export default function App() {
         if (!isMounted) return;
 
         if (session.hasCompletedOnboarding && session.pair) {
-          setAppState((prev) => ({
-            ...prev,
-            hasCompletedOnboarding: true,
-            couple: session.pair!,
-            todayMoments:
-              session.moments && session.moments.length > 0
-                ? session.moments
-                : prev.todayMoments,
-            activeMomentId: session.moments?.[0]?.id || prev.activeMomentId,
-            history:
-              session.history && session.history.length > 0
-                ? session.history
-                : prev.history,
-          }));
+          setAppState((prev) => {
+            const isLovely = Boolean(
+              session.pair!.isLovely ||
+              session.pair!.subscription === 'premium' ||
+              prev.couple.isLovely ||
+              prev.couple.subscription === 'premium'
+            );
+            return {
+              ...prev,
+              hasCompletedOnboarding: true,
+              couple: {
+                ...session.pair!,
+                isLovely,
+                subscription: isLovely ? 'premium' : (session.pair!.subscription || 'free'),
+                lovelyPurchasedAt: session.pair!.lovelyPurchasedAt || prev.couple.lovelyPurchasedAt,
+              },
+              todayMoments:
+                session.moments && session.moments.length > 0
+                  ? session.moments
+                  : prev.todayMoments,
+              activeMomentId: session.moments?.[0]?.id || prev.activeMomentId,
+              history:
+                session.history && session.history.length > 0
+                  ? session.history
+                  : prev.history,
+            };
+          });
         } else {
           setAppState((prev) => ({
             ...prev,
@@ -164,10 +177,19 @@ export default function App() {
               moments[0]?.id ||
               prev.activeMomentId;
 
+            const isLovelyActive = Boolean(
+              res.pair!.isLovely ||
+              res.pair!.subscription === 'premium' ||
+              (prev.couple.isLovely && !res.pair!.isLovely && prev.couple.lovelyPurchasedAt ? true : res.pair!.isLovely)
+            );
+
             return {
               ...prev,
               couple: {
                 ...res.pair!,
+                isLovely: isLovelyActive,
+                subscription: isLovelyActive ? 'premium' : (res.pair!.subscription || 'free'),
+                lovelyPurchasedAt: res.pair!.lovelyPurchasedAt || (isLovelyActive ? prev.couple.lovelyPurchasedAt : undefined),
                 pairSeed: prev.couple.pairSeed || res.pair!.pairSeed,
               },
               todayMoments: moments,
@@ -466,19 +488,27 @@ export default function App() {
   // One-time purchase for the couple: LOVELY ♡
   const handlePurchaseLovely = async () => {
     const purchasedAt = new Date().toISOString();
-    setAppState((prev) => ({
-      ...prev,
-      couple: {
-        ...prev.couple,
-        isLovely: true,
-        lovelyPurchasedAt: purchasedAt,
-        subscription: 'premium',
-      },
-      history: prev.history.map((h) => ({ ...h, isLocked: false })),
-    }));
+    const pairId = appState.couple.id;
 
+    // 1. Immediate optimistic UI update & persistence
+    setAppState((prev) => {
+      const nextState: AppState = {
+        ...prev,
+        couple: {
+          ...prev.couple,
+          isLovely: true,
+          lovelyPurchasedAt: purchasedAt,
+          subscription: 'premium',
+        },
+        history: prev.history.map((h) => ({ ...h, isLocked: false })),
+      };
+      saveAppState(nextState);
+      return nextState;
+    });
+
+    // 2. Authoritative Supabase update & Realtime broadcast
     try {
-      await apiClient.purchaseLovely();
+      await apiClient.purchaseLovely(pairId);
     } catch (err) {
       console.error('[OURS] Failed to sync LOVELY purchase:', err);
     }
@@ -489,20 +519,26 @@ export default function App() {
 
   // Reset LOVELY status
   const handleResetLovely = async () => {
-    setAppState((prev) => ({
-      ...prev,
-      couple: {
-        ...prev.couple,
-        isLovely: false,
-        lovelyPurchasedAt: undefined,
-        subscription: 'free',
-        subscriptionTariff: undefined,
-      },
-      history: prev.history.map((h, i) => ({ ...h, isLocked: i > 2 })),
-    }));
+    const pairId = appState.couple.id;
+
+    setAppState((prev) => {
+      const nextState: AppState = {
+        ...prev,
+        couple: {
+          ...prev.couple,
+          isLovely: false,
+          lovelyPurchasedAt: undefined,
+          subscription: 'free',
+          subscriptionTariff: undefined,
+        },
+        history: prev.history.map((h, i) => ({ ...h, isLocked: i > 2 })),
+      };
+      saveAppState(nextState);
+      return nextState;
+    });
 
     try {
-      await apiClient.resetLovely();
+      await apiClient.resetLovely(pairId);
     } catch (err) {
       console.error('[OURS] Failed to reset LOVELY:', err);
     }
@@ -577,7 +613,7 @@ export default function App() {
             />
 
             {/* Scrollable Main Viewport with Horizontal Tab Swipe Navigation */}
-            <main className="flex-1 overflow-x-hidden">
+            <main className="flex-1 flex flex-col overflow-x-hidden min-h-0">
               <SwipeableTabViews
                 activeTab={activeTab}
                 onTabChange={(tab) => {

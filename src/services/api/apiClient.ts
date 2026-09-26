@@ -223,7 +223,7 @@ export class ApiClient {
 
     const pairRow = pairRes.data;
     const inviteCode = pairRow?.code || pairRow?.invite_code || 'OURS';
-    const isLovely = Boolean(pairRow?.is_lovely);
+    const isLovely = Boolean(pairRow?.is_lovely || pairRow?.subscription === 'premium');
     const subscription = (pairRow?.subscription || (isLovely ? 'premium' : 'free')) as 'free' | 'premium';
     const lovelyPurchasedAt = pairRow?.lovely_purchased_at || pairRow?.lovelyPurchasedAt || undefined;
     const createdAt = pairRow?.created_at || new Date().toISOString();
@@ -891,6 +891,13 @@ export class ApiClient {
             onUpdate();
           }
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'pairs' },
+          () => {
+            onUpdate();
+          }
+        )
         .subscribe();
 
       this.activeChannels.set(pairId, channel);
@@ -1107,17 +1114,32 @@ export class ApiClient {
   /**
    * One-time LOVELY purchase in public.pairs
    */
-  async purchaseLovely(): Promise<boolean> {
-    if (!this.currentPairId) return false;
+  async purchaseLovely(pairId?: string): Promise<boolean> {
+    const targetPairId = pairId || this.currentPairId;
+    if (!targetPairId) return false;
+    this.currentPairId = targetPairId;
     const purchasedAt = new Date().toISOString();
-    await supabase
-      .from('pairs')
-      .update({
-        is_lovely: true,
-        lovely_purchased_at: purchasedAt,
-        subscription: 'premium',
-      })
-      .eq('id', this.currentPairId);
+    
+    if (supabaseConfig.isConfigured) {
+      try {
+        const { error } = await supabase
+          .from('pairs')
+          .update({
+            is_lovely: true,
+            lovely_purchased_at: purchasedAt,
+            subscription: 'premium',
+          })
+          .eq('id', targetPairId);
+
+        if (error) {
+          console.warn('[OURS LOVELY] Supabase error updating pair:', error.message);
+        }
+      } catch (err) {
+        console.warn('[OURS LOVELY] Exception updating pair in Supabase:', err);
+      }
+    }
+
+    this.broadcastPairUpdate(targetPairId, { action: 'lovely_purchased', purchasedAt });
     return true;
   }
 
@@ -1189,16 +1211,27 @@ export class ApiClient {
   /**
    * Reset LOVELY status in public.pairs
    */
-  async resetLovely(): Promise<boolean> {
-    if (!this.currentPairId) return false;
-    await supabase
-      .from('pairs')
-      .update({
-        is_lovely: false,
-        lovely_purchased_at: null,
-        subscription: 'free',
-      })
-      .eq('id', this.currentPairId);
+  async resetLovely(pairId?: string): Promise<boolean> {
+    const targetPairId = pairId || this.currentPairId;
+    if (!targetPairId) return false;
+    this.currentPairId = targetPairId;
+
+    if (supabaseConfig.isConfigured) {
+      try {
+        await supabase
+          .from('pairs')
+          .update({
+            is_lovely: false,
+            lovely_purchased_at: null,
+            subscription: 'free',
+          })
+          .eq('id', targetPairId);
+      } catch (err) {
+        console.warn('[OURS LOVELY] Exception resetting LOVELY:', err);
+      }
+    }
+
+    this.broadcastPairUpdate(targetPairId, { action: 'lovely_reset' });
     return true;
   }
 }

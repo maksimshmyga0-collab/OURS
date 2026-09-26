@@ -42,14 +42,14 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
 
         {/* 2. Center Zone: Brand logo & wordmark lockup (Visually optical centered, shifted 10px left) */}
         <div className="flex items-center justify-center shrink-0 px-1 sm:px-2 select-none -translate-x-[10px]">
-          <OursLogo size={52} className="shrink-0 -mr-2.5" />
-          <div className="flex items-center gap-1.5 shrink-0">
+          <OursLogo size={isLovely ? 46 : 52} className="shrink-0 -mr-2.5" />
+          <div className="flex flex-col items-start justify-center shrink-0">
             <span className="font-display font-semibold tracking-wide text-base sm:text-lg text-[#343033] dark:text-white leading-none shrink-0">
               OURS
             </span>
             {isLovely && (
-              <span className="text-[9px] sm:text-[10px] font-bold tracking-wider sm:tracking-widest text-[#E98787] dark:text-[#F0B9C6] uppercase leading-none px-1.5 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#251720] border border-[#EED7DC]/70 dark:border-[#382329] shrink-0">
-                LOVELY
+              <span className="text-[8px] font-bold tracking-[0.14em] text-[#E98787] dark:text-[#F0B9C6] uppercase leading-none mt-1 shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#251720] border border-[#EED7DC]/80 dark:border-[#382329]">
+                <span className="text-[7px] leading-none">♡</span> LOVELY
               </span>
             )}
           </div>

@@ -55,6 +55,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
   const handleOpenLovely = onOpenLovely || onOpenPremium;
   const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
 
@@ -82,7 +83,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const coupleLevel = getCoupleLevel(streakInfo.totalMoments);
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
       {/* Profile Header Card */}
       <PastelCard color="white" className="flex flex-col items-center text-center p-6 space-y-4">
         {/* Paired avatars */}
@@ -118,9 +119,16 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
 
         <div>
-          <h2 className="font-display text-xl font-bold text-[#343033] dark:text-white">
-            {couple.user.name} + {couple.partner.name}
-          </h2>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            <h2 className="font-display text-xl font-bold text-[#343033] dark:text-white">
+              {couple.user.name} + {couple.partner.name}
+            </h2>
+            {isLovely && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider bg-[#FAF0F2] dark:bg-[#251720] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC] dark:border-[#382329] shadow-2xs">
+                <span className="text-[9px] leading-none">♡</span> LOVELY
+              </span>
+            )}
+          </div>
           <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
             Пара с {couple.startDate}
           </p>
@@ -256,7 +264,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <div
           onClick={handleOpenLovely}
           className={`rounded-[20px] p-4.5 shadow-2xs flex items-center justify-between gap-4 cursor-pointer transition-all duration-200 ease-out active:scale-[0.99] ${
-            couple.isLovely || couple.subscription === 'premium'
+            isLovely
               ? 'bg-[#FAF0F2] dark:bg-[#1A1416] border border-[#F2D1D8] dark:border-[#382229] hover:bg-[#F6E6EB] dark:hover:bg-[#22171A]'
               : 'bg-[#FFF3F5] dark:bg-[#171315] border border-[#F2D6DC] dark:border-[#332026] hover:bg-[#FCE8ED] dark:hover:bg-[#1F171A]'
           }`}
@@ -265,24 +273,28 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <div className="w-10 h-10 rounded-2xl bg-white dark:bg-[#25151B] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shrink-0 shadow-2xs">
               <Heart
                 size={18}
-                className={couple.isLovely || couple.subscription === 'premium' ? 'fill-[#E98787]' : ''}
+                className={isLovely ? 'fill-[#E98787]' : ''}
               />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xs font-bold text-[#343033] dark:text-white">
-                  {couple.isLovely || couple.subscription === 'premium'
-                    ? 'LOVELY'
-                    : 'Стать LOVELY'}
+                  {isLovely ? 'LOVELY' : 'Стать LOVELY'}
                 </h3>
-                {couple.isLovely || couple.subscription === 'premium' ? (
+                {isLovely ? (
                   <span className="text-[10px] font-semibold text-[#649A6E] px-2 py-0.5 rounded-full bg-white dark:bg-[#152419] border border-[#D3EED8] dark:border-[#22452B]">
                     Активно
                   </span>
-                ) : null}
+                ) : (
+                  <span className="text-[10px] font-semibold text-[#E98787] dark:text-[#F0B9C6] px-2 py-0.5 rounded-full bg-white dark:bg-[#25151B] border border-[#F2D1D8] dark:border-[#42222B]">
+                    199 ₽
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-                Одна покупка — для вас двоих
+                {isLovely
+                  ? 'Подписка активна для пары (2 устройства)'
+                  : 'Одна покупка — для вас двоих (2 устройства)'}
               </p>
             </div>
           </div>

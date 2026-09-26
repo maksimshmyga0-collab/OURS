@@ -71,20 +71,20 @@ export class AppPairService implements IPairService {
   }
 
   async purchaseLovely(pairId: string): Promise<Pair | null> {
-    await apiClient.purchaseLovely();
+    await apiClient.purchaseLovely(pairId);
     return this.getCurrentPair(pairId);
   }
 
   async resetLovely(pairId: string): Promise<Pair | null> {
-    await apiClient.resetLovely();
+    await apiClient.resetLovely(pairId);
     return this.getCurrentPair(pairId);
   }
 
   async updateSubscription(pairId: string, tier: 'free' | 'premium'): Promise<Pair | null> {
     if (tier === 'premium') {
-      await apiClient.purchaseLovely();
+      await apiClient.purchaseLovely(pairId);
     } else {
-      await apiClient.resetLovely();
+      await apiClient.resetLovely(pairId);
     }
     return this.getCurrentPair(pairId);
   }

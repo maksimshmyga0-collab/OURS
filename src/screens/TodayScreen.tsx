@@ -48,8 +48,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
   const [momentTransition, setMomentTransition] = useState<'idle' | 'exiting' | 'entering'>('idle');
   const [isReminderSent, setIsReminderSent] = useState(false);
-  // Temporary state for testing MatchAnimation without modifying database or moments
-  const [isTestMatchRunning, setIsTestMatchRunning] = useState(false);
 
   // Live timer for live countdown calculation with server time synchronization
   const [now, setNow] = useState<number>(() => getSynchronizedNow());
@@ -310,26 +308,13 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
       {/* Day Status Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white">
-              Сегодня
-            </h1>
-            {/* Temporary dev trigger to test MatchAnimation visually without modifying database/moments */}
-            <button
-              type="button"
-              onClick={() => {
-                setIsTestMatchRunning(true);
-              }}
-              className="text-[10px] font-semibold tracking-wide uppercase px-2.5 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#1E1417] text-[#E98787] dark:text-[#F0B9C6] border border-[#F0B9C6]/60 dark:border-[#F0B9C6]/40 hover:bg-[#FCE7EC] dark:hover:bg-[#2A1B20] active:scale-95 transition-all cursor-pointer select-none"
-              title="Тестирование Match-анимации"
-            >
-              Test Match
-            </button>
-          </div>
+          <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white">
+            Сегодня
+          </h1>
           <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
             {availability.completedCount} из 3 касаний
           </p>
@@ -665,13 +650,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         <MatchAnimation
           onConnection={handleMatchConnection}
           onComplete={handleMatchComplete}
-        />
-      )}
-
-      {/* Temporary Isolated Test Match Trigger (Visual Testing Only) */}
-      {isTestMatchRunning && (
-        <MatchAnimation
-          onComplete={() => setIsTestMatchRunning(false)}
         />
       )}
 

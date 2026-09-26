@@ -90,7 +90,8 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     return Boolean(
       document.querySelector('[role="dialog"]') ||
       document.querySelector('[aria-modal="true"]') ||
-      document.querySelector('.fixed.inset-0')
+      document.querySelector('.fixed.z-\\[9999\\]') ||
+      document.querySelector('.fixed.z-50')
     );
   }, [disabled]);
 
@@ -381,25 +382,25 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     <div
       ref={containerRef}
       onMouseDown={handleMouseDown}
-      className="w-full overflow-hidden relative select-none"
+      className="w-full flex-1 flex flex-col overflow-hidden relative select-none min-h-full"
       style={{ touchAction: 'pan-y' }}
     >
       <div
-        className="flex w-full"
+        className="flex w-full flex-1 min-h-full"
         style={{
           transform: `translate3d(calc(-${currentIndex * 100}% + ${dragOffset}px), 0, 0)`,
           transition: isDragging
             ? 'none'
             : 'transform 350ms cubic-bezier(0.25, 1, 0.4, 1)',
-          alignItems: 'flex-start',
+          alignItems: 'stretch',
         }}
       >
         {/* Slide 0: Today */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(0)
               ? 'h-0 overflow-hidden invisible pointer-events-none'
-              : 'h-auto opacity-100 visible'
+              : 'min-h-full opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 0}
         >
@@ -408,10 +409,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 1: History */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(1)
               ? 'h-0 overflow-hidden invisible pointer-events-none'
-              : 'h-auto opacity-100 visible'
+              : 'min-h-full opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 1}
         >
@@ -420,10 +421,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 2: Profile */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(2)
               ? 'h-0 overflow-hidden invisible pointer-events-none'
-              : 'h-auto opacity-100 visible'
+              : 'min-h-full opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 2}
         >
