@@ -18,6 +18,7 @@ import { OnboardingFlow } from './components/OnboardingFlow';
 import { TodayScreen } from './screens/TodayScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { SwipeableTabViews } from './components/SwipeableTabViews';
 import { playSoftChime, triggerHaptic } from './services/feedback';
 import { calculateCoupleStreak } from './services/streak/streakService';
 import {
@@ -575,51 +576,61 @@ export default function App() {
               onOpenStreak={() => setIsStreakModalOpen(true)}
             />
 
-            {/* Scrollable Main Viewport */}
-            <main className="flex-1 px-4 pt-4 pb-2">
-              <div key={activeTab} className="animate-in fade-in duration-250 ease-out">
-                {activeTab === 'today' && (
-                  <TodayScreen
-                    couple={appState.couple}
-                    moments={appState.todayMoments}
-                    activeMomentId={appState.activeMomentId}
-                    onSelectActiveMoment={handleSelectActiveMoment}
-                    onUpdateMoment={handleUpdateMoment}
-                    soundEnabled={appState.settings.sounds}
-                    hapticEnabled={appState.settings.haptic}
-                    streakInfo={streakInfo}
-                    onOpenStreak={() => setIsStreakModalOpen(true)}
-                  />
-                )}
-
-                {activeTab === 'history' && (
-                  <HistoryScreen
-                    history={appState.history}
-                    todayMoments={appState.todayMoments}
-                    couple={appState.couple}
-                    onOpenLovely={() => setIsLovelyModalOpen(true)}
-                    onOpenPremium={() => setIsLovelyModalOpen(true)}
-                    onNavigateToToday={() => setActiveTab('today')}
-                  />
-                )}
-
-                {activeTab === 'profile' && (
-                  <ProfileScreen
-                    couple={appState.couple}
-                    settings={appState.settings}
-                    onUpdateSettings={handleUpdateSettings}
-                    onOpenLovely={() => setIsLovelyModalOpen(true)}
-                    onOpenPremium={() => setIsLovelyModalOpen(true)}
-                    streakInfo={streakInfo}
-                    onOpenEditProfile={() => setIsEditProfileOpen(true)}
-                    onOpenSky={() => setIsStreakModalOpen(true)}
-                    onOpenFingerprint={() => setIsStreakModalOpen(true)}
-                    onOpenThread={() => setIsStreakModalOpen(true)}
-                    onLeavePair={handleLeavePair}
-                    onSignOut={handleSignOut}
-                  />
-                )}
-              </div>
+            {/* Scrollable Main Viewport with Horizontal Tab Swipe Navigation */}
+            <main className="flex-1 overflow-x-hidden">
+              <SwipeableTabViews
+                activeTab={activeTab}
+                onTabChange={(tab) => {
+                  setActiveTab(tab);
+                  playSoftChime('tap', appState.settings.sounds);
+                  triggerHaptic(appState.settings.haptic);
+                }}
+                soundEnabled={appState.settings.sounds}
+                hapticEnabled={appState.settings.haptic}
+                disabled={isLovelyModalOpen || isStreakModalOpen || isEditProfileOpen}
+              >
+                {{
+                  today: (
+                    <TodayScreen
+                      couple={appState.couple}
+                      moments={appState.todayMoments}
+                      activeMomentId={appState.activeMomentId}
+                      onSelectActiveMoment={handleSelectActiveMoment}
+                      onUpdateMoment={handleUpdateMoment}
+                      soundEnabled={appState.settings.sounds}
+                      hapticEnabled={appState.settings.haptic}
+                      streakInfo={streakInfo}
+                      onOpenStreak={() => setIsStreakModalOpen(true)}
+                    />
+                  ),
+                  history: (
+                    <HistoryScreen
+                      history={appState.history}
+                      todayMoments={appState.todayMoments}
+                      couple={appState.couple}
+                      onOpenLovely={() => setIsLovelyModalOpen(true)}
+                      onOpenPremium={() => setIsLovelyModalOpen(true)}
+                      onNavigateToToday={() => setActiveTab('today')}
+                    />
+                  ),
+                  profile: (
+                    <ProfileScreen
+                      couple={appState.couple}
+                      settings={appState.settings}
+                      onUpdateSettings={handleUpdateSettings}
+                      onOpenLovely={() => setIsLovelyModalOpen(true)}
+                      onOpenPremium={() => setIsLovelyModalOpen(true)}
+                      streakInfo={streakInfo}
+                      onOpenEditProfile={() => setIsEditProfileOpen(true)}
+                      onOpenSky={() => setIsStreakModalOpen(true)}
+                      onOpenFingerprint={() => setIsStreakModalOpen(true)}
+                      onOpenThread={() => setIsStreakModalOpen(true)}
+                      onLeavePair={handleLeavePair}
+                      onSignOut={handleSignOut}
+                    />
+                  ),
+                }}
+              </SwipeableTabViews>
             </main>
 
             {/* Fixed Bottom Tab Bar */}

@@ -3,6 +3,7 @@ import { HistoryDay, Moment, CoupleState } from '../types';
 import { PastelCard } from '../components/PastelCard';
 import { Lock, ArrowLeft, Sparkles } from 'lucide-react';
 import { ReactionIcon } from '../components/ReactionIcon';
+import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 
 interface HistoryScreenProps {
   history: HistoryDay[];
@@ -51,6 +52,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 }) => {
   const handleOpenLovely = onOpenLovely || onOpenPremium || (() => {});
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
 
   // Filter out any legacy test/mock IDs if any
   const cleanHistory = (history || []).filter(
@@ -145,12 +147,26 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   {/* User Photo */}
                   <div className="flex flex-col items-center">
-                    <div className="relative w-full aspect-square rounded-[20px] overflow-hidden bg-white/70 dark:bg-[#181215] border border-[#F0E6E8] dark:border-[#242024] soft-card-shadow">
+                    <div
+                      onClick={() => userPhoto && setFullscreenPhoto({ url: userPhoto, title: couple.user.name })}
+                      className={`relative w-full aspect-square rounded-[20px] overflow-hidden bg-white/70 dark:bg-[#181215] border border-[#F0E6E8] dark:border-[#242024] soft-card-shadow group ${
+                        userPhoto ? 'cursor-pointer hover:border-[#F0B9C6]/60 dark:hover:border-[#42262E]' : ''
+                      }`}
+                      role={userPhoto ? 'button' : undefined}
+                      tabIndex={userPhoto ? 0 : -1}
+                      onKeyDown={(e) => {
+                        if (userPhoto && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          setFullscreenPhoto({ url: userPhoto, title: couple.user.name });
+                        }
+                      }}
+                      aria-label={userPhoto ? `Открыть фото ${couple.user.name} на весь экран` : undefined}
+                    >
                       {userPhoto ? (
                         <img
                           src={userPhoto}
                           alt={couple.user.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-102"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs text-[#777277] dark:text-[#B8B2B5]">
@@ -158,7 +174,10 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                         </div>
                       )}
                       {m.partnerReaction && (
-                        <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white dark:bg-[#1E1C1E] shadow-xs border border-[#F0E6E8] dark:border-[#242024] flex items-center justify-center">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white dark:bg-[#1E1C1E] shadow-xs border border-[#F0E6E8] dark:border-[#242024] flex items-center justify-center"
+                        >
                           <ReactionIcon reaction={m.partnerReaction} size={18} />
                         </div>
                       )}
@@ -170,12 +189,26 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
                   {/* Partner Photo */}
                   <div className="flex flex-col items-center">
-                    <div className="relative w-full aspect-square rounded-[20px] overflow-hidden bg-white/70 dark:bg-[#181215] border border-[#F0E6E8] dark:border-[#242024] soft-card-shadow">
+                    <div
+                      onClick={() => partnerPhoto && setFullscreenPhoto({ url: partnerPhoto, title: couple.partner.name })}
+                      className={`relative w-full aspect-square rounded-[20px] overflow-hidden bg-white/70 dark:bg-[#181215] border border-[#F0E6E8] dark:border-[#242024] soft-card-shadow group ${
+                        partnerPhoto ? 'cursor-pointer hover:border-[#F0B9C6]/60 dark:hover:border-[#42262E]' : ''
+                      }`}
+                      role={partnerPhoto ? 'button' : undefined}
+                      tabIndex={partnerPhoto ? 0 : -1}
+                      onKeyDown={(e) => {
+                        if (partnerPhoto && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          setFullscreenPhoto({ url: partnerPhoto, title: couple.partner.name });
+                        }
+                      }}
+                      aria-label={partnerPhoto ? `Открыть фото ${couple.partner.name} на весь экран` : undefined}
+                    >
                       {partnerPhoto ? (
                         <img
                           src={partnerPhoto}
                           alt={couple.partner.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-102"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs text-[#777277] dark:text-[#B8B2B5]">
@@ -183,7 +216,10 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                         </div>
                       )}
                       {m.userReaction && (
-                        <div className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white dark:bg-[#1E1C1E] shadow-xs border border-[#F0E6E8] dark:border-[#242024] flex items-center justify-center">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-white dark:bg-[#1E1C1E] shadow-xs border border-[#F0E6E8] dark:border-[#242024] flex items-center justify-center"
+                        >
                           <ReactionIcon reaction={m.userReaction} size={18} />
                         </div>
                       )}
@@ -197,6 +233,14 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             );
           })}
         </div>
+
+        {/* Fullscreen Photo Viewer */}
+        <FullscreenPhotoViewer
+          isOpen={Boolean(fullscreenPhoto)}
+          onClose={() => setFullscreenPhoto(null)}
+          photoUrl={fullscreenPhoto?.url || null}
+          title={fullscreenPhoto?.title}
+        />
       </div>
     );
   }

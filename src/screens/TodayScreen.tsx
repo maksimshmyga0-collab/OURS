@@ -7,8 +7,9 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { ProgressDots } from '../components/ProgressDots';
 import { MatchAnimation } from '../components/MatchAnimation';
 import { PhotoPickerModal } from '../components/PhotoPickerModal';
+import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
-import { Check, Sparkles, Clock, Heart } from 'lucide-react';
+import { Check, Sparkles, Clock, Heart, Bell } from 'lucide-react';
 import { CoupleStreakInfo, MomentPhoto } from '../types';
 import {
   calculateMomentAvailability,
@@ -43,6 +44,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 }) => {
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
+  const [matchRevealedEarly, setMatchRevealedEarly] = useState(false);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
+  const [momentTransition, setMomentTransition] = useState<'idle' | 'exiting' | 'entering'>('idle');
+  const [isReminderSent, setIsReminderSent] = useState(false);
 
   // Live timer for live countdown calculation with server time synchronization
   const [now, setNow] = useState<number>(() => getSynchronizedNow());
@@ -185,38 +190,55 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     setIsMatching(true);
   };
 
-  // When match animation completes -> REVEALED (guaranteed safe transition)
+  // Phase 4 trigger: when connecting elements meet in the center (720ms), initiate smooth reveal
+  const handleMatchConnection = useCallback(() => {
+    setMatchRevealedEarly(true);
+  }, []);
+
+  // When match animation completes (1100ms) -> commit REVEALED status safely
   const handleMatchComplete = useCallback(() => {
     setIsMatching(false);
+    setMatchRevealedEarly(false);
     onUpdateMoment({
       ...activeMomentRef.current,
       status: 'REVEALED',
     });
   }, [onUpdateMoment]);
 
+  // Unified moment reveal state (starts at Phase 4/5 of Match animation or if already revealed/reacted/completed)
+  const isMomentRevealed =
+    matchRevealedEarly ||
+    activeMoment.status === 'REVEALED' ||
+    activeMoment.status === 'REACTED' ||
+    activeMoment.status === 'COMPLETED';
 
-  // Handle reaction on partner photo
+
+  // Friendly partner reminder with micro-interaction feedback
+  const handleSendReminder = () => {
+    triggerHaptic(hapticEnabled);
+    playSoftChime('tap', soundEnabled);
+    setIsReminderSent(true);
+    setTimeout(() => {
+      setIsReminderSent(false);
+    }, 3000);
+  };
+
+  // Handle reaction on partner photo with the requested 4-step motion choreography:
+  // Step 1: Button press animation (ReactionPicker)
+  // Step 2: Selected reaction becomes active (~260ms)
+  // Step 3: Current match-moment softly exits (320ms: opacity 1 -> 0, scale 1 -> 0.98, translateY 0 -> -5px)
+  // Step 4: Next moment softly enters (380ms: opacity 0 -> 1, scale 0.98 -> 1, translateY 6px -> 0)
   const handleSelectReaction = (emoji: ReactionEmoji) => {
     triggerHaptic(hapticEnabled);
     playSoftChime('react', soundEnabled);
 
-    onUpdateMoment({
+    // Step 2: Mark reaction immediately so button highlights
+    const matchTs = activeMoment.completedTimestamp || getSynchronizedNow();
+    const updated: Moment = {
       ...activeMoment,
       userReaction: emoji,
       partnerReaction: activeMoment.partnerReaction || '❤️',
       status: 'REACTED',
-    });
-  };
-
-  // Complete moment & advance timestamp preserving shared server match timestamp
-  const handleSaveAndComplete = () => {
-    triggerHaptic(hapticEnabled);
-    playSoftChime('success', soundEnabled);
-
-    const matchTs = activeMoment.completedTimestamp || getSynchronizedNow();
-    const updated: Moment = {
-      ...activeMoment,
-      status: 'COMPLETED',
       completedTimestamp: matchTs,
       completedAt: new Date(matchTs).toLocaleTimeString('ru-RU', {
         hour: '2-digit',
@@ -225,11 +247,60 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     };
     onUpdateMoment(updated);
 
-    // If there is a next moment within the 3 allowed moments, select it
-    const nextMoment = moments.find((m) => m.order === activeMoment.order + 1);
-    if (nextMoment) {
-      onSelectActiveMoment(nextMoment.id);
-    }
+    // After 280ms of reaction confirmation, smoothly transition moment out
+    setTimeout(() => {
+      setMomentTransition('exiting');
+
+      setTimeout(() => {
+        // Step 3 -> 4: Complete the moment and smoothly reveal the next moment
+        onUpdateMoment({
+          ...updated,
+          status: 'COMPLETED',
+        });
+
+        const nextMoment = moments.find((m) => m.order === activeMoment.order + 1);
+        if (nextMoment) {
+          onSelectActiveMoment(nextMoment.id);
+        }
+
+        setMomentTransition('entering');
+        setTimeout(() => {
+          setMomentTransition('idle');
+        }, 380);
+      }, 320);
+    }, 280);
+  };
+
+  // Complete moment & advance timestamp preserving shared server match timestamp
+  const handleSaveAndComplete = () => {
+    triggerHaptic(hapticEnabled);
+    playSoftChime('success', soundEnabled);
+
+    setMomentTransition('exiting');
+    setTimeout(() => {
+      const matchTs = activeMoment.completedTimestamp || getSynchronizedNow();
+      const updated: Moment = {
+        ...activeMoment,
+        status: 'COMPLETED',
+        completedTimestamp: matchTs,
+        completedAt: new Date(matchTs).toLocaleTimeString('ru-RU', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      };
+      onUpdateMoment(updated);
+
+      // If there is a next moment within the 3 allowed moments, select it
+      const nextMoment = moments.find((m) => m.order === activeMoment.order + 1);
+      if (nextMoment) {
+        onSelectActiveMoment(nextMoment.id);
+      }
+
+      setMomentTransition('entering');
+      setTimeout(() => {
+        setMomentTransition('idle');
+      }, 380);
+    }, 320);
   };
 
   const getThemeCardColor = (_moment: Moment): PastelCardColor => {
@@ -255,11 +326,21 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         />
       </div>
 
-      {/* Main Single Active Daily Moment Card */}
-      <PastelCard
-        color={getThemeCardColor(activeMoment)}
-        className="relative overflow-hidden transition-all duration-300 ease-out"
+      {/* Main Single Active Daily Moment Card with soft exit and enter transitions */}
+      <div
+        className={
+          momentTransition === 'exiting'
+            ? 'animate-moment-exit'
+            : momentTransition === 'entering'
+            ? 'animate-moment-enter'
+            : ''
+        }
       >
+        <PastelCard
+          key={activeMoment.id}
+          color={getThemeCardColor(activeMoment)}
+          className="relative overflow-hidden transition-all duration-300 ease-out animate-card-enter"
+        >
         {/* Card Header info */}
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase transition-colors duration-200">
@@ -336,34 +417,15 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         {/* Photo Slots Section - Moment Duo (Max 2 photos per moment) */}
         <div
           className={`relative grid grid-cols-2 items-start gap-3 sm:gap-4 mb-5 transition-transform duration-300 ease-out ${
-            isMatching ? 'animate-match-impulse' : ''
+            isMatching ? 'animate-match-photos' : ''
           }`}
         >
-          {/* Subtle soft ambient glow & connection bridge during MATCH */}
+          {/* Cohesive 5-phase Match Animation directly overlaying photo cards */}
           {isMatching && (
-            <>
-              {/* Soft ambient aura around both photos */}
-              <div
-                className="absolute -inset-2.5 sm:-inset-3.5 rounded-[30px] pointer-events-none z-10 animate-match-ambient-glow"
-                aria-hidden="true"
-              />
-
-              {/* Delicate connection light impulse bridging the two photos */}
-              <div
-                className="absolute inset-y-4 left-1/2 -translate-x-1/2 w-8 pointer-events-none z-20 flex items-center justify-center overflow-visible"
-                aria-hidden="true"
-              >
-                <div className="w-1 h-20 rounded-full bg-gradient-to-b from-transparent via-[#F0B9C6]/90 to-transparent animate-match-bridge shadow-[0_0_12px_rgba(240,185,198,0.7)]" />
-              </div>
-
-              {/* Delicate final highlight sheen over revealed cards */}
-              <div
-                className="absolute inset-0 rounded-[22px] overflow-hidden pointer-events-none z-20"
-                aria-hidden="true"
-              >
-                <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent animate-match-sheen" />
-              </div>
-            </>
+            <MatchAnimation
+              onConnection={handleMatchConnection}
+              onComplete={handleMatchComplete}
+            />
           )}
 
           {isCurrentMomentWaiting ? (
@@ -388,28 +450,20 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                 type="user"
                 title={couple.user.name}
                 photoUrl={activeMoment.userPhoto}
-                isRevealed={
-                  !isMatching &&
-                  (activeMoment.status === 'REVEALED' ||
-                    activeMoment.status === 'REACTED' ||
-                    activeMoment.status === 'COMPLETED')
-                }
+                isRevealed={isMomentRevealed}
                 onPhotoSelected={handlePhotoSelected}
+                onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || 'Твоё фото' })}
                 reaction={activeMoment.partnerReaction}
               />
 
-              {/* Partner Photo Slot - STRICTLY NON-INTERACTIVE */}
+              {/* Partner Photo Slot - STRICTLY NON-INTERACTIVE WHEN HIDDEN */}
               <PhotoSlot
                 type="partner"
                 title={couple.partner.name}
                 photoUrl={activeMoment.partnerPhoto}
-                isRevealed={
-                  !isMatching &&
-                  (activeMoment.status === 'REVEALED' ||
-                    activeMoment.status === 'REACTED' ||
-                    activeMoment.status === 'COMPLETED')
-                }
+                isRevealed={isMomentRevealed}
                 isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
+                onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || couple.partner.name })}
                 reaction={activeMoment.userReaction}
               />
             </>
@@ -458,16 +512,35 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
           {/* State 2: USER_UPLOADED (waiting for partner, not matching) */}
           {activeMoment.status === 'USER_UPLOADED' && !isMatching && (
-            <div className="rounded-[20px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] p-4 text-center space-y-1.5 shadow-2xs animate-in fade-in slide-in-from-bottom-2 duration-250 ease-out">
-              <div className="w-9 h-9 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
-                <Clock size={16} />
+            <div className="rounded-[20px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] p-4 text-center space-y-3 shadow-2xs animate-card-enter">
+              <div className="space-y-1.5">
+                <div className="w-9 h-9 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
+                  <Clock size={16} />
+                </div>
+                <p className="text-xs font-semibold text-[#343033] dark:text-white">
+                  Фото отправлено ✨
+                </p>
+                <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5]">
+                  Ждём {couple.partner.name} · когда оба снимка будут готовы, момент откроется
+                </p>
               </div>
-              <p className="text-xs font-semibold text-[#343033] dark:text-white">
-                Фото отправлено ✨
-              </p>
-              <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5]">
-                Ждём {couple.partner.name} · когда оба снимка будут готовы, момент откроется
-              </p>
+
+              {/* Friendly Reminder Button with 180ms micro-scale and confirmation */}
+              <div className="pt-0.5">
+                <button
+                  type="button"
+                  onClick={handleSendReminder}
+                  disabled={isReminderSent}
+                  className={`min-h-[40px] px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-180 ease-out cursor-pointer flex items-center justify-center gap-1.5 mx-auto select-none active:scale-[0.97] ${
+                    isReminderSent
+                      ? 'bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC] dark:border-[#382329]'
+                      : 'bg-[#FAF5F7] dark:bg-[#1C1A1C] hover:bg-[#F5EFF1] dark:hover:bg-[#242124] text-[#343033] dark:text-white border border-[#EBE3E5] dark:border-[#282428] shadow-2xs'
+                  }`}
+                >
+                  <Bell size={13} className={isReminderSent ? 'text-[#E98787] dark:text-[#F0B9C6]' : 'text-[#777277] dark:text-[#B8B2B5]'} />
+                  <span>{isReminderSent ? 'Напоминание отправлено ✨' : `Напомнить ${couple.partner.name}`}</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -552,6 +625,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           )}
         </div>
       </PastelCard>
+      </div>
 
       {/* Тонкая широкая кнопка «Наше небо» под блоком касания */}
       {onOpenStreak && (
@@ -582,8 +656,13 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         subtitle="Снимок для вашего общего момента"
       />
 
-      {/* MATCH Animation Overlay */}
-      {isMatching && <MatchAnimation onComplete={handleMatchComplete} />}
+      {/* Fullscreen Photo Viewer */}
+      <FullscreenPhotoViewer
+        isOpen={Boolean(fullscreenPhoto)}
+        onClose={() => setFullscreenPhoto(null)}
+        photoUrl={fullscreenPhoto?.url || null}
+        title={fullscreenPhoto?.title}
+      />
     </div>
   );
 };

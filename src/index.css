@@ -126,6 +126,7 @@ html {
   background-color: var(--ours-bg);
   color: var(--ours-text-primary);
   -webkit-tap-highlight-color: transparent;
+  scrollbar-gutter: stable;
 }
 
 html.dark,
@@ -592,93 +593,288 @@ html.dark .soft-card-shadow {
 }
 
 /* ==========================================================================
-   Smooth & Emotional MATCH Animation (700-1000ms / 850ms)
+   OURS Match Animation (1100ms - 5 Phase Organic Connection)
    ========================================================================== */
-@keyframes match-soft-impulse {
+
+/* Photos gentle breath scale across the 5 phases: Phase 1 (1 -> 1.018), steady, Phase 5 (1 -> 1.025 -> 1) */
+@keyframes match-photos-scale {
   0% {
     transform: scale(1);
   }
-  38% {
-    transform: scale(1.04);
-  }
-  68% {
+  18% {
     transform: scale(1.018);
   }
+  64% {
+    transform: scale(1.008);
+  }
+  76% {
+    transform: scale(1.025);
+  }
   100% {
     transform: scale(1);
   }
 }
 
-@keyframes match-ambient-glow {
+/* Phase 2 & 3: Left element appears softly near left photo card, glides with an arc to center */
+@keyframes match-dot-left {
   0% {
     opacity: 0;
-    box-shadow: 0 0 0 0 rgba(240, 185, 198, 0);
+    transform: translate(-50%, -50%) scale(0.4);
+    left: 27%;
   }
-  42% {
+  18% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+    left: 27%;
+  }
+  26% {
     opacity: 1;
-    box-shadow: 0 0 32px 8px rgba(240, 185, 198, 0.35), 0 0 52px 14px rgba(151, 178, 235, 0.26);
+    transform: translate(-50%, -50%) scale(1);
+    left: 27%;
   }
-  75% {
-    opacity: 0.6;
-    box-shadow: 0 0 20px 4px rgba(240, 185, 198, 0.2), 0 0 32px 6px rgba(151, 178, 235, 0.15);
+  38% {
+    opacity: 1;
+    transform: translate(-50%, calc(-50% - 3.5px)) scale(1.05);
+    left: 33%;
   }
-  100% {
-    opacity: 0;
-    box-shadow: 0 0 0 0 rgba(240, 185, 198, 0);
-  }
-}
-
-@keyframes match-connection-bridge {
-  0% {
-    opacity: 0;
-    transform: scaleY(0.2) scaleX(0.4);
-    filter: blur(4px);
-  }
-  36% {
-    opacity: 0.9;
-    transform: scaleY(1) scaleX(1);
-    filter: blur(2px);
-  }
-  68% {
-    opacity: 0.65;
-    transform: scaleY(0.9) scaleX(1.3);
-    filter: blur(3px);
-  }
-  100% {
-    opacity: 0;
-    transform: scaleY(0.3) scaleX(1.8);
-    filter: blur(6px);
-  }
-}
-
-@keyframes match-final-sheen {
-  0%, 55% {
-    opacity: 0;
-    transform: translateX(-120%) skewX(-20deg);
+  65% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    left: 50%;
   }
   72% {
-    opacity: 0.35;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.2);
+    left: 50%;
   }
   100% {
     opacity: 0;
-    transform: translateX(180%) skewX(-20deg);
+    transform: translate(-50%, -50%) scale(0);
+    left: 50%;
   }
 }
 
-.animate-match-impulse {
-  animation: match-soft-impulse 850ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* Phase 2 & 3: Right element appears softly near right photo card, glides with an arc to center */
+@keyframes match-dot-right {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+    left: 73%;
+  }
+  18% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+    left: 73%;
+  }
+  26% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    left: 73%;
+  }
+  38% {
+    opacity: 1;
+    transform: translate(-50%, calc(-50% + 3.5px)) scale(1.05);
+    left: 67%;
+  }
+  65% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    left: 50%;
+  }
+  72% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.2);
+    left: 50%;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
+    left: 50%;
+  }
 }
 
-.animate-match-ambient-glow {
-  animation: match-ambient-glow 850ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* Phase 4: Gentle connection ring pulse blooming at center seam */
+@keyframes match-connection-pulse {
+  0%, 64% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  67% {
+    opacity: 0.95;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  80% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.5);
+  }
 }
 
-.animate-match-bridge {
-  animation: match-connection-bridge 850ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+/* Phase 4: Central connection glow node */
+@keyframes match-connection-glow {
+  0%, 64% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  67% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.25);
+  }
+  75% {
+    opacity: 0.45;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  84%, 100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
 }
 
-.animate-match-sheen {
-  animation: match-final-sheen 850ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+/* Phase 5: Delicate edge highlight sheen framing the revealed photo cards */
+@keyframes match-card-highlight {
+  0%, 66% {
+    opacity: 0;
+    transform: scale(0.995);
+  }
+  76% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  94% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+.animate-match-photos {
+  animation: match-photos-scale 1100ms cubic-bezier(0.25, 1, 0.4, 1) forwards;
+}
+
+.animate-match-dot-left {
+  animation: match-dot-left 1100ms cubic-bezier(0.28, 0.95, 0.38, 1) forwards;
+}
+
+.animate-match-dot-right {
+  animation: match-dot-right 1100ms cubic-bezier(0.28, 0.95, 0.38, 1) forwards;
+}
+
+.animate-match-connection-pulse {
+  animation: match-connection-pulse 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-match-connection-glow {
+  animation: match-connection-glow 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-match-card-highlight {
+  animation: match-card-highlight 1100ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* ==========================================================================
+   OURS Motion System Tokens (Micro: 150-220ms, Small: 250-350ms, Content: 350-500ms)
+   ========================================================================== */
+
+/* Screen navigation transition: subtle fade + 4px translateY */
+@keyframes screen-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-screen-enter {
+  animation: screen-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Card / Prompt entry: opacity 0 -> 1, translateY 5px -> 0, scale 0.99 -> 1 */
+@keyframes card-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(5px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-card-enter {
+  animation: card-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Moment transition: exit and enter */
+@keyframes moment-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+}
+
+@keyframes moment-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-moment-exit {
+  animation: moment-exit 320ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.animate-moment-enter {
+  animation: moment-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Photo arrival & upload enter: opacity 0 -> 1, scale 0.98 -> 1 */
+@keyframes photo-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-photo-enter {
+  animation: photo-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Reaction selection highlight */
+@keyframes reaction-pop {
+  0% {
+    transform: scale(0.94);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1.04);
+  }
+}
+
+.animate-reaction-select {
+  animation: reaction-pop 260ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 /* Accessibility: respect user preferences for reduced motion */
