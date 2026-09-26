@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CoupleState, CoupleStreakInfo, AppSettings } from '../types';
 import { PastelCard } from '../components/PastelCard';
 import { Avatar } from '../components/Avatar';
@@ -464,118 +465,128 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
       </div>
 
       {/* Confirmation Modal: Покинуть пару */}
-      {isLeaveModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
-          onClick={() => !isProcessing && setIsLeaveModalOpen(false)}
-        >
+      {isLeaveModalOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="w-full max-w-md bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.14)] animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 ease-out transition-colors space-y-5"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
+            onClick={() => !isProcessing && setIsLeaveModalOpen(false)}
+            role="dialog"
+            aria-modal="true"
           >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-[#FAF0F2] dark:bg-[#26151A] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shrink-0">
-                <UserMinus size={22} />
+            <div
+              className="w-full max-w-md bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.14)] animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 ease-out transition-colors space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-[#FAF0F2] dark:bg-[#26151A] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shrink-0">
+                  <UserMinus size={22} />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
+                    Покинуть пару?
+                  </h3>
+                  <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
+                    После этого ты перестанешь быть участником этой пары.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
-                  Покинуть пару?
-                </h3>
-                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
-                  После этого ты перестанешь быть участником этой пары.
-                </p>
-              </div>
-            </div>
 
-            <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={async () => {
-                  if (isProcessing) return;
-                  setIsProcessing(true);
-                  try {
-                    if (onLeavePair) {
-                      await onLeavePair();
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={async () => {
+                    if (isProcessing) return;
+                    setIsProcessing(true);
+                    try {
+                      if (onLeavePair) {
+                        await onLeavePair();
+                      }
+                    } finally {
+                      setIsProcessing(false);
+                      setIsLeaveModalOpen(false);
                     }
-                  } finally {
-                    setIsProcessing(false);
-                    setIsLeaveModalOpen(false);
-                  }
-                }}
-                className="w-full py-3.5 px-4 rounded-[20px] font-semibold text-sm text-white bg-[#E98787] hover:bg-[#E2768E] active:scale-[0.99] transition-all flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-50"
-              >
-                {isProcessing ? 'Выходим из пары...' : 'Покинуть пару'}
-              </button>
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => setIsLeaveModalOpen(false)}
-                className="w-full py-3 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer"
-              >
-                Отмена
-              </button>
+                  }}
+                  className="w-full py-3.5 px-4 rounded-[20px] font-semibold text-sm text-white bg-[#E98787] hover:bg-[#E2768E] active:scale-[0.99] transition-all flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {isProcessing ? 'Выходим из пары...' : 'Покинуть пару'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => setIsLeaveModalOpen(false)}
+                  className="w-full py-3 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       {/* Confirmation Modal: Выйти */}
-      {isSignOutModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
-          onClick={() => !isProcessing && setIsSignOutModalOpen(false)}
-        >
+      {isSignOutModalOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
           <div
-            className="w-full max-w-md bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.14)] animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 ease-out transition-colors space-y-5"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
+            onClick={() => !isProcessing && setIsSignOutModalOpen(false)}
+            role="dialog"
+            aria-modal="true"
           >
-            <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-[#FAF5F7] dark:bg-[#181618] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
-                <LogOut size={22} />
+            <div
+              className="w-full max-w-md bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.14)] animate-in slide-in-from-bottom-4 sm:zoom-in-[0.98] duration-250 ease-out transition-colors space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-[#FAF5F7] dark:bg-[#181618] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
+                  <LogOut size={22} />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
+                    Выйти из аккаунта?
+                  </h3>
+                  <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
+                    Сессия на этом устройстве будет завершена.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
-                  Выйти из аккаунта?
-                </h3>
-                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
-                  Сессия на этом устройстве будет завершена.
-                </p>
-              </div>
-            </div>
 
-            <div className="space-y-2 pt-2">
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={async () => {
-                  if (isProcessing) return;
-                  setIsProcessing(true);
-                  try {
-                    if (onSignOut) {
-                      await onSignOut();
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={async () => {
+                    if (isProcessing) return;
+                    setIsProcessing(true);
+                    try {
+                      if (onSignOut) {
+                        await onSignOut();
+                      }
+                    } finally {
+                      setIsProcessing(false);
+                      setIsSignOutModalOpen(false);
                     }
-                  } finally {
-                    setIsProcessing(false);
-                    setIsSignOutModalOpen(false);
-                  }
-                }}
-                className="w-full py-3.5 px-4 rounded-[20px] font-semibold text-sm text-[#343033] dark:text-white bg-[#FAF5F7] dark:bg-[#1E1B1E] border border-[#EBE3E5] dark:border-[#2A262A] hover:bg-[#F2ECEE] dark:hover:bg-[#252225] active:scale-[0.99] transition-all flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-50"
-              >
-                {isProcessing ? 'Выполняется выход...' : 'Выйти'}
-              </button>
-              <button
-                type="button"
-                disabled={isProcessing}
-                onClick={() => setIsSignOutModalOpen(false)}
-                className="w-full py-3 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer"
-              >
-                Отмена
-              </button>
+                  }}
+                  className="w-full py-3.5 px-4 rounded-[20px] font-semibold text-sm text-[#343033] dark:text-white bg-[#FAF5F7] dark:bg-[#1E1B1E] border border-[#EBE3E5] dark:border-[#2A262A] hover:bg-[#F2ECEE] dark:hover:bg-[#252225] active:scale-[0.99] transition-all flex items-center justify-center cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  {isProcessing ? 'Выполняется выход...' : 'Выйти'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isProcessing}
+                  onClick={() => setIsSignOutModalOpen(false)}
+                  className="w-full py-3 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer"
+                >
+                  Отмена
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

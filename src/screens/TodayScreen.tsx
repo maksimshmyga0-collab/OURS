@@ -48,6 +48,8 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
   const [momentTransition, setMomentTransition] = useState<'idle' | 'exiting' | 'entering'>('idle');
   const [isReminderSent, setIsReminderSent] = useState(false);
+  // Temporary state for testing MatchAnimation without modifying database or moments
+  const [isTestMatchRunning, setIsTestMatchRunning] = useState(false);
 
   // Live timer for live countdown calculation with server time synchronization
   const [now, setNow] = useState<number>(() => getSynchronizedNow());
@@ -128,8 +130,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     // When both photos are available: trigger Match animation automatically!
     if (hasBoth && !isMatching) {
       handledMatchMomentsRef.current.add(activeMoment.id);
-      triggerHaptic(hapticEnabled);
-      playSoftChime('match', soundEnabled);
       setIsMatching(true);
     }
   }, [
@@ -138,8 +138,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     activeMoment.partnerPhoto,
     activeMoment.status,
     isMatching,
-    hapticEnabled,
-    soundEnabled,
   ]);
 
   // Handle photo selection for the current user
@@ -185,8 +183,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     if (activeMoment.status !== 'BOTH_UPLOADED' || isMatching) return;
     if (handledMatchMomentsRef.current.has(activeMoment.id)) return;
     handledMatchMomentsRef.current.add(activeMoment.id);
-    triggerHaptic(hapticEnabled);
-    playSoftChime('match', soundEnabled);
     setIsMatching(true);
   };
 
@@ -312,9 +308,22 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       {/* Day Status Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white">
-            Сегодня
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white">
+              Сегодня
+            </h1>
+            {/* Temporary dev trigger to test MatchAnimation visually without modifying database/moments */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsTestMatchRunning(true);
+              }}
+              className="text-[10px] font-semibold tracking-wide uppercase px-2.5 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#1E1417] text-[#E98787] dark:text-[#F0B9C6] border border-[#F0B9C6]/60 dark:border-[#F0B9C6]/40 hover:bg-[#FCE7EC] dark:hover:bg-[#2A1B20] active:scale-95 transition-all cursor-pointer select-none"
+              title="Тестирование Match-анимации"
+            >
+              Test Match
+            </button>
+          </div>
           <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
             {availability.completedCount} из 3 касаний
           </p>
@@ -415,18 +424,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </div>
 
         {/* Photo Slots Section - Moment Duo (Max 2 photos per moment) */}
-        <div
-          className={`relative grid grid-cols-2 items-start gap-3 sm:gap-4 mb-5 transition-transform duration-300 ease-out ${
-            isMatching ? 'animate-match-photos' : ''
-          }`}
-        >
-          {/* Cohesive 5-phase Match Animation directly overlaying photo cards */}
-          {isMatching && (
-            <MatchAnimation
-              onConnection={handleMatchConnection}
-              onComplete={handleMatchComplete}
-            />
-          )}
+        <div className="relative grid grid-cols-2 items-start gap-3 sm:gap-4 mb-5">
 
           {isCurrentMomentWaiting ? (
             // Calm waiting placeholders during cooldown
@@ -655,6 +653,21 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         title="Добавить фото"
         subtitle="Снимок для вашего общего момента"
       />
+
+      {/* Standalone Fullscreen Match Presentation Scene (Production Match) */}
+      {isMatching && (
+        <MatchAnimation
+          onConnection={handleMatchConnection}
+          onComplete={handleMatchComplete}
+        />
+      )}
+
+      {/* Temporary Isolated Test Match Trigger (Visual Testing Only) */}
+      {isTestMatchRunning && (
+        <MatchAnimation
+          onComplete={() => setIsTestMatchRunning(false)}
+        />
+      )}
 
       {/* Fullscreen Photo Viewer */}
       <FullscreenPhotoViewer

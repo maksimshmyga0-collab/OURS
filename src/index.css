@@ -519,263 +519,30 @@ html.dark .soft-card-shadow {
   animation: input-shake 0.35s ease-in-out;
 }
 
-@keyframes sphere-converge-left {
+/* ==========================================================================
+   OURS Pure Luminous Match Animation (2400ms - GPU Transform Architecture)
+   ========================================================================== */
+
+/* Fullscreen backdrop softly fades in, holds, and smoothly dissolves */
+@keyframes match-overlay-fade {
   0% {
-    transform: translateX(-36px) scale(0.92);
-  }
-  36%, 82% {
-    transform: translateX(-10px) scale(1.02);
-  }
-  100% {
-    transform: translateX(-36px) scale(0.92);
-  }
-}
-
-@keyframes sphere-converge-right {
-  0% {
-    transform: translateX(36px) scale(0.92);
-  }
-  36%, 82% {
-    transform: translateX(10px) scale(1.02);
-  }
-  100% {
-    transform: translateX(36px) scale(0.92);
-  }
-}
-
-@keyframes match-wave-expand {
-  0%, 32% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  42% {
-    opacity: 0.6;
-    transform: scale(1.2);
-  }
-  72% {
-    opacity: 0;
-    transform: scale(1.6);
-  }
-  100% {
     opacity: 0;
   }
-}
-
-@keyframes match-pill-pop {
-  0%, 34% {
-    opacity: 0;
-    transform: scale(0.6) translateY(4px);
-  }
-  44%, 80% {
+  15% {
     opacity: 1;
-    transform: scale(1) translateY(0);
   }
-  90%, 100% {
+  84% {
+    opacity: 1;
+  }
+  100% {
     opacity: 0;
-    transform: scale(0.8);
   }
-}
-
-.animate-sphere-left {
-  animation: sphere-converge-left 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.animate-sphere-right {
-  animation: sphere-converge-right 3.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.animate-match-wave {
-  animation: match-wave-expand 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
-}
-
-.animate-match-pill {
-  animation: match-pill-pop 3.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
 }
 
 /* ==========================================================================
-   OURS Match Animation (1100ms - 5 Phase Organic Connection)
+   OURS Match Scene: Driven by unified 60/120fps Canvas Engine (MatchAnimation.tsx)
    ========================================================================== */
 
-/* Photos gentle breath scale across the 5 phases: Phase 1 (1 -> 1.018), steady, Phase 5 (1 -> 1.025 -> 1) */
-@keyframes match-photos-scale {
-  0% {
-    transform: scale(1);
-  }
-  18% {
-    transform: scale(1.018);
-  }
-  64% {
-    transform: scale(1.008);
-  }
-  76% {
-    transform: scale(1.025);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-/* Phase 2 & 3: Left element appears softly near left photo card, glides with an arc to center */
-@keyframes match-dot-left {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
-    left: 27%;
-  }
-  18% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
-    left: 27%;
-  }
-  26% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-    left: 27%;
-  }
-  38% {
-    opacity: 1;
-    transform: translate(-50%, calc(-50% - 3.5px)) scale(1.05);
-    left: 33%;
-  }
-  65% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-    left: 50%;
-  }
-  72% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.2);
-    left: 50%;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0);
-    left: 50%;
-  }
-}
-
-/* Phase 2 & 3: Right element appears softly near right photo card, glides with an arc to center */
-@keyframes match-dot-right {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
-    left: 73%;
-  }
-  18% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
-    left: 73%;
-  }
-  26% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-    left: 73%;
-  }
-  38% {
-    opacity: 1;
-    transform: translate(-50%, calc(-50% + 3.5px)) scale(1.05);
-    left: 67%;
-  }
-  65% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-    left: 50%;
-  }
-  72% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(1.2);
-    left: 50%;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0);
-    left: 50%;
-  }
-}
-
-/* Phase 4: Gentle connection ring pulse blooming at center seam */
-@keyframes match-connection-pulse {
-  0%, 64% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
-  }
-  67% {
-    opacity: 0.95;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  80% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(2.4);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(2.5);
-  }
-}
-
-/* Phase 4: Central connection glow node */
-@keyframes match-connection-glow {
-  0%, 64% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.5);
-  }
-  67% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.25);
-  }
-  75% {
-    opacity: 0.45;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  84%, 100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.6);
-  }
-}
-
-/* Phase 5: Delicate edge highlight sheen framing the revealed photo cards */
-@keyframes match-card-highlight {
-  0%, 66% {
-    opacity: 0;
-    transform: scale(0.995);
-  }
-  76% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  94% {
-    opacity: 0.25;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1);
-  }
-}
-
-.animate-match-photos {
-  animation: match-photos-scale 1100ms cubic-bezier(0.25, 1, 0.4, 1) forwards;
-}
-
-.animate-match-dot-left {
-  animation: match-dot-left 1100ms cubic-bezier(0.28, 0.95, 0.38, 1) forwards;
-}
-
-.animate-match-dot-right {
-  animation: match-dot-right 1100ms cubic-bezier(0.28, 0.95, 0.38, 1) forwards;
-}
-
-.animate-match-connection-pulse {
-  animation: match-connection-pulse 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.animate-match-connection-glow {
-  animation: match-connection-glow 1100ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-.animate-match-card-highlight {
-  animation: match-card-highlight 1100ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
-}
 
 /* ==========================================================================
    OURS Motion System Tokens (Micro: 150-220ms, Small: 250-350ms, Content: 350-500ms)

@@ -62,21 +62,25 @@ export function playSoftChime(type: 'tap' | 'match' | 'react' | 'success', enabl
       osc.stop(now + index * 0.08 + 0.3);
     });
   } else if (type === 'match') {
-    // Harmonic soft chord (F4, A4, C5, F5)
-    const chord = [349.23, 440.00, 523.25, 698.46];
-    chord.forEach((freq, idx) => {
+    // Warm, delicate, celestial chime (soft harmonious bloom for the two stars connecting)
+    const freqs = [440.0, 554.37, 659.25, 880.0]; // A4, C#5, E5, A5 (warm major chord)
+    freqs.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
+      
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + idx * 0.05);
+      osc.frequency.setValueAtTime(freq, now + idx * 0.035);
 
-      gain.gain.setValueAtTime(0.07, now + idx * 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.6);
+      // Soft progressive attack (15ms) to prevent any click/pop, followed by gentle exponential decay
+      const startTime = now + idx * 0.035;
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.035 / (idx * 0.2 + 1), startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.75);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(now + idx * 0.05);
-      osc.stop(now + idx * 0.05 + 0.65);
+      osc.start(startTime);
+      osc.stop(startTime + 0.8);
     });
   } else if (type === 'success') {
     const osc = ctx.createOscillator();
