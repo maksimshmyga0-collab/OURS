@@ -82,12 +82,60 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const isCurrentMomentWaiting =
     activeMoment.order === availability.nextOrder &&
     activeMoment.status === 'EMPTY' &&
+    !activeMoment.partnerPhoto &&
     availability.isWaitingForNext;
 
   const isCurrentMomentReady =
     activeMoment.order === availability.nextOrder &&
     activeMoment.status === 'EMPTY' &&
     availability.isNextMomentReady;
+
+  const isPartnerUploadedOnly = Boolean(
+    activeMoment.partnerPhoto && !activeMoment.userPhoto
+  );
+
+  // Set of moment IDs that have already played or completed Match animation on this device
+  const handledMatchMomentsRef = useRef<Set<string>>(new Set());
+
+  // On mount / initial load: seed all moments that are already opened so we NEVER replay on app restart
+  useEffect(() => {
+    moments.forEach((m) => {
+      if (
+        m.status === 'REVEALED' ||
+        m.status === 'REACTED' ||
+        m.status === 'COMPLETED'
+      ) {
+        handledMatchMomentsRef.current.add(m.id);
+      }
+    });
+  }, []);
+
+  // Automatic bidirectional Match trigger:
+  // Fires when both photos are present and the moment hasn't played Match on this device yet during this session
+  useEffect(() => {
+    const hasBoth = Boolean(activeMoment.userPhoto && activeMoment.partnerPhoto);
+
+    // If already marked as handled on this device, do nothing
+    if (handledMatchMomentsRef.current.has(activeMoment.id)) {
+      return;
+    }
+
+    // When both photos are available: trigger Match animation automatically!
+    if (hasBoth && !isMatching) {
+      handledMatchMomentsRef.current.add(activeMoment.id);
+      triggerHaptic(hapticEnabled);
+      playSoftChime('match', soundEnabled);
+      setIsMatching(true);
+    }
+  }, [
+    activeMoment.id,
+    activeMoment.userPhoto,
+    activeMoment.partnerPhoto,
+    activeMoment.status,
+    isMatching,
+    hapticEnabled,
+    soundEnabled,
+  ]);
 
   // Handle photo selection for the current user
   const handlePhotoSelected = (photoUrl: string) => {
@@ -127,9 +175,11 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const activeMomentRef = useRef(activeMoment);
   activeMomentRef.current = activeMoment;
 
-  // Trigger Match animation when both uploaded (idempotent, single-trigger)
+  // Manual fallback trigger for Match animation when both uploaded
   const handleOpenMoment = () => {
     if (activeMoment.status !== 'BOTH_UPLOADED' || isMatching) return;
+    if (handledMatchMomentsRef.current.has(activeMoment.id)) return;
+    handledMatchMomentsRef.current.add(activeMoment.id);
     triggerHaptic(hapticEnabled);
     playSoftChime('match', soundEnabled);
     setIsMatching(true);
@@ -243,6 +293,11 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               <Check size={13} />
               Фото отправлено · Ждём {couple.partner.name}
             </span>
+          ) : isPartnerUploadedOnly ? (
+            <span className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center gap-1 animate-in fade-in duration-200">
+              <Check size={13} />
+              {couple.partner.name} загрузил(а) фото · Ваш черёд
+            </span>
           ) : null}
         </div>
 
@@ -270,6 +325,8 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">
                 {activeMoment.status === 'COMPLETED'
                   ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
+                  : isPartnerUploadedOnly
+                  ? `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`
                   : activeMoment.subtext}
               </p>
             </div>
@@ -332,9 +389,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                 title={couple.user.name}
                 photoUrl={activeMoment.userPhoto}
                 isRevealed={
-                  activeMoment.status === 'REVEALED' ||
-                  activeMoment.status === 'REACTED' ||
-                  activeMoment.status === 'COMPLETED'
+                  !isMatching &&
+                  (activeMoment.status === 'REVEALED' ||
+                    activeMoment.status === 'REACTED' ||
+                    activeMoment.status === 'COMPLETED')
                 }
                 onPhotoSelected={handlePhotoSelected}
                 reaction={activeMoment.partnerReaction}
@@ -346,9 +404,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                 title={couple.partner.name}
                 photoUrl={activeMoment.partnerPhoto}
                 isRevealed={
-                  activeMoment.status === 'REVEALED' ||
-                  activeMoment.status === 'REACTED' ||
-                  activeMoment.status === 'COMPLETED'
+                  !isMatching &&
+                  (activeMoment.status === 'REVEALED' ||
+                    activeMoment.status === 'REACTED' ||
+                    activeMoment.status === 'COMPLETED')
                 }
                 isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
                 reaction={activeMoment.userReaction}
@@ -359,22 +418,46 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
         {/* State Machine Action Areas */}
         <div className="pt-2">
-          {/* State 1: EMPTY (and not waiting) */}
-          {activeMoment.status === 'EMPTY' && !isCurrentMomentWaiting && (
-            <div className="animate-in fade-in duration-250 ease-out">
-              <PrimaryButton
-                variant="coral"
-                onClick={() => setIsPhotoPickerOpen(true)}
-              >
-                <span className="font-display font-bold text-[15px] sm:text-base tracking-tight text-[#FFFFFF]">
-                  {isCurrentMomentReady ? 'Новое касание готово' : 'Добавить фото'}
-                </span>
-              </PrimaryButton>
+          {/* While matching animation is in progress */}
+          {isMatching && (
+            <div className="rounded-[20px] bg-white/80 dark:bg-[#141214]/80 border border-[#F0B9C6]/60 dark:border-[#382329] p-3.5 text-center space-y-1 shadow-2xs animate-in fade-in duration-200">
+              <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
+                <Sparkles size={14} className="animate-spin" />
+                <span>Соединяем ваши кадры...</span>
+              </div>
             </div>
           )}
 
-          {/* State 2: USER_UPLOADED (waiting for partner) */}
-          {activeMoment.status === 'USER_UPLOADED' && (
+          {/* State 1: EMPTY or waiting for user's photo (and not in cooldown or matching) */}
+          {!activeMoment.userPhoto &&
+            !isMatching &&
+            activeMoment.status !== 'COMPLETED' &&
+            activeMoment.status !== 'REVEALED' &&
+            activeMoment.status !== 'REACTED' &&
+            !isCurrentMomentWaiting && (
+              <div className="space-y-1.5 animate-in fade-in duration-250 ease-out">
+                <PrimaryButton
+                  variant="coral"
+                  onClick={() => setIsPhotoPickerOpen(true)}
+                >
+                  <span className="font-display font-bold text-[15px] sm:text-base tracking-tight text-[#FFFFFF]">
+                    {isPartnerUploadedOnly
+                      ? 'Ответить своим кадром'
+                      : isCurrentMomentReady
+                      ? 'Новое касание готово'
+                      : 'Добавить фото'}
+                  </span>
+                </PrimaryButton>
+                {isPartnerUploadedOnly && (
+                  <p className="text-[11px] text-center text-[#E98787] dark:text-[#F0B9C6] pt-0.5 animate-in fade-in duration-200">
+                    {couple.partner.name} уже загрузил(а) фото · как только вы добавите своё, момент сразу откроется
+                  </p>
+                )}
+              </div>
+            )}
+
+          {/* State 2: USER_UPLOADED (waiting for partner, not matching) */}
+          {activeMoment.status === 'USER_UPLOADED' && !isMatching && (
             <div className="rounded-[20px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] p-4 text-center space-y-1.5 shadow-2xs animate-in fade-in slide-in-from-bottom-2 duration-250 ease-out">
               <div className="w-9 h-9 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
                 <Clock size={16} />
@@ -388,8 +471,8 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             </div>
           )}
 
-          {/* State 3: BOTH_UPLOADED -> Trigger MATCH */}
-          {activeMoment.status === 'BOTH_UPLOADED' && (
+          {/* State 3: BOTH_UPLOADED fallback button (if animation hasn't fired yet) */}
+          {activeMoment.status === 'BOTH_UPLOADED' && !isMatching && (
             <div className="space-y-2 animate-in fade-in zoom-in-[0.98] duration-250 ease-out">
               <PrimaryButton variant="coral" onClick={handleOpenMoment}>
                 <Sparkles size={16} />

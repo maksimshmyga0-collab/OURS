@@ -73,6 +73,25 @@ export interface PairResponse {
 export class ApiClient {
   private currentUserId: string | null = null;
   private currentPairId: string | null = null;
+  private activeChannels: Map<string, any> = new Map();
+
+  /**
+   * Broadcast instant Realtime event to other pair members on WebSocket channel
+   */
+  broadcastPairUpdate(pairId: string, payload: any = {}): void {
+    try {
+      const channel = this.activeChannels.get(pairId);
+      if (channel) {
+        channel.send({
+          type: 'broadcast',
+          event: 'pair_state_change',
+          payload: { ...payload, timestamp: Date.now() },
+        });
+      }
+    } catch {
+      // Best-effort realtime broadcast
+    }
+  }
 
   /**
    * Helper: Ensures anonymous Supabase authentication and returns real auth user ID
@@ -339,13 +358,33 @@ export class ApiClient {
     const allPhotos = photosRes.data || [];
     const allReactions = reactionsRes.data || [];
 
-    // 3. Assemble formatted Moment objects for today with strict user/partner photo isolation
-    const assembledMoments: Moment[] = (rawMoments || []).map((dbM: any, idx: number) => {
-      const order = ((idx % 3) + 1) as 1 | 2 | 3;
+    // 3. Assemble formatted Moment objects for today (strictly 3 moments: order 1, 2, 3)
+    // De-duplicates parallel moment inserts by grouping candidate IDs per prompt/order
+    const assembledMoments: Moment[] = ([1, 2, 3] as const).map((order) => {
       const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
 
-      const mPhotos = allPhotos.filter((p: any) => p.moment_id === dbM.id);
-      const mReactions = allReactions.filter((r: any) => r.moment_id === dbM.id);
+      // Find all database moment rows matching this prompt or order
+      const matchingRows = (rawMoments || []).filter((dbM: any) =>
+        dbM.prompt === promptInfo.prompt ||
+        dbM.id === `moment_${pairId}_${todayKey}_${order}` ||
+        dbM.id === `moment-${pairId}-${todayKey}-${order}`
+      );
+
+      // All candidate IDs that could have photos/reactions attached
+      const candidateIds = matchingRows.map((r: any) => r.id);
+
+      // Prefer the row that already has photos, or the first matching row, or fallback
+      const preferredRowWithPhotos = matchingRows.find((r: any) =>
+        allPhotos.some((p: any) => p.moment_id === r.id)
+      );
+      const canonicalDbRow = preferredRowWithPhotos || matchingRows[0] || (rawMoments && rawMoments[order - 1]);
+      const canonicalId = canonicalDbRow?.id || `moment_${pairId}_${todayKey}_${order}`;
+
+      // All IDs for this slot (canonical ID + all candidate IDs)
+      const slotIds = Array.from(new Set([canonicalId, ...candidateIds].filter(Boolean)));
+
+      const mPhotos = allPhotos.filter((p: any) => slotIds.includes(p.moment_id));
+      const mReactions = allReactions.filter((r: any) => slotIds.includes(r.moment_id));
 
       const userPhotoObj = mPhotos.find((p: any) => p.user_id === currentUserId);
       const partnerPhotoObj = mPhotos.find((p: any) => p.user_id !== currentUserId);
@@ -388,8 +427,8 @@ export class ApiClient {
         if (hasRealReaction) {
           status = 'COMPLETED';
         } else if (hasMatchMarker) {
-          // If match marker exists, preserve REVEALED for the user who triggered reveal
-          status = userReactionObj ? 'REVEALED' : 'BOTH_UPLOADED';
+          // If match marker exists, moment is revealed for both partners in the pair
+          status = 'REVEALED';
         } else {
           status = 'BOTH_UPLOADED';
         }
@@ -401,16 +440,16 @@ export class ApiClient {
       const partnerReactClean = pEmoji === '✨' ? null : (pEmoji as ReactionEmoji | null);
 
       return {
-        id: dbM.id,
+        id: canonicalId,
         pairId,
         createdBy: currentUserId,
-        createdAt: dbM.created_at || new Date().toISOString(),
-        dateKey: dbM.moment_date || todayKey,
+        createdAt: canonicalDbRow?.created_at || new Date().toISOString(),
+        dateKey: canonicalDbRow?.moment_date || todayKey,
         imageUrl: userPhotoUrl,
         caption: null,
         order,
         label: `МОМЕНТ ${order}`,
-        prompt: dbM.prompt || promptInfo.prompt,
+        prompt: canonicalDbRow?.prompt || promptInfo.prompt,
         subtext: promptInfo.subtext || 'Сделайте по одному фото и откройте их вместе.',
         status: status as any,
         themeColor: promptInfo.themeColor || 'pink',
@@ -807,7 +846,7 @@ export class ApiClient {
   }
 
   /**
-   * Realtime channel subscription for changes to photos, reactions, and pair members
+   * Realtime channel subscription for changes to photos, reactions, moments, and pair members
    */
   subscribeToPair(pairId: string, onUpdate: () => void): () => void {
     if (!supabaseConfig.isConfigured || !pairId) {
@@ -817,6 +856,13 @@ export class ApiClient {
     try {
       const channel = supabase
         .channel(`pair-sync-${pairId}`)
+        .on(
+          'broadcast',
+          { event: 'pair_state_change' },
+          () => {
+            onUpdate();
+          }
+        )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'photos' },
@@ -838,9 +884,19 @@ export class ApiClient {
             onUpdate();
           }
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'moments' },
+          () => {
+            onUpdate();
+          }
+        )
         .subscribe();
 
+      this.activeChannels.set(pairId, channel);
+
       return () => {
+        this.activeChannels.delete(pairId);
         supabase.removeChannel(channel);
       };
     } catch {
@@ -887,6 +943,9 @@ export class ApiClient {
       },
       { onConflict: 'moment_id,user_id' }
     );
+
+    // Instant Realtime broadcast across pair channel
+    this.broadcastPairUpdate(pairId, { action: 'photo_uploaded', momentId, userId });
 
     try {
       const { data: mPhotos } = await supabase
@@ -947,6 +1006,11 @@ export class ApiClient {
       { onConflict: 'moment_id,user_id' }
     );
 
+    // Instant Realtime broadcast across pair channel
+    if (this.currentPairId) {
+      this.broadcastPairUpdate(this.currentPairId, { action: 'moment_revealed', momentId, userId });
+    }
+
     if (this.currentPairId) {
       const state = await this.assemblePairData(this.currentPairId, userId);
       const moment = state.moments.find((m) => m.id === momentId);
@@ -980,6 +1044,11 @@ export class ApiClient {
       },
       { onConflict: 'moment_id,user_id' }
     );
+
+    // Instant Realtime broadcast across pair channel
+    if (this.currentPairId) {
+      this.broadcastPairUpdate(this.currentPairId, { action: 'reaction_submitted', momentId, userId });
+    }
 
     if (this.currentPairId) {
       const state = await this.assemblePairData(this.currentPairId, userId);
@@ -1026,6 +1095,7 @@ export class ApiClient {
     }
 
     if (this.currentPairId) {
+      this.broadcastPairUpdate(this.currentPairId, { action: 'moment_completed', momentId, userId });
       const state = await this.assemblePairData(this.currentPairId, userId);
       const moment = state.moments.find((m) => m.id === momentId);
       return { success: true, moment };

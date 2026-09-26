@@ -119,20 +119,49 @@ export default function App() {
         if (res.success && res.pair) {
           setAppState((prev) => {
             const moments = (res.moments && res.moments.length > 0 ? res.moments : prev.todayMoments).map((srvM) => {
-              const prevM = prev.todayMoments.find((pm) => pm.id === srvM.id);
-              if (prevM?.userPhoto && !srvM.userPhoto) {
-                return {
-                  ...srvM,
-                  userPhoto: prevM.userPhoto,
-                  status: (srvM.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED') as any,
-                };
+              const prevM = prev.todayMoments.find((pm) => pm.id === srvM.id || pm.order === srvM.order);
+              if (!prevM) return srvM;
+
+              const userPhoto = srvM.userPhoto || prevM.userPhoto || null;
+              const partnerPhoto = srvM.partnerPhoto || prevM.partnerPhoto || null;
+              const hasBoth = Boolean(userPhoto && partnerPhoto);
+
+              // Monotonic status progression: never accidentally regress from REVEALED or COMPLETED
+              let status = srvM.status;
+              if (prevM.status === 'COMPLETED' || srvM.status === 'COMPLETED') {
+                status = 'COMPLETED';
+              } else if (prevM.status === 'REACTED' || srvM.status === 'REACTED') {
+                status = 'REACTED';
+              } else if (prevM.status === 'REVEALED' || srvM.status === 'REVEALED') {
+                status = 'REVEALED';
+              } else if (hasBoth) {
+                status = 'BOTH_UPLOADED';
+              } else if (userPhoto) {
+                status = 'USER_UPLOADED';
+              } else {
+                status = 'EMPTY';
               }
-              return srvM;
+
+              return {
+                ...prevM,
+                ...srvM,
+                id: srvM.id,
+                userPhoto,
+                partnerPhoto,
+                status: status as any,
+                userReaction: srvM.userReaction || prevM.userReaction || null,
+                partnerReaction: srvM.partnerReaction || prevM.partnerReaction || null,
+              };
             });
 
-            const validActiveId = moments.find((m) => m.id === prev.activeMomentId)
-              ? prev.activeMomentId
-              : moments[0]?.id || prev.activeMomentId;
+            const validActiveId =
+              moments.find((m) => m.id === prev.activeMomentId)?.id ||
+              moments.find((m) => {
+                const prevActive = prev.todayMoments.find((pm) => pm.id === prev.activeMomentId);
+                return prevActive && m.order === prevActive.order;
+              })?.id ||
+              moments[0]?.id ||
+              prev.activeMomentId;
 
             return {
               ...prev,
@@ -354,7 +383,11 @@ export default function App() {
           const completedM = res.moment;
           setAppState((prev) => ({
             ...prev,
-            todayMoments: prev.todayMoments.map((m) => (m.id === completedM.id ? completedM : m)),
+            todayMoments: prev.todayMoments.map((m) =>
+              m.id === completedM.id || m.order === updated.order
+                ? { ...m, ...completedM, id: completedM.id }
+                : m
+            ),
           }));
         }
       } else if (updated.status === 'REVEALED') {
@@ -363,7 +396,11 @@ export default function App() {
           const revealedM = res.moment;
           setAppState((prev) => ({
             ...prev,
-            todayMoments: prev.todayMoments.map((m) => (m.id === revealedM.id ? revealedM : m)),
+            todayMoments: prev.todayMoments.map((m) =>
+              m.id === revealedM.id || m.order === updated.order
+                ? { ...m, ...revealedM, id: revealedM.id }
+                : m
+            ),
           }));
         }
       } else if (updated.userReaction) {
@@ -372,7 +409,11 @@ export default function App() {
           const reactedM = res.moment;
           setAppState((prev) => ({
             ...prev,
-            todayMoments: prev.todayMoments.map((m) => (m.id === reactedM.id ? reactedM : m)),
+            todayMoments: prev.todayMoments.map((m) =>
+              m.id === reactedM.id || m.order === updated.order
+                ? { ...m, ...reactedM, id: reactedM.id }
+                : m
+            ),
           }));
         }
       } else if (updated.userPhoto) {
@@ -381,7 +422,11 @@ export default function App() {
           const uploadedM = res.moment;
           setAppState((prev) => ({
             ...prev,
-            todayMoments: prev.todayMoments.map((m) => (m.id === uploadedM.id ? uploadedM : m)),
+            todayMoments: prev.todayMoments.map((m) =>
+              m.id === uploadedM.id || m.order === updated.order
+                ? { ...m, ...uploadedM, id: uploadedM.id }
+                : m
+            ),
           }));
         }
       }
