@@ -118,16 +118,22 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   }, []);
 
   // Automatic bidirectional Match trigger:
-  // Fires when both photos are present and the moment hasn't played Match on this device yet during this session
+  // Fires only when both photos are newly present and the moment hasn't played Match yet
   useEffect(() => {
     const hasBoth = Boolean(activeMoment.userPhoto && activeMoment.partnerPhoto);
 
-    // If already marked as handled on this device, do nothing
-    if (handledMatchMomentsRef.current.has(activeMoment.id)) {
+    // If already revealed/reacted/completed or already marked as handled on this device, do nothing
+    if (
+      activeMoment.status === 'REVEALED' ||
+      activeMoment.status === 'REACTED' ||
+      activeMoment.status === 'COMPLETED' ||
+      handledMatchMomentsRef.current.has(activeMoment.id)
+    ) {
+      handledMatchMomentsRef.current.add(activeMoment.id);
       return;
     }
 
-    // When both photos are available: trigger Match animation automatically!
+    // When both photos are available on a fresh unrevealed moment: trigger Match animation
     if (hasBoth && !isMatching) {
       handledMatchMomentsRef.current.add(activeMoment.id);
       setIsMatching(true);
