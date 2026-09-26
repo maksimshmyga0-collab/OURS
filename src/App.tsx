@@ -34,9 +34,12 @@ export default function App() {
   const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [isLoadingSession, setIsLoadingSession] = useState<boolean>(true);
+  // Fast startup: if local state has completed onboarding, show TodayScreen instantly without waiting for network init
+  const [isLoadingSession, setIsLoadingSession] = useState<boolean>(
+    () => !getInitialAppState().hasCompletedOnboarding
+  );
 
-  // 1. Initialize anonymous session and restore multi-device state
+  // 1. Initialize anonymous session and restore multi-device state in background
   useEffect(() => {
     let isMounted = true;
 
@@ -55,7 +58,10 @@ export default function App() {
                 ? session.moments
                 : prev.todayMoments,
             activeMomentId: session.moments?.[0]?.id || prev.activeMomentId,
-            history: session.history || [],
+            history:
+              session.history && session.history.length > 0
+                ? session.history
+                : prev.history,
           }));
         } else {
           setAppState((prev) => ({
@@ -112,7 +118,18 @@ export default function App() {
         const res = await apiClient.fetchPairState();
         if (res.success && res.pair) {
           setAppState((prev) => {
-            const moments = res.moments && res.moments.length > 0 ? res.moments : prev.todayMoments;
+            const moments = (res.moments && res.moments.length > 0 ? res.moments : prev.todayMoments).map((srvM) => {
+              const prevM = prev.todayMoments.find((pm) => pm.id === srvM.id);
+              if (prevM?.userPhoto && !srvM.userPhoto) {
+                return {
+                  ...srvM,
+                  userPhoto: prevM.userPhoto,
+                  status: (srvM.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED') as any,
+                };
+              }
+              return srvM;
+            });
+
             const validActiveId = moments.find((m) => m.id === prev.activeMomentId)
               ? prev.activeMomentId
               : moments[0]?.id || prev.activeMomentId;
@@ -125,7 +142,7 @@ export default function App() {
               },
               todayMoments: moments,
               activeMomentId: validActiveId,
-              history: res.history || prev.history,
+              history: res.history && res.history.length > 0 ? res.history : prev.history,
             };
           });
         }
@@ -161,6 +178,22 @@ export default function App() {
       unsubscribeRealtime();
     };
   }, [appState.couple.id]);
+
+  // 3. Lazy-load history when History tab or Our Sky modal is opened
+  useEffect(() => {
+    if ((activeTab === 'history' || isStreakModalOpen) && appState.couple.id) {
+      apiClient.fetchHistory(appState.couple.id).then((history) => {
+        if (history && history.length > 0) {
+          setAppState((prev) => ({
+            ...prev,
+            history,
+          }));
+        }
+      }).catch((err) => {
+        console.warn('[OURS] Failed to lazy-load history:', err);
+      });
+    }
+  }, [activeTab, isStreakModalOpen, appState.couple.id]);
 
   // Sync state to local storage on changes
   useEffect(() => {

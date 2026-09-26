@@ -66,16 +66,51 @@ export function formatRussianDate(dateKey: string): string {
   }
 }
 
+let serverTimeOffset = 0;
+
+/**
+ * Updates clock skew offset relative to authoritative server time
+ */
+export function updateServerTimeOffset(serverTimestamp: number): void {
+  if (typeof serverTimestamp === 'number' && !isNaN(serverTimestamp)) {
+    serverTimeOffset = serverTimestamp - Date.now();
+  }
+}
+
+/**
+ * Returns current timestamp corrected for device clock skew
+ */
+export function getSynchronizedNow(): number {
+  return Date.now() + serverTimeOffset;
+}
+
+/**
+ * Checks whether a moment has achieved MATCH or completion for the pair.
+ * A moment is completed for the pair if:
+ * 1. It has status 'COMPLETED', OR
+ * 2. Both partner and user photos are present AND MATCH has occurred (status is REVEALED or REACTED or reaction given)
+ */
+export function isMomentMatchCompleted(m: Moment): boolean {
+  if (m.status === 'COMPLETED') return true;
+  if (
+    Boolean(m.userPhoto && m.partnerPhoto) &&
+    (m.status === 'REVEALED' || m.status === 'REACTED' || m.userReaction || m.partnerReaction)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Computes exact availability based on saved timestamps in todayMoments.
  * Authoritative source of truth that survives reload, page refresh, and tab switches.
  */
 export function calculateMomentAvailability(
   todayMoments: Moment[],
-  now: number = Date.now()
+  now: number = getSynchronizedNow()
 ): MomentAvailabilityInfo {
   const completedMoments = todayMoments
-    .filter((m) => m.status === 'COMPLETED')
+    .filter(isMomentMatchCompleted)
     .sort((a, b) => a.order - b.order);
 
   const completedCount = completedMoments.length;
@@ -114,8 +149,15 @@ export function calculateMomentAvailability(
 
   // Completed count is 1 or 2: check cooldown after last completed moment
   const lastCompletedMoment = completedMoments[completedMoments.length - 1];
+  const photoTimes = (lastCompletedMoment.photos || [])
+    .map((p) => (p.createdAt ? new Date(p.createdAt).getTime() : 0))
+    .filter((t) => !isNaN(t) && t > 0);
+
+  const sharedPhotoMatchTs = photoTimes.length >= 2 ? Math.max(...photoTimes) : 0;
+
   const lastCompletedTs =
     lastCompletedMoment.completedTimestamp ||
+    sharedPhotoMatchTs ||
     (lastCompletedMoment.createdAt
       ? new Date(lastCompletedMoment.createdAt).getTime()
       : now);

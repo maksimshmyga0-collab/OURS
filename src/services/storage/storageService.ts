@@ -5,6 +5,7 @@
 
 import { supabase, supabaseConfig } from '../api/supabaseClient';
 import { env } from '../config/env';
+import { optimizePhotoForUpload } from './imageOptimizer';
 
 export const PHOTO_BUCKET_NAME = env.storageBucket || 'ours-photos';
 
@@ -53,19 +54,32 @@ export class AppStorageService implements IStorageService {
       return fileOrData;
     }
 
+    // If already an optimized data URL, use it directly without re-compression
+    let targetSource: File | Blob | string = fileOrData;
+    if (typeof fileOrData === 'string' && fileOrData.startsWith('data:')) {
+      targetSource = fileOrData;
+    } else {
+      try {
+        const optimized = await optimizePhotoForUpload(fileOrData);
+        if (optimized) targetSource = optimized;
+      } catch {
+        // ignore
+      }
+    }
+
     let blob: Blob;
     let ext = 'jpg';
 
-    if (typeof fileOrData === 'string' && fileOrData.startsWith('data:')) {
-      blob = this.dataURItoBlob(fileOrData);
-      if (fileOrData.includes('image/png')) ext = 'png';
-      if (fileOrData.includes('image/webp')) ext = 'webp';
-    } else if (fileOrData instanceof Blob) {
-      blob = fileOrData;
-      if (fileOrData.type === 'image/png') ext = 'png';
-      if (fileOrData.type === 'image/webp') ext = 'webp';
+    if (typeof targetSource === 'string' && targetSource.startsWith('data:')) {
+      blob = this.dataURItoBlob(targetSource);
+      if (targetSource.includes('image/png')) ext = 'png';
+      if (targetSource.includes('image/webp')) ext = 'webp';
+    } else if (targetSource instanceof Blob) {
+      blob = targetSource;
+      if (targetSource.type === 'image/png') ext = 'png';
+      if (targetSource.type === 'image/webp') ext = 'webp';
     } else {
-      return typeof fileOrData === 'string' ? fileOrData : '';
+      return typeof targetSource === 'string' ? targetSource : '';
     }
 
     const safePairId = pairId || 'pair';

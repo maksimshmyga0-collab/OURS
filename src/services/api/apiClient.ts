@@ -16,7 +16,30 @@ import {
   getLocalDateKey,
   getPromptForPairMoment,
   formatRussianDate,
+  updateServerTimeOffset,
 } from '../moments/momentTiming';
+
+let lastClockSync = 0;
+async function syncServerClock(): Promise<void> {
+  if (!supabaseConfig.isConfigured) return;
+  if (Date.now() - lastClockSync < 180000) return;
+  lastClockSync = Date.now();
+  try {
+    const start = Date.now();
+    const res = await fetch(`${supabaseConfig.url}/rest/v1/`, {
+      method: 'HEAD',
+      headers: { apikey: supabaseConfig.anonKey },
+    });
+    const dateHeader = res.headers.get('date');
+    if (dateHeader) {
+      const sTime = new Date(dateHeader).getTime();
+      const rt = Date.now() - start;
+      updateServerTimeOffset(sTime + Math.round(rt / 2));
+    }
+  } catch {
+    // silent fallback
+  }
+}
 
 export interface UserSessionData {
   id: string;
@@ -138,22 +161,48 @@ export class ApiClient {
   }
 
   /**
-   * Helper: Build complete CoupleState, Moments, and History from Supabase tables
+   * Helper: Build complete CoupleState and Moments from Supabase tables (fast, startup-optimized)
    */
-  private async assemblePairData(pairId: string, currentUserId: string): Promise<{
+  private async assemblePairData(
+    pairId: string,
+    currentUserId: string,
+    options: { includeHistory?: boolean; cachedMembers?: any[] } = {}
+  ): Promise<{
     pair: CoupleState;
     moments: Moment[];
     history: HistoryDay[];
   }> {
     const todayKey = getLocalDateKey();
+    const { includeHistory = false, cachedMembers } = options;
 
-    // 1. Fetch pair details from public.pairs
-    const { data: pairRow } = await supabase
+    // 1. Parallel fetch of Pair details, Pair members, and Today's moments (eliminates waterfall)
+    const pairRowPromise = supabase
       .from('pairs')
       .select('*')
       .eq('id', pairId)
       .maybeSingle();
 
+    const membersPromise = cachedMembers
+      ? Promise.resolve({ data: cachedMembers, error: null })
+      : supabase
+          .from('pair_members')
+          .select('pair_id, user_id, joined_at')
+          .eq('pair_id', pairId);
+
+    const todayMomentsPromise = supabase
+      .from('moments')
+      .select('*')
+      .eq('pair_id', pairId)
+      .eq('moment_date', todayKey)
+      .order('created_at', { ascending: true });
+
+    const [pairRes, membersRes, momentsRes] = await Promise.all([
+      pairRowPromise,
+      membersPromise,
+      todayMomentsPromise,
+    ]);
+
+    const pairRow = pairRes.data;
     const inviteCode = pairRow?.code || pairRow?.invite_code || 'OURS';
     const isLovely = Boolean(pairRow?.is_lovely);
     const subscription = (pairRow?.subscription || (isLovely ? 'premium' : 'free')) as 'free' | 'premium';
@@ -171,25 +220,71 @@ export class ApiClient {
       daysTogether = 1;
     }
 
-    // 2. Fetch all members from public.pair_members
-    const { data: members } = await supabase
-      .from('pair_members')
-      .select('pair_id, user_id, joined_at')
-      .eq('pair_id', pairId);
-
-    const memberList = members || [];
+    const memberList = membersRes.data || [];
     const memberUserIds = memberList.map((m: any) => m.user_id).filter(Boolean);
 
-    // Fetch member profiles from public.profiles
-    let profileRows: any[] = [];
-    if (memberUserIds.length > 0) {
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, name, avatar_url, created_at')
-        .in('id', memberUserIds);
-      profileRows = profs || [];
+    let rawMoments = momentsRes.data;
+
+    // If no moments exist for today, create the 3 moments in Supabase
+    if (!rawMoments || rawMoments.length === 0) {
+      const newMomentsToInsert = ([1, 2, 3] as const).map((order) => {
+        const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
+        return {
+          pair_id: pairId,
+          moment_date: todayKey,
+          prompt: promptInfo.prompt,
+        };
+      });
+
+      try {
+        const { data: inserted } = await supabase
+          .from('moments')
+          .insert(newMomentsToInsert)
+          .select();
+        rawMoments = inserted || [];
+      } catch (err) {
+        console.warn('Failed to insert moments:', err);
+      }
     }
-    const profileMap = new Map<string, any>(profileRows.map((p) => [p.id, p]));
+
+    // Fallback if offline/uninitialized
+    if (!rawMoments || rawMoments.length === 0) {
+      rawMoments = ([1, 2, 3] as const).map((order) => {
+        const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
+        return {
+          id: `moment_${pairId}_${todayKey}_${order}`,
+          pair_id: pairId,
+          moment_date: todayKey,
+          prompt: promptInfo.prompt,
+          created_at: new Date().toISOString(),
+        };
+      });
+    }
+
+    const todayMomentIds = (rawMoments || []).map((m: any) => m.id);
+
+    // 2. Parallel fetch of member profiles, today's photos, and today's reactions
+    // ONLY today's photos are fetched here! Eliminates massive 6.4 MB historical photo payload on startup.
+    const profilesPromise = memberUserIds.length > 0
+      ? supabase.from('profiles').select('id, name, avatar_url, created_at').in('id', memberUserIds)
+      : Promise.resolve({ data: [], error: null });
+
+    const photosPromise = todayMomentIds.length > 0
+      ? supabase.from('photos').select('*').in('moment_id', todayMomentIds)
+      : Promise.resolve({ data: [], error: null });
+
+    const reactionsPromise = todayMomentIds.length > 0
+      ? supabase.from('reactions').select('*').in('moment_id', todayMomentIds)
+      : Promise.resolve({ data: [], error: null });
+
+    const [profilesRes, photosRes, reactionsRes] = await Promise.all([
+      profilesPromise,
+      photosPromise,
+      reactionsPromise,
+    ]);
+
+    const profileRows = profilesRes.data || [];
+    const profileMap = new Map<string, any>(profileRows.map((p: any) => [p.id, p]));
 
     // Current user profile (Device identity)
     const myProfileRow = profileMap.get(currentUserId);
@@ -241,103 +336,27 @@ export class ApiClient {
       subscription,
     };
 
-    // 3. Fetch or initialize today's moments from public.moments
-    let { data: rawMoments } = await supabase
-      .from('moments')
-      .select('*')
-      .eq('pair_id', pairId)
-      .eq('moment_date', todayKey)
-      .order('created_at', { ascending: true });
+    const allPhotos = photosRes.data || [];
+    const allReactions = reactionsRes.data || [];
 
-    // If no moments exist for today, create the 3 moments in Supabase
-    if (!rawMoments || rawMoments.length === 0) {
-      const newMomentsToInsert = ([1, 2, 3] as const).map((order) => {
-        const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
-        return {
-          pair_id: pairId,
-          moment_date: todayKey,
-          prompt: promptInfo.prompt,
-        };
-      });
-
-      try {
-        const { data: inserted } = await supabase
-          .from('moments')
-          .insert(newMomentsToInsert)
-          .select();
-        rawMoments = inserted || [];
-      } catch (err) {
-        console.warn('Failed to insert moments:', err);
-      }
-    }
-
-    // Fallback if offline/uninitialized
-    if (!rawMoments || rawMoments.length === 0) {
-      rawMoments = ([1, 2, 3] as const).map((order) => {
-        const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
-        return {
-          id: `moment_${pairId}_${todayKey}_${order}`,
-          pair_id: pairId,
-          moment_date: todayKey,
-          prompt: promptInfo.prompt,
-          created_at: new Date().toISOString(),
-        };
-      });
-    }
-
-    // 4. Fetch all photos & reactions for all moments of this pair
-    const { data: allPairMoments } = await supabase
-      .from('moments')
-      .select('*')
-      .eq('pair_id', pairId)
-      .order('created_at', { ascending: true });
-
-    const allPairMomentList = allPairMoments || rawMoments || [];
-    const allMomentIds = allPairMomentList.map((m: any) => m.id);
-
-    let allPhotos: any[] = [];
-    let allReactions: any[] = [];
-
-    if (allMomentIds.length > 0) {
-      try {
-        const { data: pData } = await supabase
-          .from('photos')
-          .select('*')
-          .in('moment_id', allMomentIds);
-        allPhotos = pData || [];
-      } catch {
-        // silent
-      }
-
-      try {
-        const { data: rData } = await supabase
-          .from('reactions')
-          .select('*')
-          .in('moment_id', allMomentIds);
-        allReactions = rData || [];
-      } catch {
-        // silent
-      }
-    }
-
-    // 5. Assemble formatted Moment objects for today with strict user/partner photo isolation
+    // 3. Assemble formatted Moment objects for today with strict user/partner photo isolation
     const assembledMoments: Moment[] = (rawMoments || []).map((dbM: any, idx: number) => {
       const order = ((idx % 3) + 1) as 1 | 2 | 3;
       const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
 
-      const mPhotos = allPhotos.filter((p) => p.moment_id === dbM.id);
-      const mReactions = allReactions.filter((r) => r.moment_id === dbM.id);
+      const mPhotos = allPhotos.filter((p: any) => p.moment_id === dbM.id);
+      const mReactions = allReactions.filter((r: any) => r.moment_id === dbM.id);
 
-      const userPhotoObj = mPhotos.find((p) => p.user_id === currentUserId);
-      const partnerPhotoObj = mPhotos.find((p) => p.user_id !== currentUserId);
+      const userPhotoObj = mPhotos.find((p: any) => p.user_id === currentUserId);
+      const partnerPhotoObj = mPhotos.find((p: any) => p.user_id !== currentUserId);
 
       const userPhotoUrl = userPhotoObj?.storage_path || userPhotoObj?.image_url || null;
       const partnerPhotoUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
 
-      const userReactionObj = mReactions.find((r) => r.user_id === currentUserId);
-      const partnerReactionObj = mReactions.find((r) => r.user_id !== currentUserId);
+      const userReactionObj = mReactions.find((r: any) => r.user_id === currentUserId);
+      const partnerReactionObj = mReactions.find((r: any) => r.user_id !== currentUserId);
 
-      const photosList: MomentPhoto[] = mPhotos.map((p) => ({
+      const photosList: MomentPhoto[] = mPhotos.map((p: any) => ({
         userId: p.user_id,
         imageUrl: p.storage_path || p.image_url,
         createdAt: p.created_at,
@@ -352,12 +371,25 @@ export class ApiClient {
       const hasRealReaction = Boolean((uEmoji && uEmoji !== '✨') || (pEmoji && pEmoji !== '✨'));
       const hasMatchMarker = Boolean(userReactionObj || partnerReactionObj);
 
+      // Authoritative shared server timestamp when MATCH occurred for the pair
+      let matchTimestamp: number | undefined = undefined;
+      if (hasBoth) {
+        const photoTimes = mPhotos
+          .map((p: any) => (p.created_at ? new Date(p.created_at).getTime() : 0))
+          .filter((t: number) => !isNaN(t) && t > 0);
+
+        if (photoTimes.length >= 2) {
+          matchTimestamp = Math.max(...photoTimes);
+        }
+      }
+
       let status = 'EMPTY';
       if (hasBoth) {
         if (hasRealReaction) {
-          status = 'REACTED';
+          status = 'COMPLETED';
         } else if (hasMatchMarker) {
-          status = 'REVEALED';
+          // If match marker exists, preserve REVEALED for the user who triggered reveal
+          status = userReactionObj ? 'REVEALED' : 'BOTH_UPLOADED';
         } else {
           status = 'BOTH_UPLOADED';
         }
@@ -387,14 +419,62 @@ export class ApiClient {
         photos: photosList,
         userReaction: userReactClean,
         partnerReaction: partnerReactClean,
-        completedAt: dbM.created_at || undefined,
-        completedTimestamp: dbM.created_at ? new Date(dbM.created_at).getTime() : undefined,
+        completedAt: matchTimestamp
+          ? new Date(matchTimestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+          : undefined,
+        completedTimestamp: matchTimestamp,
       };
     });
 
-    // 6. Assemble History Days from all completed moments with real photos
     let historyDays: HistoryDay[] = [];
+    if (includeHistory) {
+      historyDays = await this.fetchHistory(pairId);
+    }
+
+    return {
+      pair: coupleState,
+      moments: assembledMoments,
+      history: historyDays,
+    };
+  }
+
+  /**
+   * Lazy-fetch complete history for the pair on demand (e.g. when opening History tab or Our Sky modal)
+   */
+  async fetchHistory(pairId?: string): Promise<HistoryDay[]> {
+    const targetPairId = pairId || this.currentPairId;
+    if (!targetPairId || !supabaseConfig.isConfigured) {
+      return [];
+    }
+
     try {
+      const userId = await this.ensureAuthenticatedUser();
+      const todayKey = getLocalDateKey();
+
+      // Fetch all historical moments of this pair
+      const { data: allPairMoments } = await supabase
+        .from('moments')
+        .select('*')
+        .eq('pair_id', targetPairId)
+        .order('created_at', { ascending: true });
+
+      if (!allPairMoments || allPairMoments.length === 0) {
+        return [];
+      }
+
+      const allMomentIds = allPairMoments.map((m: any) => m.id);
+
+      // Fetch photos, reactions, and pair plan in parallel
+      const [photosRes, reactionsRes, pairRes] = await Promise.all([
+        supabase.from('photos').select('*').in('moment_id', allMomentIds),
+        supabase.from('reactions').select('*').in('moment_id', allMomentIds),
+        supabase.from('pairs').select('is_lovely, subscription').eq('id', targetPairId).maybeSingle(),
+      ]);
+
+      const allPhotos = photosRes.data || [];
+      const allReactions = reactionsRes.data || [];
+      const isLovely = Boolean(pairRes.data?.is_lovely || pairRes.data?.subscription === 'premium');
+
       const photosByMoment = new Map<string, any[]>();
       allPhotos.forEach((p: any) => {
         const list = photosByMoment.get(p.moment_id) || [];
@@ -411,26 +491,25 @@ export class ApiClient {
 
       const dayMap = new Map<string, Moment[]>();
 
-      allPairMomentList.forEach((pm: any, idx: number) => {
+      allPairMoments.forEach((pm: any, idx: number) => {
         const dKey = pm.moment_date || todayKey;
         const pPhotos = photosByMoment.get(pm.id) || [];
         const pReactions = reactionsByMoment.get(pm.id) || [];
 
-        const uPhoto = pPhotos.find((p) => p.user_id === currentUserId)?.storage_path || null;
-        const partPhoto = pPhotos.find((p) => p.user_id !== currentUserId)?.storage_path || null;
+        const uPhoto = pPhotos.find((p) => p.user_id === userId)?.storage_path || null;
+        const partPhoto = pPhotos.find((p) => p.user_id !== userId)?.storage_path || null;
 
-        // Moment is eligible for History only if both photos exist AND match/reveal has occurred
         const isMatched = Boolean(uPhoto && partPhoto && pReactions.length > 0);
 
         if (isMatched) {
           const order = ((idx % 3) + 1) as 1 | 2 | 3;
-          const uReact = pReactions.find((r) => r.user_id === currentUserId)?.reaction || null;
-          const pReact = pReactions.find((r) => r.user_id !== currentUserId)?.reaction || null;
+          const uReact = pReactions.find((r) => r.user_id === userId)?.reaction || null;
+          const pReact = pReactions.find((r) => r.user_id !== userId)?.reaction || null;
 
           const hMoment: Moment = {
             id: pm.id,
-            pairId,
-            createdBy: currentUserId,
+            pairId: targetPairId,
+            createdBy: userId,
             createdAt: pm.created_at,
             dateKey: dKey,
             imageUrl: uPhoto,
@@ -459,7 +538,7 @@ export class ApiClient {
         }
       });
 
-      historyDays = Array.from(dayMap.entries())
+      const historyDays: HistoryDay[] = Array.from(dayMap.entries())
         .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
         .map(([dKey, dayMoments], idx) => ({
           id: `day-${dKey}`,
@@ -472,34 +551,31 @@ export class ApiClient {
           moments: dayMoments.sort((a, b) => a.order - b.order),
           isLocked: !isLovely && idx > 2,
         }));
-    } catch (err) {
-      console.warn('[OURS History] Exception assembling history:', err);
-    }
 
-    return {
-      pair: coupleState,
-      moments: assembledMoments,
-      history: historyDays,
-    };
+      return historyDays;
+    } catch (err) {
+      console.warn('[OURS History] Exception lazy-loading history:', err);
+      return [];
+    }
   }
 
   /**
    * Initializes or restores Supabase user session and pair state
    */
   async initSession(): Promise<SessionResponse> {
+    syncServerClock().catch(() => {});
     const userId = await this.ensureAuthenticatedUser();
-    const profile = await this.getOrCreateProfile(userId);
-
-    const userSession: UserSessionData = {
-      id: userId,
-      displayName: profile.displayName,
-      avatarUrl: profile.avatarUrl,
-      avatarColor: profile.avatarColor,
-      currentPairId: null,
-      createdAt: new Date().toISOString(),
-    };
 
     if (!supabaseConfig.isConfigured) {
+      const profile = await this.getOrCreateProfile(userId);
+      const userSession: UserSessionData = {
+        id: userId,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        avatarColor: profile.avatarColor,
+        currentPairId: null,
+        createdAt: new Date().toISOString(),
+      };
       return {
         success: true,
         user: userSession,
@@ -512,21 +588,34 @@ export class ApiClient {
       };
     }
 
-    // Check if user is a member of any pair in public.pair_members
+    // Parallelize profile and pair_members query
     try {
-      const { data: membership, error } = await supabase
-        .from('pair_members')
-        .select('pair_id')
-        .eq('user_id', userId)
-        .order('joined_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [profile, membershipRes] = await Promise.all([
+        this.getOrCreateProfile(userId),
+        supabase
+          .from('pair_members')
+          .select('pair_id')
+          .eq('user_id', userId)
+          .order('joined_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
-      if (membership?.pair_id && !error) {
+      const membership = membershipRes.data;
+      const userSession: UserSessionData = {
+        id: userId,
+        displayName: profile.displayName,
+        avatarUrl: profile.avatarUrl,
+        avatarColor: profile.avatarColor,
+        currentPairId: membership?.pair_id || null,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (membership?.pair_id && !membershipRes.error) {
         this.currentPairId = membership.pair_id;
-        userSession.currentPairId = membership.pair_id;
 
-        const assembled = await this.assemblePairData(membership.pair_id, userId);
+        // Startup fast-path: assemble today's data without blocking on full historical photos
+        const assembled = await this.assemblePairData(membership.pair_id, userId, { includeHistory: false });
         return {
           success: true,
           user: userSession,
@@ -538,20 +627,38 @@ export class ApiClient {
           history: assembled.history,
         };
       }
+
+      return {
+        success: true,
+        user: userSession,
+        token: userId,
+        isNewUser: !profile.displayName,
+        hasCompletedOnboarding: false,
+        pair: null,
+        moments: [],
+        history: [],
+      };
     } catch (err) {
       console.warn('[OURS Session] Exception checking pair membership:', err);
+      const profile = await this.getOrCreateProfile(userId);
+      return {
+        success: true,
+        user: {
+          id: userId,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          avatarColor: profile.avatarColor,
+          currentPairId: null,
+          createdAt: new Date().toISOString(),
+        },
+        token: userId,
+        isNewUser: !profile.displayName,
+        hasCompletedOnboarding: false,
+        pair: null,
+        moments: [],
+        history: [],
+      };
     }
-
-    return {
-      success: true,
-      user: userSession,
-      token: userId,
-      isNewUser: !profile.displayName,
-      hasCompletedOnboarding: false,
-      pair: null,
-      moments: [],
-      history: [],
-    };
   }
 
   /**
@@ -670,6 +777,7 @@ export class ApiClient {
    * Fetch current Pair state for live polling / real-time multi-device sync
    */
   async fetchPairState(): Promise<PairResponse> {
+    syncServerClock().catch(() => {});
     const userId = await this.ensureAuthenticatedUser();
     if (!this.currentPairId) {
       const { data: membership } = await supabase
@@ -689,7 +797,7 @@ export class ApiClient {
       return { success: false, pair: null, moments: [], history: [] };
     }
 
-    const assembled = await this.assemblePairData(this.currentPairId, userId);
+    const assembled = await this.assemblePairData(this.currentPairId, userId, { includeHistory: false });
     return {
       success: true,
       pair: assembled.pair,
@@ -780,13 +888,36 @@ export class ApiClient {
       { onConflict: 'moment_id,user_id' }
     );
 
-    if (this.currentPairId) {
-      const state = await this.assemblePairData(this.currentPairId, userId);
-      const moment = state.moments.find((m) => m.id === momentId);
-      return { success: true, moment };
-    }
+    try {
+      const { data: mPhotos } = await supabase
+        .from('photos')
+        .select('storage_path, image_url, user_id, created_at')
+        .eq('moment_id', momentId);
 
-    return { success: true };
+      const partnerPhotoObj = mPhotos?.find((p: any) => p.user_id !== userId);
+      const partnerPhotoUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
+
+      let matchTs: number | undefined = undefined;
+      if (mPhotos && mPhotos.length >= 2) {
+        const times = mPhotos.map((p: any) => new Date(p.created_at).getTime()).filter((t: number) => !isNaN(t) && t > 0);
+        if (times.length >= 2) {
+          matchTs = Math.max(...times);
+        }
+      }
+
+      return {
+        success: true,
+        moment: {
+          id: momentId,
+          userPhoto: storageUrl,
+          partnerPhoto: partnerPhotoUrl,
+          status: partnerPhotoUrl ? 'BOTH_UPLOADED' : 'USER_UPLOADED',
+          completedTimestamp: matchTs,
+        } as any,
+      };
+    } catch {
+      return { success: true };
+    }
   }
 
   /**

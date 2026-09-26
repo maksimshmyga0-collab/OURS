@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Camera, Lock, CheckCircle2 } from 'lucide-react';
 import { ReactionEmoji } from '../types';
 import { ReactionIcon } from './ReactionIcon';
+import { optimizePhotoForUpload } from '../services/storage/imageOptimizer';
 
 interface PhotoSlotProps {
   type: 'user' | 'partner';
@@ -37,23 +38,29 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = '';
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
+    // Provide instant local preview for zero-lag UI feedback
+    const fastPreview = URL.createObjectURL(file);
+    if (onPhotoSelected) {
+      onPhotoSelected(fastPreview);
+    } else if (onAddPhoto) {
+      onAddPhoto();
+    }
+
+    try {
+      const optimized = await optimizePhotoForUpload(file);
+      if (optimized && optimized !== fastPreview) {
         if (onPhotoSelected) {
-          onPhotoSelected(result);
-        } else if (onAddPhoto) {
-          onAddPhoto();
+          onPhotoSelected(optimized);
         }
       }
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+    } catch (err) {
+      console.warn('[PhotoSlot] Optimization fallback:', err);
+    }
   };
 
   // 1. USER SLOT
@@ -97,7 +104,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             )}
           </div>
           <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight truncate max-w-full text-center transition-colors duration-200">
-            {title}{isRevealed ? '' : ' · Готово'}
+            {title}{isRevealed ? '' : ' · Фото отправлено'}
           </span>
         </div>
       );
@@ -141,16 +148,28 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
 
     return (
       <div className={`w-full flex-1 flex flex-col items-center select-none ${className} animate-in fade-in duration-250 ease-out pointer-events-none`}>
-        <div className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group">
-          {/* Partner Photo: true CSS blur(18px) until MATCH is completed */}
+        <div
+          className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group"
+          style={{
+            isolation: 'isolate',
+            transform: 'translateZ(0)',
+            WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+          }}
+        >
+          {/* Partner Photo: strong CSS blur(32px) until MATCH is completed */}
           <img
             src={photoUrl}
             alt={title}
             referrerPolicy="no-referrer"
+            style={{
+              filter: isBlurred ? 'blur(32px)' : 'none',
+              transform: isBlurred ? 'scale(1.14)' : 'scale(1)',
+              willChange: 'filter, transform',
+            }}
             className={`w-full h-full object-cover transition-[filter,transform] duration-500 ease-out ${
               isBlurred
-                ? 'filter blur-[18px] scale-105 select-none pointer-events-none'
-                : 'filter blur-0 scale-100 group-hover:scale-102'
+                ? 'select-none pointer-events-none'
+                : 'group-hover:scale-102'
             }`}
           />
 

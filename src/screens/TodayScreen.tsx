@@ -13,6 +13,8 @@ import { CoupleStreakInfo, MomentPhoto } from '../types';
 import {
   calculateMomentAvailability,
   formatRemainingTime,
+  getSynchronizedNow,
+  isMomentMatchCompleted,
 } from '../services/moments/momentTiming';
 
 interface TodayScreenProps {
@@ -41,12 +43,12 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
 
-  // Live timer for live countdown calculation
-  const [now, setNow] = useState<number>(() => Date.now());
+  // Live timer for live countdown calculation with server time synchronization
+  const [now, setNow] = useState<number>(() => getSynchronizedNow());
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setNow(Date.now());
+      setNow(getSynchronizedNow());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -150,17 +152,17 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     });
   };
 
-  // Complete moment & advance timestamp
+  // Complete moment & advance timestamp preserving shared server match timestamp
   const handleSaveAndComplete = () => {
     triggerHaptic(hapticEnabled);
     playSoftChime('success', soundEnabled);
 
-    const nowTs = Date.now();
+    const matchTs = activeMoment.completedTimestamp || getSynchronizedNow();
     const updated: Moment = {
       ...activeMoment,
       status: 'COMPLETED',
-      completedTimestamp: nowTs,
-      completedAt: new Date(nowTs).toLocaleTimeString('ru-RU', {
+      completedTimestamp: matchTs,
+      completedAt: new Date(matchTs).toLocaleTimeString('ru-RU', {
         hour: '2-digit',
         minute: '2-digit',
       }),
@@ -231,8 +233,9 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               Оба готовы
             </span>
           ) : activeMoment.status === 'USER_UPLOADED' ? (
-            <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] animate-in fade-in duration-200">
-              Ждём {couple.partner.name}
+            <span className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center gap-1 animate-in fade-in duration-200">
+              <Check size={13} />
+              Фото отправлено · Ждём {couple.partner.name}
             </span>
           ) : null}
         </div>
@@ -340,7 +343,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                 <Clock size={16} />
               </div>
               <p className="text-xs font-semibold text-[#343033] dark:text-white">
-                Твой снимок сохранён ✨
+                Фото отправлено ✨
               </p>
               <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5]">
                 Ждём {couple.partner.name} · когда оба снимка будут готовы, момент откроется
@@ -380,7 +383,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           )}
 
           {/* State 6: COMPLETED */}
-          {activeMoment.status === 'COMPLETED' && (
+          {(activeMoment.status === 'COMPLETED' || (isMomentMatchCompleted(activeMoment) && activeMoment.status !== 'REVEALED' && activeMoment.status !== 'REACTED')) && (
             <div className="pt-1 animate-in fade-in duration-300 ease-out">
               {availability.isAllCompleted ? (
                 // State after 3rd moment: peaceful completion

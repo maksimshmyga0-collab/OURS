@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { Camera, Image as ImageIcon, X } from 'lucide-react';
 
+import { optimizePhotoForUpload } from '../services/storage/imageOptimizer';
+
 interface PhotoPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,19 +23,24 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        if (result) {
-          onSelectPhoto(result);
-          onClose();
-        }
-      };
-      reader.readAsDataURL(file);
       e.target.value = '';
+      onClose();
+
+      // Instant fast preview
+      const fastPreview = URL.createObjectURL(file);
+      onSelectPhoto(fastPreview);
+
+      try {
+        const optimized = await optimizePhotoForUpload(file);
+        if (optimized && optimized !== fastPreview) {
+          onSelectPhoto(optimized);
+        }
+      } catch (err) {
+        console.warn('[PhotoPicker] Optimization fallback:', err);
+      }
     }
   };
 
