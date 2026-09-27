@@ -35,45 +35,16 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
   onResetSubscription,
 }) => {
   const [justPurchased, setJustPurchased] = useState(false);
+  const [showComingSoon, setShowComingSoon] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleBuy = async () => {
+  const handleBuy = () => {
     triggerHaptic(true);
     playSoftChime('tap', true);
-    setIsProcessingPayment(true);
-    setPaymentError(null);
-
-    try {
-      // 1. Initiate real payment flow via backend YooKassa API
-      const res = await apiClient.createYooKassaPayment(pairId);
-
-      if (res.success && res.confirmationUrl) {
-        // Redirect user to official YooKassa payment page
-        window.location.href = res.confirmationUrl;
-        return;
-      }
-
-      // If YooKassa is not configured on the server or in dev mode
-      if (res.error === 'YOOKASSA_NOT_CONFIGURED') {
-        // Fallback for development/demo environment with fallback activation handler
-        if (onPurchaseLovely) onPurchaseLovely();
-        else if (onPurchase) onPurchase();
-        else if (onSubscribe) onSubscribe();
-        setJustPurchased(true);
-        playSoftChime('match', true);
-        return;
-      }
-
-      setPaymentError(res.message || res.error || 'Не удалось создать платёж');
-    } catch (err: any) {
-      console.error('[YooKassa Checkout Error]:', err);
-      setPaymentError(err.message || 'Ошибка соединения при оплате');
-    } finally {
-      setIsProcessingPayment(false);
-    }
+    setShowComingSoon(true);
   };
 
   const handleReset = () => {
@@ -90,7 +61,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#FFF9FA] dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.12)] min-h-[580px] max-h-[92vh] flex flex-col justify-between overflow-y-auto no-scrollbar animate-sheet-enter transition-colors"
+        className="relative w-full max-w-md bg-[#FFF9FA] dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.12)] min-h-[580px] max-h-[92vh] flex flex-col justify-between overflow-y-auto no-scrollbar animate-sheet-enter transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Bar with dismiss button */}
@@ -287,7 +258,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                     <span>Подключение к оплате...</span>
                   </span>
                 ) : (
-                  'Стать LOVELY'
+                  'Купить LOVELY'
                 )}
               </PrimaryButton>
 
@@ -301,7 +272,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
               </button>
 
               <p className="text-center text-[11px] text-[#8A8488] dark:text-[#A8A2A5] pt-0.5 leading-snug">
-                Продолжая оплату, вы принимаете{' '}
+                Продолжая, вы принимаете{' '}
                 <button
                   type="button"
                   onClick={() => onOpenTerms?.()}
@@ -311,6 +282,59 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                 </button>
                 .
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* «Скоро появится» Modal Dialog */}
+        {showComingSoon && (
+          <div
+            className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/45 backdrop-blur-[3px] rounded-t-[32px] sm:rounded-[28px] animate-in fade-in duration-200"
+            onClick={() => setShowComingSoon(false)}
+          >
+            <div
+              className="w-full max-w-[320px] bg-white dark:bg-[#181517] border border-[#F2D6DC] dark:border-[#352127] rounded-[26px] p-6 shadow-2xl flex flex-col items-center text-center animate-in zoom-in-95 duration-200 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close icon button */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(true);
+                  setShowComingSoon(false);
+                }}
+                className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-[#FAF5F7] dark:bg-[#221C20] border border-transparent dark:border-[#2C242A] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                title="Закрыть"
+              >
+                <X size={15} />
+              </button>
+
+              {/* Sparkle Emblem */}
+              <div className="w-12 h-12 rounded-full bg-[#FAF0F2] dark:bg-[#2A161E] border border-[#F2D1D8] dark:border-[#42222B] text-[#E98787] flex items-center justify-center mb-3.5 mt-1 shadow-2xs">
+                <Sparkles size={22} className="text-[#E98787]" />
+              </div>
+
+              {/* Title */}
+              <h3 className="font-display text-lg font-bold text-[#343033] dark:text-white tracking-tight mb-1.5">
+                Скоро появится
+              </h3>
+
+              {/* Description */}
+              <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed mb-5 max-w-[240px]">
+                Возможность покупки LOVELY станет доступна в ближайшее время.
+              </p>
+
+              {/* Action Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(true);
+                  setShowComingSoon(false);
+                }}
+                className="w-full py-2.5 px-4 rounded-[18px] bg-[#FAF0F2] dark:bg-[#26151A] hover:bg-[#F4E1E6] dark:hover:bg-[#341A22] border border-[#F2D1D8] dark:border-[#42222B] text-[#E98787] dark:text-[#F0B9C6] text-xs font-bold transition-all active:scale-[0.98] cursor-pointer shadow-2xs"
+              >
+                Понятно
+              </button>
             </div>
           </div>
         )}
