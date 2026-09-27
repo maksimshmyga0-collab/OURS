@@ -39,6 +39,37 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // Check pending payment status on open / mount
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const checkPendingPayment = async () => {
+      try {
+        const pendingPaymentId = sessionStorage.getItem('ours_pending_payment_id');
+        if (pendingPaymentId) {
+          setIsProcessingPayment(true);
+          const statusRes = await apiClient.checkPaymentStatus(pendingPaymentId);
+          setIsProcessingPayment(false);
+
+          if (statusRes.success && (statusRes.isLovely || statusRes.status === 'succeeded')) {
+            sessionStorage.removeItem('ours_pending_payment_id');
+            setJustPurchased(true);
+            if (onPurchaseLovely) onPurchaseLovely();
+            else if (onPurchase) onPurchase();
+          } else if (statusRes.status === 'canceled') {
+            sessionStorage.removeItem('ours_pending_payment_id');
+            setPaymentError('Платеж был отменен.');
+          }
+        }
+      } catch (err) {
+        console.error('[OURS LOVELY] Error checking pending payment:', err);
+        setIsProcessingPayment(false);
+      }
+    };
+
+    checkPendingPayment();
+  }, [isOpen, onPurchaseLovely, onPurchase]);
+
   if (!isOpen) return null;
 
   const handleBuy = () => {
