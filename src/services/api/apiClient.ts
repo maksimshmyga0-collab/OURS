@@ -577,19 +577,41 @@ export class ApiClient {
         }
       });
 
+      // Calculate the 7 calendar days boundary (today + previous 6 days = 7 days)
+      const now = new Date();
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 6);
+      const sevenDaysAgoKey = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
+
       const historyDays: HistoryDay[] = Array.from(dayMap.entries())
         .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-        .map(([dKey, dayMoments], idx) => ({
-          id: `day-${dKey}`,
-          dateKey: dKey,
-          title: dKey === todayKey ? 'Сегодня' : formatRussianDate(dKey),
-          subtitle: `${dayMoments.length} ${
-            dayMoments.length === 1 ? 'момент' : dayMoments.length < 5 ? 'момента' : 'моментов'
-          }`,
-          dateStr: formatRussianDate(dKey),
-          moments: dayMoments.sort((a, b) => a.order - b.order),
-          isLocked: !isLovely && idx > 2,
-        }));
+        .map(([dKey, dayMoments]) => {
+          const isWithinSevenDays = dKey >= sevenDaysAgoKey;
+          const isLocked = !isLovely && !isWithinSevenDays;
+
+          // For Free users, omit high-res photo URLs on locked older days to enforce privacy & data limitation on wire
+          const sanitizedMoments = isLocked
+            ? dayMoments.map((m) => ({
+                ...m,
+                imageUrl: null,
+                userPhoto: null,
+                partnerPhoto: null,
+                photos: [],
+              }))
+            : dayMoments.sort((a, b) => a.order - b.order);
+
+          return {
+            id: `day-${dKey}`,
+            dateKey: dKey,
+            title: dKey === todayKey ? 'Сегодня' : formatRussianDate(dKey),
+            subtitle: `${dayMoments.length} ${
+              dayMoments.length === 1 ? 'момент' : dayMoments.length < 5 ? 'момента' : 'моментов'
+            }`,
+            dateStr: formatRussianDate(dKey),
+            moments: sanitizedMoments,
+            isLocked,
+          };
+        });
 
       return historyDays;
     } catch (err) {
@@ -1233,6 +1255,60 @@ export class ApiClient {
 
     this.broadcastPairUpdate(targetPairId, { action: 'lovely_reset' });
     return true;
+  }
+
+  /**
+   * Request backend to create a YooKassa payment session (199 ₽)
+   */
+  async createYooKassaPayment(pairId?: string, returnUrl?: string): Promise<{
+    success: boolean;
+    paymentId?: string;
+    confirmationUrl?: string;
+    status?: string;
+    error?: string;
+    message?: string;
+  }> {
+    const targetPairId = pairId || this.currentPairId;
+    if (!targetPairId) {
+      return { success: false, error: 'NO_PAIR_ID', message: 'Идентификатор пары не найден' };
+    }
+
+    try {
+      const res = await fetch('/api/yookassa/create-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pairId: targetPairId, returnUrl }),
+      });
+
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      console.error('[YooKassa Client] Failed to create payment:', err);
+      return { success: false, error: 'NETWORK_ERROR', message: err.message || 'Ошибка сети' };
+    }
+  }
+
+  /**
+   * Verify YooKassa payment status with backend
+   */
+  async checkPaymentStatus(paymentId: string): Promise<{
+    success: boolean;
+    status: string;
+    isLovely: boolean;
+    error?: string;
+  }> {
+    if (!paymentId) {
+      return { success: false, status: 'error', isLovely: false, error: 'Payment ID is required' };
+    }
+
+    try {
+      const res = await fetch(`/api/yookassa/check-status/${encodeURIComponent(paymentId)}`);
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      console.error('[YooKassa Client] Failed to check status:', err);
+      return { success: false, status: 'error', isLovely: false, error: err.message };
+    }
   }
 }
 

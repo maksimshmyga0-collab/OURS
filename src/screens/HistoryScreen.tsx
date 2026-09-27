@@ -367,6 +367,30 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               </div>
             );
           })}
+
+          {/* Dedicated 7-day boundary card for Free couples */}
+          {!couple.isLovely && couple.subscription !== 'premium' && (
+            <div className="rounded-[24px] p-5 bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#F2D1D8] dark:border-[#382229] shadow-2xs text-center space-y-3 mt-4 animate-in fade-in duration-200">
+              <div className="w-10 h-10 mx-auto rounded-full bg-white dark:bg-[#2A161E] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shadow-2xs">
+                <Sparkles size={18} />
+              </div>
+              <div className="space-y-1 max-w-xs mx-auto">
+                <h4 className="font-display text-base font-bold text-[#343033] dark:text-white">
+                  Здесь начинается ваша более старая история ✨
+                </h4>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                  С Premium вы сможете вернуться к моментам старше 7 дней.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenLovely}
+                className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-[#E98787] text-white text-xs font-semibold hover:bg-[#DE7676] active:scale-98 transition-all shadow-xs cursor-pointer"
+              >
+                Открыть Premium
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

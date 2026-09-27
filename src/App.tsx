@@ -28,6 +28,7 @@ import {
 } from './services/moments/momentTiming';
 import { getCoupleMatchedDates } from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
+import { LegalScreen, LegalDocumentType } from './screens/LegalScreen';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
@@ -35,6 +36,7 @@ export default function App() {
   const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [activeLegalDoc, setActiveLegalDoc] = useState<LegalDocumentType | null>(null);
   // Fast startup: if local state has completed onboarding, show TodayScreen instantly without waiting for network init
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(
     () => !getInitialAppState().hasCompletedOnboarding
@@ -113,6 +115,57 @@ export default function App() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  // Check and verify return from YooKassa payment
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const paymentReturn = params.get('payment');
+      const paymentId = params.get('payment_id');
+
+      if (paymentReturn === 'return') {
+        if (paymentId) {
+          apiClient.checkPaymentStatus(paymentId).then((res) => {
+            if (res.success && res.isLovely) {
+              apiClient.fetchPairState().then((pairRes) => {
+                if (pairRes.success && pairRes.pair) {
+                  setAppState((prev) => ({
+                    ...prev,
+                    couple: {
+                      ...pairRes.pair!,
+                      isLovely: true,
+                      subscription: 'premium',
+                    },
+                  }));
+                }
+              });
+            }
+          }).catch(() => {});
+        } else {
+          // Poll pair state once after return
+          apiClient.fetchPairState().then((pairRes) => {
+            if (pairRes.success && pairRes.pair?.isLovely) {
+              setAppState((prev) => ({
+                ...prev,
+                couple: {
+                  ...pairRes.pair!,
+                  isLovely: true,
+                  subscription: 'premium',
+                },
+              }));
+            }
+          }).catch(() => {});
+        }
+
+        // Clean query params from URL without reload
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   // 2. Multi-device live polling & Realtime subscription to synchronize pair status, partner photos, and reactions
@@ -623,7 +676,7 @@ export default function App() {
                 }}
                 soundEnabled={appState.settings.sounds}
                 hapticEnabled={appState.settings.haptic}
-                disabled={isLovelyModalOpen || isStreakModalOpen || isEditProfileOpen}
+                disabled={isLovelyModalOpen || isStreakModalOpen || isEditProfileOpen || Boolean(activeLegalDoc)}
               >
                 {{
                   today: (
@@ -661,6 +714,8 @@ export default function App() {
                       onOpenSky={() => setIsStreakModalOpen(true)}
                       onOpenFingerprint={() => setIsStreakModalOpen(true)}
                       onOpenThread={() => setIsStreakModalOpen(true)}
+                      onOpenTerms={() => setActiveLegalDoc('terms')}
+                      onOpenPrivacy={() => setActiveLegalDoc('privacy')}
                       onLeavePair={handleLeavePair}
                       onSignOut={handleSignOut}
                     />
@@ -685,9 +740,11 @@ export default function App() {
               onClose={() => setIsLovelyModalOpen(false)}
               onPurchase={handlePurchaseLovely}
               onResetLovely={handleResetLovely}
+              pairId={appState.couple.id}
               isLovely={Boolean(appState.couple.isLovely || appState.couple.subscription === 'premium')}
               partnerAName={appState.couple.user.name}
               partnerBName={appState.couple.partner.name}
+              onOpenTerms={() => setActiveLegalDoc('terms')}
             />
 
             {/* «Наше небо» Modal */}
@@ -701,6 +758,8 @@ export default function App() {
               matchedDates={matchedDates}
               partnerAName={appState.couple.user.name}
               partnerBName={appState.couple.partner.name}
+              onOpenPremium={() => setIsLovelyModalOpen(true)}
+              onOpenLovely={() => setIsLovelyModalOpen(true)}
             />
 
             {/* User Profile Editor Modal */}
@@ -716,6 +775,12 @@ export default function App() {
               onOpenThread={() => setIsStreakModalOpen(true)}
               soundEnabled={appState.settings.sounds}
               hapticEnabled={appState.settings.haptic}
+            />
+
+            {/* Legal Documents Screen (Terms of Service / Privacy Policy) */}
+            <LegalScreen
+              document={activeLegalDoc}
+              onClose={() => setActiveLegalDoc(null)}
             />
           </div>
         </div>

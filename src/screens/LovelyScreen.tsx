@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { OursLogo } from '../components/OursLogo';
-import { X, Heart, Clock, Sparkles, Shield, Check } from 'lucide-react';
+import { X, Heart, Clock, Sparkles, Shield, Check, Loader2 } from 'lucide-react';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
+import { apiClient } from '../services/api/apiClient';
 
 export interface LovelyScreenProps {
   isOpen: boolean;
@@ -11,8 +12,10 @@ export interface LovelyScreenProps {
   onPurchase?: () => void;
   onSubscribe?: () => void; // backwards compat alias
   isLovely?: boolean;
+  pairId?: string;
   partnerAName?: string;
   partnerBName?: string;
+  onOpenTerms?: () => void;
   onResetLovely?: () => void;
   onResetSubscription?: () => void; // backwards compat
 }
@@ -24,26 +27,53 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
   onPurchase,
   onSubscribe,
   isLovely = false,
+  pairId,
   partnerAName = '',
   partnerBName = '',
+  onOpenTerms,
   onResetLovely,
   onResetSubscription,
 }) => {
   const [justPurchased, setJustPurchased] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     triggerHaptic(true);
-    playSoftChime('match', true);
-    if (onPurchaseLovely) {
-      onPurchaseLovely();
-    } else if (onPurchase) {
-      onPurchase();
-    } else if (onSubscribe) {
-      onSubscribe();
+    playSoftChime('tap', true);
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+
+    try {
+      // 1. Initiate real payment flow via backend YooKassa API
+      const res = await apiClient.createYooKassaPayment(pairId);
+
+      if (res.success && res.confirmationUrl) {
+        // Redirect user to official YooKassa payment page
+        window.location.href = res.confirmationUrl;
+        return;
+      }
+
+      // If YooKassa is not configured on the server or in dev mode
+      if (res.error === 'YOOKASSA_NOT_CONFIGURED') {
+        // Fallback for development/demo environment with fallback activation handler
+        if (onPurchaseLovely) onPurchaseLovely();
+        else if (onPurchase) onPurchase();
+        else if (onSubscribe) onSubscribe();
+        setJustPurchased(true);
+        playSoftChime('match', true);
+        return;
+      }
+
+      setPaymentError(res.message || res.error || 'Не удалось создать платёж');
+    } catch (err: any) {
+      console.error('[YooKassa Checkout Error]:', err);
+      setPaymentError(err.message || 'Ошибка соединения при оплате');
+    } finally {
+      setIsProcessingPayment(false);
     }
-    setJustPurchased(true);
   };
 
   const handleReset = () => {
@@ -94,7 +124,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
               </span>
             </div>
 
-            {/* Title & Description without duplicate emoji */}
+            {/* Title & Description */}
             <div className="space-y-2 mb-6 max-w-[300px]">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#26151A] border border-[#F2D1D8] dark:border-[#42222B] text-[#E98787] text-xs font-bold mb-1">
                 <Heart size={12} className="fill-[#E98787]" />
@@ -104,7 +134,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                 {justPurchased ? 'Теперь вы LOVELY' : 'Вы LOVELY'}
               </h2>
               <p className="text-sm text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
-                Полный OURS теперь доступен вам обоим.
+                Полная история моментов и всё ваше звёздное небо доступны навсегда.
               </p>
             </div>
 
@@ -125,7 +155,7 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
               </p>
             </div>
 
-            {/* Actions: Continue button only (no repeat purchase!) */}
+            {/* Actions: Continue button only */}
             <div className="w-full space-y-3 pt-2">
               <PrimaryButton variant="coral" onClick={onClose}>
                 Продолжить
@@ -153,10 +183,10 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                   <span>LOVELY</span>
                 </div>
                 <h1 className="font-display text-2xl sm:text-[28px] font-bold text-[#343033] dark:text-white tracking-tight leading-snug">
-                  Полный OURS для вашей пары
+                  Не теряйте вашу историю
                 </h1>
                 <p className="text-sm font-medium text-[#E98787] dark:text-[#F0B9C6] leading-relaxed">
-                  Одна покупка — для вас двоих.
+                  Одна покупка — для вас двоих (2 устройства).
                 </p>
               </div>
 
@@ -169,10 +199,10 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                   </div>
                   <div>
                     <h4 className="font-display text-sm font-bold text-[#343033] dark:text-white">
-                      Полная история
+                      Вся история ваших моментов
                     </h4>
                     <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
-                      Все ваши прошлые дни и моменты без ограничений
+                      Возвращайтесь к вашим воспоминаниям старше 7 дней в любое время
                     </p>
                   </div>
                 </div>
@@ -184,10 +214,10 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                   </div>
                   <div>
                     <h4 className="font-display text-sm font-bold text-[#343033] dark:text-white">
-                      Наше небо
+                      Всё ваше звёздное небо
                     </h4>
                     <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
-                      Уникальные рисунки из звёзд вашей истории каждый месяц
+                      Все созвездия и предыдущие месяцы с самого начала создания пары
                     </p>
                   </div>
                 </div>
@@ -199,17 +229,17 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                   </div>
                   <div>
                     <h4 className="font-display text-sm font-bold text-[#343033] dark:text-white">
-                      Приватность
+                      Для вас двоих
                     </h4>
                     <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-snug">
-                      История вашей пары доступна только вам двоим
+                      1 покупка действует сразу на 2 устройства навсегда
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Single Clear One-Time Purchase Card */}
-              <div className="p-4 rounded-[24px] bg-white dark:bg-[#181517] border-2 border-[#F0B9C6] dark:border-[#522934] shadow-2xs mb-5 flex items-center justify-between">
+              <div className="p-4 rounded-[24px] bg-white dark:bg-[#181517] border-2 border-[#F0B9C6] dark:border-[#522934] shadow-2xs mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-2xl bg-[#FFF0F3] dark:bg-[#2B171E] flex items-center justify-center text-[#E98787] shrink-0">
                     <Heart size={18} className="fill-[#E98787]" />
@@ -235,21 +265,52 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Error notice if payment failed */}
+              {paymentError && (
+                <div className="p-3 mb-3 rounded-[16px] bg-[#FAF0F2] dark:bg-[#2A151B] border border-[#F2D1D8] dark:border-[#4A202A] text-xs text-[#E98787] text-center">
+                  {paymentError}
+                </div>
+              )}
             </div>
 
             {/* Bottom Actions */}
             <div className="space-y-2 pt-2">
-              <PrimaryButton variant="coral" onClick={handleBuy}>
-                Стать LOVELY
+              <PrimaryButton
+                variant="coral"
+                onClick={handleBuy}
+                disabled={isProcessingPayment}
+              >
+                {isProcessingPayment ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Подключение к оплате...</span>
+                  </span>
+                ) : (
+                  'Стать LOVELY'
+                )}
               </PrimaryButton>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full py-2.5 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer"
+                disabled={isProcessingPayment}
+                className="w-full py-2 text-center text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer disabled:opacity-50"
               >
                 Не сейчас
               </button>
+
+              <p className="text-center text-[11px] text-[#8A8488] dark:text-[#A8A2A5] pt-0.5 leading-snug">
+                Продолжая оплату, вы принимаете{' '}
+                <button
+                  type="button"
+                  onClick={() => onOpenTerms?.()}
+                  className="text-[#E98787] dark:text-[#F0B9C6] underline hover:opacity-80 transition-opacity cursor-pointer inline font-medium"
+                >
+                  Пользовательское соглашение
+                </button>
+                .
+              </p>
             </div>
           </div>
         )}

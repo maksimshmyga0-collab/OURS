@@ -6,12 +6,14 @@ export interface LovelyModalProps {
   onClose: () => void;
   onPurchase: () => void;
   isLovely?: boolean;
-  onResetLovely?: () => void;
+  pairId?: string;
   partnerAName?: string;
   partnerBName?: string;
+  onOpenTerms?: () => void;
   /** Backward-compatibility aliases */
   onUpgrade?: (tariff?: any) => void;
   onResetSubscription?: () => void;
+  onResetLovely?: () => void;
   isAlreadyPremium?: boolean;
   currentTariff?: string;
 }
@@ -21,9 +23,11 @@ export const LovelyModal: React.FC<LovelyModalProps> = ({
   onClose,
   onPurchase,
   isLovely = false,
-  onResetLovely,
+  pairId,
   partnerAName,
   partnerBName,
+  onOpenTerms,
+  onResetLovely,
   onUpgrade,
   onResetSubscription,
   isAlreadyPremium,
@@ -34,6 +38,8 @@ export const LovelyModal: React.FC<LovelyModalProps> = ({
       onClose={onClose}
       onPurchase={onPurchase || (() => onUpgrade?.())}
       isLovely={isLovely || isAlreadyPremium}
+      pairId={pairId}
+      onOpenTerms={onOpenTerms}
       onResetLovely={onResetLovely || onResetSubscription}
       partnerAName={partnerAName}
       partnerBName={partnerBName}

@@ -22,6 +22,8 @@ export interface OurSkyModalProps {
   matchedDates?: string[];
   partnerAName: string;
   partnerBName: string;
+  onOpenPremium?: () => void;
+  onOpenLovely?: () => void;
 }
 
 export const OurSkyModal: React.FC<OurSkyModalProps> = ({
@@ -32,9 +34,15 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   todayMoments = [],
   history = [],
   matchedDates: passedMatchedDates,
+  onOpenPremium,
+  onOpenLovely,
 }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
+  const [showSkyPaywall, setShowSkyPaywall] = useState(false);
+
+  const handleOpenPaywall = onOpenPremium || onOpenLovely || (() => {});
+  const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
 
   // Current calendar date anchor
   const now = useMemo(() => new Date(), []);
@@ -72,10 +80,19 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
 
   const handlePrevMonth = () => {
     if (!canGoPrev || currentIdx <= 0) return;
+
+    // Free model rule: Previous months require Premium
+    if (!isLovely) {
+      setShowSkyPaywall(true);
+      triggerHaptic(true);
+      return;
+    }
+
     const targetKey = availableMonths[currentIdx - 1];
     const [y, m] = targetKey.split('-').map(Number);
     setSelectedYear(y);
     setSelectedMonth(m);
+    setShowSkyPaywall(false);
     triggerHaptic(true);
   };
 
@@ -85,6 +102,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     const [y, m] = targetKey.split('-').map(Number);
     setSelectedYear(y);
     setSelectedMonth(m);
+    setShowSkyPaywall(false);
     triggerHaptic(true);
   };
 
@@ -205,6 +223,33 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
             <ChevronRight size={18} />
           </button>
         </div>
+
+        {/* Free Tier Past Months Prompt */}
+        {showSkyPaywall && !isLovely && (
+          <div className="rounded-[22px] p-4 bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#F2D1D8] dark:border-[#382229] shadow-2xs text-center space-y-2.5 mb-3 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-8 h-8 mx-auto rounded-full bg-white dark:bg-[#2A161E] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shadow-2xs">
+              <Sparkles size={16} />
+            </div>
+            <div className="space-y-0.5 max-w-xs mx-auto">
+              <h4 className="font-display text-sm font-bold text-[#343033] dark:text-white">
+                Ваше небо продолжается ✨
+              </h4>
+              <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                Откройте Premium, чтобы увидеть предыдущие месяцы и всю историю ваших звёзд.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSkyPaywall(false);
+                handleOpenPaywall();
+              }}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-[#E98787] text-white text-xs font-semibold hover:bg-[#DE7676] active:scale-98 transition-all shadow-xs cursor-pointer"
+            >
+              Открыть Premium
+            </button>
+          </div>
+        )}
 
         {/* Hero Canvas: Visual Sky */}
         <div className="my-2 flex flex-col items-center text-center">

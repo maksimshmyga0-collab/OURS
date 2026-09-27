@@ -17,6 +17,7 @@ import {
   Camera,
   LogOut,
   UserMinus,
+  FileText,
 } from 'lucide-react';
 import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic } from '../services/feedback';
@@ -33,6 +34,8 @@ export interface ProfileScreenProps {
   onOpenSky?: () => void;
   onOpenFingerprint?: () => void;
   onOpenThread?: () => void;
+  onOpenTerms?: () => void;
+  onOpenPrivacy?: () => void;
   onLeavePair?: () => Promise<void> | void;
   onSignOut?: () => Promise<void> | void;
 }
@@ -49,6 +52,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenSky,
   onOpenFingerprint,
   onOpenThread,
+  onOpenTerms,
+  onOpenPrivacy,
   onLeavePair,
   onSignOut,
 }) => {
@@ -474,6 +479,60 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Legal & Privacy Policy Documents */}
+      <div className="space-y-2">
+        <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
+          Юридическая информация
+        </h3>
+
+        <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] divide-y divide-[#F2ECEE] dark:divide-[#242024] overflow-hidden shadow-2xs">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic();
+              onOpenTerms?.();
+            }}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
+                <FileText size={16} />
+              </div>
+              <span className="text-xs font-medium text-[#343033] dark:text-white truncate">
+                Пользовательское соглашение
+              </span>
+            </div>
+            <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic();
+              onOpenPrivacy?.();
+            }}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
+                <Shield size={16} />
+              </div>
+              <span className="text-xs font-medium text-[#343033] dark:text-white truncate">
+                Политика конфиденциальности
+              </span>
+            </div>
+            <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+          </button>
+        </div>
+      </div>
+
+      {/* Footer copyright */}
+      <div className="pt-1 pb-4 text-center select-none">
+        <p className="text-[11px] text-[#A89CA1] dark:text-[#6E676C]">
+          OURS © 2026. Шмыга М. А.
+        </p>
       </div>
 
       {/* Confirmation Modal: Покинуть пару */}
