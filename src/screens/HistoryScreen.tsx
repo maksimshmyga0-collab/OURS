@@ -414,42 +414,40 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           </div>
 
           {/* Clean Segmented View Mode Toggle (Stream vs Days) */}
-          {displayHistory.length > 0 && (
-            <div className="flex items-center gap-1 p-1 rounded-full bg-[#F5EFF1] dark:bg-[#1E1A1D] border border-[#EBE3E5] dark:border-[#282126] shadow-2xs shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(true);
-                  setViewMode('days');
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  viewMode === 'days'
-                    ? 'bg-white dark:bg-[#282025] text-[#343033] dark:text-white shadow-xs'
-                    : 'text-[#777277] dark:text-[#A8A0A6] hover:text-[#343033] dark:hover:text-white'
-                }`}
-                title="По дням"
-              >
-                <Calendar size={13} className="shrink-0" />
-                <span>По дням</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic(true);
-                  setViewMode('stream');
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                  viewMode === 'stream'
-                    ? 'bg-white dark:bg-[#282025] text-[#343033] dark:text-white shadow-xs'
-                    : 'text-[#777277] dark:text-[#A8A0A6] hover:text-[#343033] dark:hover:text-white'
-                }`}
-                title="Лента моментов"
-              >
-                <Layers size={13} className="shrink-0" />
-                <span>Лента</span>
-              </button>
-            </div>
-          )}
+          <div className="flex items-center gap-1 p-1 rounded-full bg-[#F5EFF1] dark:bg-[#1E1A1D] border border-[#EBE3E5] dark:border-[#282126] shadow-2xs shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(true);
+                setViewMode('days');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                viewMode === 'days'
+                  ? 'bg-white dark:bg-[#282025] text-[#343033] dark:text-white shadow-xs'
+                  : 'text-[#777277] dark:text-[#A8A0A6] hover:text-[#343033] dark:hover:text-white'
+              }`}
+              title="По дням"
+            >
+              <Calendar size={13} className="shrink-0" />
+              <span>По дням</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic(true);
+                setViewMode('stream');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                viewMode === 'stream'
+                  ? 'bg-white dark:bg-[#282025] text-[#343033] dark:text-white shadow-xs'
+                  : 'text-[#777277] dark:text-[#A8A0A6] hover:text-[#343033] dark:hover:text-white'
+              }`}
+              title="Лента моментов"
+            >
+              <Layers size={13} className="shrink-0" />
+              <span>Лента</span>
+            </button>
+          </div>
         </div>
       </div>
 

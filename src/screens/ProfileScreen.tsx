@@ -277,30 +277,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 handleOpenLovely();
               }
             }}
-            className="group relative w-full h-[82px] sm:h-[86px] rounded-[22px] select-none overflow-hidden cursor-pointer transition-all duration-300 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E98787]"
-            style={{
-              backgroundColor: '#FAF0F2',
-              background:
-                'radial-gradient(130% 120% at 50% 15%, #FFF0F3 0%, #FAF0F2 48%, #F5E4E8 100%)',
-              boxShadow:
-                'inset 0 1px 1.5px rgba(255, 255, 255, 0.6), 0 4px 16px -4px rgba(233, 135, 135, 0.15)',
-              border: '1px solid rgba(233, 135, 135, 0.22)',
-            }}
+            className="group relative w-full h-[82px] sm:h-[86px] rounded-[22px] select-none overflow-hidden cursor-pointer transition-all duration-300 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_8px_24px_-6px_rgba(10,8,18,0.06)] dark:shadow-[0_8px_24px_-6px_rgba(0,0,0,0.45)]"
             aria-label={`LOVELY: ${isLovely ? 'Подписка активна' : 'Открыть страницу подписки'}`}
           >
-            {/* Dark mode background override */}
-            <div
-              className="absolute inset-0 dark:block hidden pointer-events-none"
-              style={{
-                background:
-                  'radial-gradient(130% 120% at 50% 15%, #24151B 0%, #1A1015 48%, #110B0E 100%)',
-                boxShadow:
-                  'inset 0 1px 1.5px rgba(255, 255, 255, 0.08), 0 4px 16px -4px rgba(0, 0, 0, 0.4)',
-                border: '1px solid rgba(233, 135, 135, 0.18)',
-                borderRadius: 'inherit',
-              }}
-            />
-
             {/* Ambient Background Heart Aura & Delicate Floating Gleam (SVG Layer) */}
             <svg
               viewBox="0 0 260 100"
@@ -310,24 +289,21 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             >
               <defs>
                 <radialGradient id="lovelyGlow" cx="45%" cy="35%" r="60%">
-                  <stop offset="0%" stopColor="#E98787" stopOpacity="0.16" />
-                  <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.06" />
+                  <stop offset="0%" stopColor="#E98787" stopOpacity="0.10" />
+                  <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
                   <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
                 </radialGradient>
               </defs>
               <rect width="100%" height="100%" fill="url(#lovelyGlow)" />
 
               {/* Faint Romantic Gleam Particles */}
-              <g opacity="0.35">
+              <g opacity="0.30">
                 <circle cx="42" cy="72" r="1.2" fill="#E98787" />
                 <circle cx="118" cy="24" r="0.9" fill="#E98787" />
                 <circle cx="186" cy="76" r="1.0" fill="#E98787" />
                 <circle cx="230" cy="28" r="1.1" fill="#E98787" />
               </g>
             </svg>
-
-            {/* Glass Sheen Top Edge Highlight */}
-            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 dark:via-white/12 to-transparent pointer-events-none" />
 
             {/* Content Overlay */}
             <div className="relative z-10 h-full w-full px-4.5 py-2.5 flex items-center justify-between pointer-events-none">

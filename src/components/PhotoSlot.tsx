@@ -99,7 +99,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
           />
           <div
             onClick={() => handleOpenViewer(photoUrl, 'Твоё фото')}
-            className="relative w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow group cursor-pointer transition-transform duration-180 ease-out active:scale-[0.98]"
+            className="relative w-full aspect-square rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow group cursor-pointer transition-transform duration-180 ease-out active:scale-[0.98]"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -172,7 +172,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
         <button
           type="button"
           onClick={handleSlotClick}
-          className="w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] bg-white dark:bg-[#141214] border-2 border-dashed border-[#E5D7DA] dark:border-[#35252A] hover:border-[#E98787] dark:hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-180 ease-out active:scale-[0.97] cursor-pointer group shadow-2xs"
+          className="w-full aspect-square rounded-[20px] sm:rounded-[22px] bg-white dark:bg-[#141214] border-2 border-dashed border-[#E5D7DA] dark:border-[#35252A] hover:border-[#E98787] dark:hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-180 ease-out active:scale-[0.97] cursor-pointer group shadow-2xs"
         >
           <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] dark:bg-[#25161A] group-hover:bg-[#F6DCE1] dark:group-hover:bg-[#341B22] flex items-center justify-center text-[#E98787] mb-2 transition-colors duration-200 ease-out">
             <Camera size={20} />
@@ -197,7 +197,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
       <div className={`w-full flex-1 flex flex-col items-center select-none ${className} animate-photo-enter`}>
         <div
           onClick={!isBlurred ? () => handleOpenViewer(photoUrl, title) : undefined}
-          className={`relative w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group ${
+          className={`relative w-full aspect-square rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group ${
             !isBlurred
               ? 'cursor-pointer active:scale-[0.98] transition-transform duration-180 ease-out'
               : 'select-none pointer-events-none'
@@ -291,7 +291,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   // Partner slot before upload -> clean, calm waiting state
   return (
     <div className={`w-full flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
-      <div className="w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden pointer-events-none">
+      <div className="w-full aspect-square rounded-[20px] sm:rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden pointer-events-none">
         <div className="w-11 h-11 rounded-2xl bg-[#FAF1F3] dark:bg-[#20181B] flex items-center justify-center text-[#8A8488] dark:text-[#B8B2B5] mb-2">
           <Lock size={18} />
         </div>
