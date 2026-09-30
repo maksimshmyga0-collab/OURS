@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CoupleState, CoupleStreakInfo, AppSettings } from '../types';
+import { CoupleState, CoupleStreakInfo, AppSettings, Moment, HistoryDay } from '../types';
 import { PastelCard } from '../components/PastelCard';
 import { Avatar } from '../components/Avatar';
 import { ThemeSelector } from '../components/ThemeSelector';
+import { OurSkyPreview } from '../components/OurSkyPreview';
 import {
   Bell,
   Volume2,
@@ -18,6 +19,7 @@ import {
   LogOut,
   UserMinus,
   FileText,
+  Check,
 } from 'lucide-react';
 import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic } from '../services/feedback';
@@ -25,6 +27,9 @@ import { triggerHaptic } from '../services/feedback';
 export interface ProfileScreenProps {
   couple: CoupleState;
   streakInfo: CoupleStreakInfo;
+  todayMoments?: Moment[];
+  history?: HistoryDay[];
+  pairSeed?: string;
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
   onResetApp?: () => void;
@@ -43,6 +48,9 @@ export interface ProfileScreenProps {
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   couple,
   streakInfo,
+  todayMoments = [],
+  history = [],
+  pairSeed,
   settings,
   onUpdateSettings,
   onResetApp,
@@ -91,8 +99,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
       {/* Profile Header Card */}
       <PastelCard color="white" className="flex flex-col items-center text-center p-6 space-y-4">
-        {/* Paired avatars */}
-        <div className="flex items-center -space-x-3 pt-2">
+        {/* Paired avatars (Large, prominent and expressive on mobile & desktop) */}
+        <div className="flex items-center -space-x-5 pt-2">
           {/* User Avatar with interactive edit click */}
           <div
             onClick={onOpenEditProfile}
@@ -101,25 +109,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           >
             <Avatar
               name={couple.user.name}
-              size="xl"
+              size="3xl"
               bgColor={couple.user.avatarColor}
               imageUrl={couple.user.avatarUrl}
               variant="user"
-              className="ring-4 ring-white dark:ring-[#111111] shadow-sm"
+              className="ring-4 ring-white dark:ring-[#111111] shadow-md"
             />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#E98787] text-white flex items-center justify-center border-2 border-white dark:border-[#111111] shadow-xs">
-              <Camera size={11} />
+            <div className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-[#E98787] text-white flex items-center justify-center border-2 border-white dark:border-[#111111] shadow-xs">
+              <Camera size={13} />
             </div>
           </div>
 
           {/* Partner Avatar */}
           <Avatar
             name={couple.partner.name}
-            size="xl"
+            size="3xl"
             bgColor={couple.partner.avatarColor}
             imageUrl={couple.partner.avatarUrl}
             variant="partner"
-            className="ring-4 ring-white dark:ring-[#111111] shadow-sm"
+            className="ring-4 ring-white dark:ring-[#111111] shadow-md"
           />
         </div>
 
@@ -236,76 +244,137 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       </PastelCard>
 
-      {/* «Наше небо» Entry Point */}
-      {handleOpenSky && (
-        <div
-          onClick={handleOpenSky}
-          className="rounded-[20px] p-4.5 bg-[#FAF5F7] dark:bg-[#161416] border border-[#EEDCE2] dark:border-[#242024] shadow-2xs flex items-center justify-between gap-4 cursor-pointer hover:bg-[#F6ECF0] dark:hover:bg-[#1E1B1E] transition-all duration-200 ease-out active:scale-[0.99]"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white dark:bg-[#201518] border border-[#EEDCE2] dark:border-[#382329] flex items-center justify-center text-[#E98787] shrink-0 shadow-2xs">
-              <Sparkles size={19} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-[#343033] dark:text-white">
-                  Наше небо
-                </h3>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white dark:bg-[#251A1E] text-[#E98787] border border-[#EEDCE2] dark:border-[#382329]">
-                  Созвездие месяца
-                </span>
-              </div>
-              <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-                Уникальный рисунок из звёзд вашей пары
-              </p>
-            </div>
-          </div>
-          <ChevronRight size={18} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
-        </div>
-      )}
+      {/* Paired Highlights Section: «Наше небо» & «LOVELY» */}
+      <div className="space-y-3">
+        {/* Card 1: «Наше небо» — Живое интерактивное окно в общее небо пары */}
+        {handleOpenSky && (
+          <OurSkyPreview
+            couple={couple}
+            todayMoments={todayMoments}
+            history={history}
+            pairSeed={pairSeed}
+            streakInfo={streakInfo}
+            soundEnabled={settings.sounds}
+            hapticEnabled={settings.haptic}
+            variant="compact"
+            onOpenSky={handleOpenSky}
+          />
+        )}
 
-      {/* LOVELY Status Card: Brand Heart Icon without duplicate emoji */}
-      {handleOpenLovely && (
-        <div
-          onClick={handleOpenLovely}
-          className={`rounded-[20px] p-4.5 shadow-2xs flex items-center justify-between gap-4 cursor-pointer transition-all duration-200 ease-out active:scale-[0.99] ${
-            isLovely
-              ? 'bg-[#FAF0F2] dark:bg-[#1A1416] border border-[#F2D1D8] dark:border-[#382229] hover:bg-[#F6E6EB] dark:hover:bg-[#22171A]'
-              : 'bg-[#FFF3F5] dark:bg-[#171315] border border-[#F2D6DC] dark:border-[#332026] hover:bg-[#FCE8ED] dark:hover:bg-[#1F171A]'
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-white dark:bg-[#25151B] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shrink-0 shadow-2xs">
-              <Heart
-                size={18}
-                className={isLovely ? 'fill-[#E98787]' : ''}
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-[#343033] dark:text-white">
-                  {isLovely ? 'LOVELY' : 'Стать LOVELY'}
-                </h3>
+        {/* Card 2: «LOVELY» — Тёплое окно в общую подписку пары */}
+        {handleOpenLovely && (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              triggerHaptic(settings.haptic);
+              handleOpenLovely();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                triggerHaptic(settings.haptic);
+                handleOpenLovely();
+              }
+            }}
+            className="group relative w-full h-[82px] sm:h-[86px] rounded-[22px] select-none overflow-hidden cursor-pointer transition-all duration-300 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E98787]"
+            style={{
+              backgroundColor: '#FAF0F2',
+              background:
+                'radial-gradient(130% 120% at 50% 15%, #FFF0F3 0%, #FAF0F2 48%, #F5E4E8 100%)',
+              boxShadow:
+                'inset 0 1px 1.5px rgba(255, 255, 255, 0.6), 0 4px 16px -4px rgba(233, 135, 135, 0.15)',
+              border: '1px solid rgba(233, 135, 135, 0.22)',
+            }}
+            aria-label={`LOVELY: ${isLovely ? 'Подписка активна' : 'Открыть страницу подписки'}`}
+          >
+            {/* Dark mode background override */}
+            <div
+              className="absolute inset-0 dark:block hidden pointer-events-none"
+              style={{
+                background:
+                  'radial-gradient(130% 120% at 50% 15%, #24151B 0%, #1A1015 48%, #110B0E 100%)',
+                boxShadow:
+                  'inset 0 1px 1.5px rgba(255, 255, 255, 0.08), 0 4px 16px -4px rgba(0, 0, 0, 0.4)',
+                border: '1px solid rgba(233, 135, 135, 0.18)',
+                borderRadius: 'inherit',
+              }}
+            />
+
+            {/* Ambient Background Heart Aura & Delicate Floating Gleam (SVG Layer) */}
+            <svg
+              viewBox="0 0 260 100"
+              preserveAspectRatio="xMidYMid slice"
+              className="absolute inset-0 w-full h-full pointer-events-none block"
+              aria-hidden="true"
+            >
+              <defs>
+                <radialGradient id="lovelyGlow" cx="45%" cy="35%" r="60%">
+                  <stop offset="0%" stopColor="#E98787" stopOpacity="0.16" />
+                  <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.06" />
+                  <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#lovelyGlow)" />
+
+              {/* Faint Romantic Gleam Particles */}
+              <g opacity="0.35">
+                <circle cx="42" cy="72" r="1.2" fill="#E98787" />
+                <circle cx="118" cy="24" r="0.9" fill="#E98787" />
+                <circle cx="186" cy="76" r="1.0" fill="#E98787" />
+                <circle cx="230" cy="28" r="1.1" fill="#E98787" />
+              </g>
+            </svg>
+
+            {/* Glass Sheen Top Edge Highlight */}
+            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 dark:via-white/12 to-transparent pointer-events-none" />
+
+            {/* Content Overlay */}
+            <div className="relative z-10 h-full w-full px-4.5 py-2.5 flex items-center justify-between pointer-events-none">
+              {/* Left Slot: Title & Subtitle */}
+              <div className="flex flex-col justify-center space-y-0.5 min-w-0 pr-2">
+                <div className="inline-flex items-center gap-1.5">
+                  <Heart
+                    size={13}
+                    className={`shrink-0 transition-transform duration-300 group-hover:scale-110 ${
+                      isLovely
+                        ? 'fill-[#E98787] text-[#E98787]'
+                        : 'fill-[#E98787]/30 text-[#E98787]'
+                    }`}
+                  />
+                  <span className="font-display font-bold text-sm tracking-tight text-[#343033] dark:text-white drop-shadow-xs">
+                    {isLovely ? 'LOVELY' : 'Стать LOVELY'}
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5] tracking-tight truncate">
+                  {isLovely
+                    ? 'Подписка активна для пары (2 устр.)'
+                    : 'Одна покупка — для вас двоих'}
+                </p>
+              </div>
+
+              {/* Right Slot: Action / Status Badge */}
+              <div className="flex items-center gap-1.5 shrink-0 pl-1">
                 {isLovely ? (
-                  <span className="text-[10px] font-semibold text-[#649A6E] px-2 py-0.5 rounded-full bg-white dark:bg-[#152419] border border-[#D3EED8] dark:border-[#22452B]">
-                    Активно
-                  </span>
+                  <div className="px-2.5 py-1 rounded-full bg-[#EAF6ED] dark:bg-[#152419] border border-[#C5E8CE] dark:border-[#22452B] text-[#2E7D46] dark:text-[#52B778] text-[10.5px] font-semibold flex items-center gap-1 shadow-2xs">
+                    <Check size={11} strokeWidth={2.5} />
+                    <span>Активно</span>
+                  </div>
                 ) : (
-                  <span className="text-[10px] font-semibold text-[#E98787] dark:text-[#F0B9C6] px-2 py-0.5 rounded-full bg-white dark:bg-[#25151B] border border-[#F2D1D8] dark:border-[#42222B]">
-                    199 ₽
-                  </span>
+                  <div className="px-2.5 py-1 rounded-full bg-white/80 dark:bg-white/10 backdrop-blur-md border border-[#F2D1D8] dark:border-white/14 text-[#E98787] dark:text-[#F0B9C6] text-[10.5px] font-semibold flex items-center gap-1 group-hover:bg-white dark:group-hover:bg-white/16 transition-all duration-200 shadow-2xs">
+                    <span>199 ₽</span>
+                    <ChevronRight
+                      size={12}
+                      className="group-hover:translate-x-0.5 transition-transform duration-200"
+                    />
+                  </div>
                 )}
               </div>
-              <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-                {isLovely
-                  ? 'Подписка активна для пары (2 устройства)'
-                  : 'Одна покупка — для вас двоих (2 устройства)'}
-              </p>
             </div>
           </div>
-          <ChevronRight size={18} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Settings Section - iOS Grouped List */}
       <div className="space-y-2.5">

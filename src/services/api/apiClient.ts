@@ -407,7 +407,11 @@ export class ApiClient {
 
       const uEmoji = userReactionObj?.reaction || userReactionObj?.emoji;
       const pEmoji = partnerReactionObj?.reaction || partnerReactionObj?.emoji;
-      const hasRealReaction = Boolean((uEmoji && uEmoji !== '✨') || (pEmoji && pEmoji !== '✨'));
+
+      const userReactClean = uEmoji === '✨' ? null : (uEmoji as ReactionEmoji | null);
+      const partnerReactClean = pEmoji === '✨' ? null : (pEmoji as ReactionEmoji | null);
+
+      const hasUserReaction = Boolean(userReactClean);
       const hasMatchMarker = Boolean(userReactionObj || partnerReactionObj);
 
       // Authoritative shared server timestamp when MATCH occurred for the pair
@@ -424,10 +428,10 @@ export class ApiClient {
 
       let status = 'EMPTY';
       if (hasBoth) {
-        if (hasRealReaction) {
+        if (hasUserReaction) {
           status = 'COMPLETED';
-        } else if (hasMatchMarker) {
-          // If match marker exists, moment is revealed for both partners in the pair
+        } else if (hasMatchMarker || Boolean(partnerReactClean)) {
+          // If match marker or partner reaction exists, moment is revealed for the pair, but current user can still choose their reaction
           status = 'REVEALED';
         } else {
           status = 'BOTH_UPLOADED';
@@ -435,9 +439,6 @@ export class ApiClient {
       } else if (hasUser) {
         status = 'USER_UPLOADED';
       }
-
-      const userReactClean = uEmoji === '✨' ? null : (uEmoji as ReactionEmoji | null);
-      const partnerReactClean = pEmoji === '✨' ? null : (pEmoji as ReactionEmoji | null);
 
       return {
         id: canonicalId,

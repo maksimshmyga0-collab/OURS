@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Moment, CoupleState, ReactionEmoji } from '../types';
+import { Moment, CoupleState, ReactionEmoji, HistoryDay } from '../types';
 import { PastelCard, PastelCardColor } from '../components/PastelCard';
 import { PhotoSlot } from '../components/PhotoSlot';
 import { ReactionPicker } from '../components/ReactionPicker';
@@ -8,6 +8,7 @@ import { ProgressDots } from '../components/ProgressDots';
 import { MatchAnimation } from '../components/MatchAnimation';
 import { PhotoPickerModal } from '../components/PhotoPickerModal';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
+import { OurSkyPreview } from '../components/OurSkyPreview';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { Check, Sparkles, Clock, Heart, Bell } from 'lucide-react';
 import { CoupleStreakInfo, MomentPhoto } from '../types';
@@ -22,6 +23,8 @@ import {
 interface TodayScreenProps {
   couple: CoupleState;
   moments: Moment[];
+  history?: HistoryDay[];
+  pairSeed?: string;
   activeMomentId: string;
   onSelectActiveMoment: (momentId: string) => void;
   onUpdateMoment: (updated: Moment) => void;
@@ -29,11 +32,14 @@ interface TodayScreenProps {
   hapticEnabled: boolean;
   streakInfo?: CoupleStreakInfo;
   onOpenStreak?: () => void;
+  onOpenSky?: () => void;
 }
 
 export const TodayScreen: React.FC<TodayScreenProps> = ({
   couple,
   moments,
+  history = [],
+  pairSeed,
   activeMomentId,
   onSelectActiveMoment,
   onUpdateMoment,
@@ -41,6 +47,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   hapticEnabled,
   streakInfo,
   onOpenStreak,
+  onOpenSky,
 }) => {
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
@@ -237,7 +244,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     const updated: Moment = {
       ...activeMoment,
       userReaction: emoji,
-      partnerReaction: activeMoment.partnerReaction || '❤️',
+      partnerReaction: activeMoment.partnerReaction || null,
       status: 'REACTED',
       completedTimestamp: matchTs,
       completedAt: new Date(matchTs).toLocaleTimeString('ru-RU', {
@@ -339,7 +346,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         <PastelCard
           key={activeMoment.id}
           color={getThemeCardColor(activeMoment)}
-          className="relative overflow-hidden transition-all duration-300 ease-out animate-card-enter"
+          className="p-3.5 sm:p-5.5 pb-5 sm:pb-6 relative overflow-hidden transition-all duration-300 ease-out animate-card-enter"
         >
         {/* Card Header info */}
         <div className="flex items-center justify-between mb-3">
@@ -383,7 +390,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </div>
 
         {/* Prompt Header */}
-        <div className="mb-5 transition-all duration-200">
+        <div className="mb-4 sm:mb-5 transition-all duration-200">
           {isCurrentMomentWaiting ? (
             <div className="space-y-1 animate-in fade-in duration-250 ease-out">
               <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
@@ -414,8 +421,8 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           )}
         </div>
 
-        {/* Photo Slots Section - Moment Duo (Max 2 photos per moment) */}
-        <div className="relative grid grid-cols-2 items-start gap-3 sm:gap-4 mb-5">
+        {/* Photo Slots Section - Moment Duo (Enlarged and optimized for mobile & desktop) */}
+        <div className="relative grid grid-cols-2 items-start gap-2.5 sm:gap-3.5 mb-5">
 
           {isCurrentMomentWaiting ? (
             // Calm waiting placeholders during cooldown
@@ -616,23 +623,18 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       </PastelCard>
       </div>
 
-      {/* Тонкая широкая кнопка «Наше небо» под блоком касания */}
-      {onOpenStreak && (
-        <button
-          type="button"
-          onClick={() => {
-            triggerHaptic(hapticEnabled);
-            playSoftChime('tap', soundEnabled);
-            onOpenStreak();
-          }}
-          className="w-full min-h-[48px] py-3.5 px-6 rounded-[20px] bg-[#97B2EB] dark:bg-[#97B2EB] hover:bg-[#88A6E7] dark:hover:bg-[#88A6E7] active:bg-[#7A99E1] dark:active:bg-[#7A99E1] active:scale-[0.98] border border-[#86A4E6]/30 dark:border-[#86A4E6]/30 text-center transition-all duration-150 cursor-pointer shadow-2xs flex items-center justify-center gap-2"
-          title="Открыть Наше небо"
-        >
-          <Sparkles size={14} className="text-[#FFFFFF] shrink-0 opacity-90" />
-          <span className="font-sans font-semibold text-[13px] tracking-wide text-[#FFFFFF]">
-            Наше небо
-          </span>
-        </button>
+      {/* «Наше небо» — Живое интерактивное окно в общее небо пары */}
+      {(onOpenStreak || onOpenSky) && (
+        <OurSkyPreview
+          couple={couple}
+          todayMoments={moments}
+          history={history}
+          pairSeed={pairSeed}
+          streakInfo={streakInfo}
+          soundEnabled={soundEnabled}
+          hapticEnabled={hapticEnabled}
+          onOpenSky={onOpenStreak || onOpenSky || (() => {})}
+        />
       )}
 
 

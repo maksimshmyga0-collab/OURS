@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { triggerHaptic } from '../services/feedback';
 
@@ -138,10 +139,13 @@ export const FullscreenPhotoViewer: React.FC<FullscreenPhotoViewerProps> = ({
     return null;
   }
 
-  return (
+  const modalContent = (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none bg-[#09080A]/95 backdrop-blur-[16px] transition-opacity duration-280 ease-out ${
-        isVisible ? 'opacity-100' : 'opacity-0'
+      data-no-swipe
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      className={`fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 select-none bg-[#09080A]/95 backdrop-blur-[18px] transition-opacity duration-280 ease-out ${
+        isVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
       }`}
       style={{
         paddingTop: 'calc(var(--sat, 0px) + 16px)',
@@ -158,7 +162,7 @@ export const FullscreenPhotoViewer: React.FC<FullscreenPhotoViewerProps> = ({
         style={{ top: 'var(--sat, 0px)' }}
       >
         {title ? (
-          <div className="px-3.5 py-1.5 rounded-full bg-white/10 dark:bg-white/10 backdrop-blur-md border border-white/10 text-white/90 text-xs font-semibold tracking-wide pointer-events-auto shadow-xs">
+          <div className="px-3.5 py-1.5 rounded-full bg-white/12 dark:bg-white/12 backdrop-blur-md border border-white/10 text-white/95 text-xs font-semibold tracking-wide pointer-events-auto shadow-xs select-none">
             {title}
           </div>
         ) : (
@@ -171,7 +175,7 @@ export const FullscreenPhotoViewer: React.FC<FullscreenPhotoViewerProps> = ({
             e.stopPropagation();
             handleDismiss();
           }}
-          className="w-10 h-10 rounded-full bg-white/12 hover:bg-white/20 active:bg-white/28 text-white/90 hover:text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-all duration-200 active:scale-95 cursor-pointer shadow-xs pointer-events-auto"
+          className="w-11 h-11 rounded-full bg-white/14 hover:bg-white/22 active:bg-white/30 text-white flex items-center justify-center backdrop-blur-md border border-white/15 transition-all duration-200 active:scale-95 cursor-pointer shadow-xs pointer-events-auto"
           title="Закрыть (Esc)"
           aria-label="Закрыть просмотр"
         >
@@ -179,9 +183,9 @@ export const FullscreenPhotoViewer: React.FC<FullscreenPhotoViewerProps> = ({
         </button>
       </div>
 
-      {/* Main Photo: Central Hero Element with Smooth Scale Transition */}
+      {/* Main Photo: Central Hero Element with Aspect Ratio Preservation */}
       <div
-        className={`relative max-w-full max-h-[85vh] sm:max-h-[88vh] flex items-center justify-center transition-all duration-280 ease-out ${
+        className={`relative w-full h-full max-w-[94vw] max-h-[82vh] sm:max-h-[86vh] flex items-center justify-center transition-all duration-280 ease-out ${
           isVisible ? 'scale-100 opacity-100' : 'scale-[0.96] opacity-0'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -190,9 +194,15 @@ export const FullscreenPhotoViewer: React.FC<FullscreenPhotoViewerProps> = ({
           src={photoUrl}
           alt={alt}
           referrerPolicy="no-referrer"
-          className="max-w-full max-h-[85vh] sm:max-h-[88vh] w-auto h-auto object-contain rounded-[20px] sm:rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.6)] border border-white/10 select-none pointer-events-auto"
+          className="max-w-full max-h-[82vh] sm:max-h-[86vh] w-auto h-auto object-contain rounded-[20px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.7)] border border-white/10 select-none pointer-events-auto"
         />
       </div>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 };

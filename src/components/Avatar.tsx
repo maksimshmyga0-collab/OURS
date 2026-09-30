@@ -4,7 +4,7 @@ export type AvatarVariant = 'user' | 'partner';
 
 interface AvatarProps {
   name: string;
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   bgColor?: string;
   imageUrl?: string | null;
   className?: string;
@@ -150,6 +150,8 @@ export const Avatar: React.FC<AvatarProps> = ({
     md: 'w-9 h-9 text-sm',
     lg: 'w-12 h-12 text-base font-semibold',
     xl: 'w-16 h-16 text-xl font-bold',
+    '2xl': 'w-20 h-20 text-2xl font-bold',
+    '3xl': 'w-[88px] h-[88px] sm:w-[96px] sm:h-[96px] text-3xl font-bold',
   }[size];
 
   // Resolve partner role for placeholder: explicit prop, or inferred from bgColor / name

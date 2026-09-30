@@ -265,7 +265,7 @@ export class AppMomentService implements IMomentService {
     const updated: Moment = {
       ...target,
       userReaction: emoji,
-      partnerReaction: target.partnerReaction || partnerEmoji || '❤️',
+      partnerReaction: target.partnerReaction || partnerEmoji || null,
       status: 'REACTED',
     };
 

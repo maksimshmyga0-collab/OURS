@@ -193,13 +193,23 @@ export default function App() {
               const partnerPhoto = srvM.partnerPhoto || prevM.partnerPhoto || null;
               const hasBoth = Boolean(userPhoto && partnerPhoto);
 
-              // Monotonic status progression: never accidentally regress from REVEALED or COMPLETED
-              let status = srvM.status;
-              if (prevM.status === 'COMPLETED' || srvM.status === 'COMPLETED') {
-                status = 'COMPLETED';
-              } else if (prevM.status === 'REACTED' || srvM.status === 'REACTED') {
-                status = 'REACTED';
-              } else if (prevM.status === 'REVEALED' || srvM.status === 'REVEALED') {
+              const userReaction = srvM.userReaction || prevM.userReaction || null;
+              const partnerReaction = srvM.partnerReaction || prevM.partnerReaction || null;
+
+              // Monotonic status progression based on CURRENT USER's reaction state
+              let status: string;
+              if (userReaction) {
+                // If current user has already selected their reaction, status is COMPLETED / REACTED
+                status = prevM.status === 'COMPLETED' || srvM.status === 'COMPLETED' ? 'COMPLETED' : 'REACTED';
+              } else if (
+                hasBoth &&
+                (prevM.status === 'REVEALED' ||
+                  srvM.status === 'REVEALED' ||
+                  prevM.status === 'REACTED' ||
+                  srvM.status === 'REACTED' ||
+                  partnerReaction)
+              ) {
+                // Moment is revealed/matched, but current user has not yet chosen a reaction -> keep REVEALED
                 status = 'REVEALED';
               } else if (hasBoth) {
                 status = 'BOTH_UPLOADED';
@@ -216,8 +226,8 @@ export default function App() {
                 userPhoto,
                 partnerPhoto,
                 status: status as any,
-                userReaction: srvM.userReaction || prevM.userReaction || null,
-                partnerReaction: srvM.partnerReaction || prevM.partnerReaction || null,
+                userReaction,
+                partnerReaction,
               };
             });
 
@@ -683,6 +693,8 @@ export default function App() {
                     <TodayScreen
                       couple={appState.couple}
                       moments={appState.todayMoments}
+                      history={appState.history}
+                      pairSeed={pairSeed}
                       activeMomentId={appState.activeMomentId}
                       onSelectActiveMoment={handleSelectActiveMoment}
                       onUpdateMoment={handleUpdateMoment}
@@ -705,6 +717,9 @@ export default function App() {
                   profile: (
                     <ProfileScreen
                       couple={appState.couple}
+                      todayMoments={appState.todayMoments}
+                      history={appState.history}
+                      pairSeed={pairSeed}
                       settings={appState.settings}
                       onUpdateSettings={handleUpdateSettings}
                       onOpenLovely={() => setIsLovelyModalOpen(true)}

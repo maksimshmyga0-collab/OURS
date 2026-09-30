@@ -248,7 +248,7 @@ export const DAILY_PROMPTS_POOL: Array<{
     themeColor: 'pink',
   },
   {
-    prompt: 'Твоя тень или солнечный луч рядом',
+    prompt: 'Наш момент',
     subtext: 'Сделайте по одному фото и откройте их вместе.',
     themeColor: 'blue',
   },

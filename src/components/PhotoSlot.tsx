@@ -99,7 +99,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
           />
           <div
             onClick={() => handleOpenViewer(photoUrl, 'Твоё фото')}
-            className="relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow group cursor-pointer transition-transform duration-180 ease-out active:scale-[0.98]"
+            className="relative w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow group cursor-pointer transition-transform duration-180 ease-out active:scale-[0.98]"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -172,16 +172,13 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
         <button
           type="button"
           onClick={handleSlotClick}
-          className="w-full aspect-square rounded-[22px] bg-white dark:bg-[#141214] border-2 border-dashed border-[#E5D7DA] dark:border-[#35252A] hover:border-[#E98787] dark:hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-180 ease-out active:scale-[0.97] cursor-pointer group shadow-2xs"
+          className="w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] bg-white dark:bg-[#141214] border-2 border-dashed border-[#E5D7DA] dark:border-[#35252A] hover:border-[#E98787] dark:hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-180 ease-out active:scale-[0.97] cursor-pointer group shadow-2xs"
         >
           <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] dark:bg-[#25161A] group-hover:bg-[#F6DCE1] dark:group-hover:bg-[#341B22] flex items-center justify-center text-[#E98787] mb-2 transition-colors duration-200 ease-out">
             <Camera size={20} />
           </div>
           <span className="text-xs font-semibold text-[#343033] dark:text-white">
             Добавить фото
-          </span>
-          <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-            Только ты
           </span>
         </button>
         <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-2 tracking-tight truncate max-w-full text-center">
@@ -200,7 +197,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
       <div className={`w-full flex-1 flex flex-col items-center select-none ${className} animate-photo-enter`}>
         <div
           onClick={!isBlurred ? () => handleOpenViewer(photoUrl, title) : undefined}
-          className={`relative w-full aspect-square rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group ${
+          className={`relative w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group ${
             !isBlurred
               ? 'cursor-pointer active:scale-[0.98] transition-transform duration-180 ease-out'
               : 'select-none pointer-events-none'
@@ -220,15 +217,15 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
           }}
           aria-label={!isBlurred ? `Открыть фото ${title} на весь экран` : undefined}
         >
-          {/* Partner Photo: deep abstract blur(80px) until MATCH is completed */}
+          {/* Partner Photo: ultra maximum abstract gaussian blur + chromatic dispersion before MATCH */}
           <img
             src={photoUrl}
             alt={title}
             referrerPolicy="no-referrer"
             style={{
-              filter: isBlurred ? 'blur(80px)' : 'none',
-              transform: isBlurred ? 'scale(1.42)' : 'scale(1)',
-              opacity: isBlurred ? 0.94 : 1,
+              filter: isBlurred ? 'blur(45px) saturate(160%) contrast(105%) brightness(0.98)' : 'none',
+              transform: isBlurred ? 'scale(1.48)' : 'scale(1)',
+              opacity: isBlurred ? 0.95 : 1,
               willChange: 'filter, transform, opacity',
             }}
             className={`w-full h-full object-cover transition-[filter,transform,opacity] duration-500 ease-out ${
@@ -238,22 +235,27 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             }`}
           />
 
+          {/* Deep Frosted Color Diffusion Layer before MATCH (ensures 100% facial detail occlusion) */}
+          {isBlurred && (
+            <div className="absolute inset-0 backdrop-blur-[36px] bg-white/20 dark:bg-black/25 pointer-events-none" />
+          )}
+
           {/* Calm overlay before MATCH */}
           {isBlurred && (
             <>
-              <div className="absolute inset-0 bg-white/20 dark:bg-black/25 flex flex-col items-center justify-center p-3 text-center pointer-events-none transition-opacity duration-300">
-                <div className="w-10 h-10 rounded-2xl bg-white/85 dark:bg-[#1E1C1E]/90 backdrop-blur-md flex items-center justify-center text-[#E98787] shadow-xs mb-1.5 border border-white/60 dark:border-white/10">
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center pointer-events-none transition-opacity duration-300 z-10">
+                <div className="w-10 h-10 rounded-2xl bg-white/90 dark:bg-[#1E1C1E]/95 backdrop-blur-md flex items-center justify-center text-[#E98787] shadow-xs mb-1.5 border border-white/60 dark:border-white/10">
                   <CheckCircle2 size={18} />
                 </div>
-                <span className="text-[11px] font-semibold text-[#343033] dark:text-white px-2 py-0.5 rounded-full bg-white/70 dark:bg-black/40 backdrop-blur-xs">
+                <span className="text-[11px] font-semibold text-[#343033] dark:text-white px-2 py-0.5 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-xs shadow-2xs">
                   Взгляд добавлен
                 </span>
-                <span className="text-[9px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
+                <span className="text-[9px] text-[#777277] dark:text-[#B8B2B5] mt-0.5 font-medium">
                   Скрыто до MATCH
                 </span>
               </div>
 
-              <div className="absolute top-2.5 right-2.5 text-[#8A8488] dark:text-[#B8B2B5] pointer-events-none">
+              <div className="absolute top-2.5 right-2.5 text-[#8A8488] dark:text-[#B8B2B5] pointer-events-none z-10">
                 <Lock size={14} />
               </div>
             </>
@@ -289,7 +291,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   // Partner slot before upload -> clean, calm waiting state
   return (
     <div className={`w-full flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
-      <div className="w-full aspect-square rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden pointer-events-none">
+      <div className="w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden pointer-events-none">
         <div className="w-11 h-11 rounded-2xl bg-[#FAF1F3] dark:bg-[#20181B] flex items-center justify-center text-[#8A8488] dark:text-[#B8B2B5] mb-2">
           <Lock size={18} />
         </div>
