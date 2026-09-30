@@ -401,7 +401,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     <div className="flex-1 flex flex-col space-y-5 pb-8 min-h-full">
       {/* Top Header & Quiet Couple Metadata */}
       <div className="space-y-2 pt-1">
-        <div className="flex items-end justify-between gap-3">
+        <div className="flex items-end justify-between gap-2">
           <div>
             <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white tracking-tight">
               История
@@ -414,21 +414,21 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           </div>
 
           {/* Clean Segmented View Mode Toggle (Stream vs Days) */}
-          <div className="flex items-center gap-1 p-1 rounded-full bg-[#F5EFF1] dark:bg-[#1E1A1D] border border-[#EBE3E5] dark:border-[#282126] shadow-2xs shrink-0">
+          <div className="flex items-center gap-0.5 p-0.5 rounded-full bg-[#F5EFF1] dark:bg-[#1E1A1D] border border-[#EBE3E5] dark:border-[#282126] shadow-2xs shrink-0">
             <button
               type="button"
               onClick={() => {
                 triggerHaptic(true);
                 setViewMode('days');
               }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'days'
                   ? 'bg-white dark:bg-[#282025] text-[#343033] dark:text-white shadow-xs'
                   : 'text-[#777277] dark:text-[#A8A0A6] hover:text-[#343033] dark:hover:text-white'
               }`}
               title="По дням"
             >
-              <Calendar size={13} className="shrink-0" />
+              <Calendar size={12} className="shrink-0" />
               <span>По дням</span>
             </button>
             <button
@@ -437,14 +437,14 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 triggerHaptic(true);
                 setViewMode('stream');
               }}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11.5px] sm:text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'stream'
                   ? 'bg-white dark:bg-[#282025] text-[#343033] dark:text-white shadow-xs'
                   : 'text-[#777277] dark:text-[#A8A0A6] hover:text-[#343033] dark:hover:text-white'
               }`}
               title="Лента моментов"
             >
-              <Layers size={13} className="shrink-0" />
+              <Layers size={12} className="shrink-0" />
               <span>Лента</span>
             </button>
           </div>

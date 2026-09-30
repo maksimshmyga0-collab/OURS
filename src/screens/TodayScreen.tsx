@@ -10,7 +10,7 @@ import { PhotoPickerModal } from '../components/PhotoPickerModal';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 import { OurSkyPreview } from '../components/OurSkyPreview';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
-import { Check, Sparkles, Clock, Heart, Bell } from 'lucide-react';
+import { Check, Sparkles, Clock, Heart } from 'lucide-react';
 import { CoupleStreakInfo, MomentPhoto } from '../types';
 import {
   calculateMomentAvailability,
@@ -54,7 +54,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const [matchRevealedEarly, setMatchRevealedEarly] = useState(false);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
   const [momentTransition, setMomentTransition] = useState<'idle' | 'exiting' | 'entering'>('idle');
-  const [isReminderSent, setIsReminderSent] = useState(false);
 
   // Live timer for live countdown calculation with server time synchronization
   const [now, setNow] = useState<number>(() => getSynchronizedNow());
@@ -220,15 +219,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     activeMoment.status === 'COMPLETED';
 
 
-  // Friendly partner reminder with micro-interaction feedback
-  const handleSendReminder = () => {
-    triggerHaptic(hapticEnabled);
-    playSoftChime('tap', soundEnabled);
-    setIsReminderSent(true);
-    setTimeout(() => {
-      setIsReminderSent(false);
-    }, 3000);
-  };
+
 
   // Handle reaction on partner photo with the requested 4-step motion choreography:
   // Step 1: Button press animation (ReactionPicker)
@@ -506,39 +497,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               </div>
             )}
 
-          {/* State 2: USER_UPLOADED (waiting for partner, not matching) */}
-          {activeMoment.status === 'USER_UPLOADED' && !isMatching && (
-            <div className="rounded-[20px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] p-4 text-center space-y-3 shadow-2xs animate-card-enter">
-              <div className="space-y-1.5">
-                <div className="w-9 h-9 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
-                  <Clock size={16} />
-                </div>
-                <p className="text-xs font-semibold text-[#343033] dark:text-white">
-                  Фото отправлено ✨
-                </p>
-                <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5]">
-                  Ждём {couple.partner.name} · когда оба снимка будут готовы, момент откроется
-                </p>
-              </div>
 
-              {/* Friendly Reminder Button with 180ms micro-scale and confirmation */}
-              <div className="pt-0.5">
-                <button
-                  type="button"
-                  onClick={handleSendReminder}
-                  disabled={isReminderSent}
-                  className={`min-h-[40px] px-4 py-2 rounded-xl text-xs font-semibold transition-all duration-180 ease-out cursor-pointer flex items-center justify-center gap-1.5 mx-auto select-none active:scale-[0.97] ${
-                    isReminderSent
-                      ? 'bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC] dark:border-[#382329]'
-                      : 'bg-[#FAF5F7] dark:bg-[#1C1A1C] hover:bg-[#F5EFF1] dark:hover:bg-[#242124] text-[#343033] dark:text-white border border-[#EBE3E5] dark:border-[#282428] shadow-2xs'
-                  }`}
-                >
-                  <Bell size={13} className={isReminderSent ? 'text-[#E98787] dark:text-[#F0B9C6]' : 'text-[#777277] dark:text-[#B8B2B5]'} />
-                  <span>{isReminderSent ? 'Напоминание отправлено ✨' : `Напомнить ${couple.partner.name}`}</span>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* State 3: BOTH_UPLOADED fallback button (if animation hasn't fired yet) */}
           {activeMoment.status === 'BOTH_UPLOADED' && !isMatching && (
