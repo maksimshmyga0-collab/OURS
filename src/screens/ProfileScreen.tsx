@@ -101,13 +101,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         {/* Inner Glowing Aura System illuminating the frosted card from within behind avatars & names */}
         <div className="absolute top-0 inset-x-0 h-64 pointer-events-none -z-1 select-none overflow-hidden flex items-center justify-center opacity-85 dark:opacity-80" aria-hidden="true">
           {/* Layer 1: Wide atmospheric halo illuminating the upper frosted card */}
-          <div className="absolute -top-10 w-[320px] sm:w-[380px] h-[220px] rounded-full blur-3xl animate-diptych-halo bg-[radial-gradient(ellipse_at_center,_rgba(240,185,198,0.55)_0%,_rgba(254,235,240,0.30)_45%,_rgba(254,235,240,0.10)_65%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,85,105,0.40)_0%,_rgba(140,40,60,0.18)_45%,_rgba(140,40,60,0.05)_65%,_transparent_75%)]" />
+          <div className="absolute -top-10 w-[320px] sm:w-[380px] h-[220px] rounded-full blur-3xl animate-diptych-halo bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.55)_0%,_rgba(253,225,232,0.30)_45%,_rgba(253,225,232,0.10)_65%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.40)_0%,_rgba(128,28,52,0.18)_45%,_rgba(128,28,52,0.05)_65%,_transparent_75%)]" />
 
           {/* Layer 2: Organic fluid rounded wave pulsing behind avatars */}
-          <div className="absolute top-2 w-[240px] sm:w-[270px] h-[150px] rounded-full blur-2xl animate-fluid-blob-1 bg-[radial-gradient(ellipse_at_center,_rgba(240,185,198,0.58)_0%,_rgba(254,235,240,0.28)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,85,105,0.45)_0%,_rgba(140,40,60,0.20)_45%,_transparent_70%)]" />
+          <div className="absolute top-2 w-[240px] sm:w-[270px] h-[150px] rounded-full blur-2xl animate-fluid-blob-1 bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.58)_0%,_rgba(253,225,232,0.28)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.45)_0%,_rgba(128,28,52,0.20)_45%,_transparent_70%)]" />
 
           {/* Layer 3: Vibrant luminous warm core light right behind avatars and names */}
-          <div className="absolute top-6 w-[170px] sm:w-[200px] h-[110px] rounded-full blur-xl animate-fluid-pulse bg-[radial-gradient(circle,_rgba(254,235,240,0.65)_0%,_rgba(240,185,198,0.35)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(215,85,105,0.52)_0%,_rgba(140,40,60,0.25)_45%,_transparent_70%)]" />
+          <div className="absolute top-6 w-[170px] sm:w-[200px] h-[110px] rounded-full blur-xl animate-fluid-pulse bg-[radial-gradient(circle,_rgba(253,225,232,0.65)_0%,_rgba(235,168,184,0.35)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(198,58,86,0.52)_0%,_rgba(128,28,52,0.25)_45%,_transparent_70%)]" />
         </div>
 
         {/* Paired avatars (Large, prominent and expressive on mobile & desktop) */}
