@@ -55,10 +55,10 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
 
   const handleSlotClick = () => {
     if (type !== 'user') return;
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    } else if (onAddPhoto) {
+    if (onAddPhoto) {
       onAddPhoto();
+    } else if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
 

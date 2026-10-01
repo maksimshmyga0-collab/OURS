@@ -466,6 +466,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                     photoUrl={activeMoment.userPhoto}
                     isRevealed={isMomentRevealed}
                     isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
+                    onAddPhoto={() => setIsPhotoPickerOpen(true)}
                     onPhotoSelected={handlePhotoSelected}
                     onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || 'Твоё фото' })}
                     reaction={activeMoment.partnerReaction}
@@ -511,6 +512,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             !isCurrentMomentWaiting && (
               <div className="pt-1.5 animate-in fade-in duration-300 ease-out">
                 <TouchReadyButton
+                  onClick={() => setIsPhotoPickerOpen(true)}
                   onPhotoSelected={handlePhotoSelected}
                   text="Касание готово"
                   subtext={
@@ -594,6 +596,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                         onClick={() => {
                           const next = moments.find((m) => m.order === availability.nextOrder);
                           if (next) onSelectActiveMoment(next.id);
+                          setIsPhotoPickerOpen(true);
                         }}
                         onPhotoSelected={(photoUrl) => {
                           const next = moments.find((m) => m.order === availability.nextOrder);

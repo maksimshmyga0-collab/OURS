@@ -31,8 +31,11 @@ export const TouchReadyButton: React.FC<TouchReadyButtonProps> = ({
     if (disabled) return;
     triggerHaptic(hapticEnabled);
     playSoftChime('tap', soundEnabled);
-    if (onClick) onClick();
-    fileInputRef.current?.click();
+    if (onClick) {
+      onClick();
+    } else if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
