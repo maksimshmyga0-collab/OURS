@@ -201,6 +201,7 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = ({
                 stroke="url(#previewLineStroke)"
                 strokeWidth="1.1"
                 strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
               />
             );
           })}
@@ -221,7 +222,6 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = ({
                 key={`prev-star-${point.id}`}
                 style={{
                   animation: `skyTwinkle ${animDuration}s ease-in-out ${animDelay}s infinite`,
-                  transformOrigin: `${cx}px ${cy}px`,
                 }}
               >
                 {/* Outer Glow Halo */}
@@ -274,7 +274,7 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = ({
         <div className="flex flex-col justify-center space-y-0.5">
           <div className="inline-flex items-center gap-1.5 text-white">
             <Sparkles size={13} className="text-[#E8BFC7] shrink-0 opacity-95 group-hover:rotate-12 transition-transform duration-300" />
-            <span className="font-display font-bold text-sm tracking-tight text-white drop-shadow-xs">
+            <span className="font-display font-bold text-sm tracking-tight text-white">
               Наше небо
             </span>
           </div>
@@ -294,7 +294,7 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = ({
 
         {/* Right Slot: Minimalist Action Affordance */}
         <div className="flex items-center gap-1.5 pl-2">
-          <div className="px-2.5 py-1 rounded-full bg-white/10 dark:bg-white/8 backdrop-blur-md border border-white/12 text-white/90 text-[10.5px] font-medium flex items-center gap-1 group-hover:bg-white/16 group-hover:border-white/20 transition-all duration-200 shadow-2xs">
+          <div className="px-2.5 py-1 rounded-full bg-white/12 border border-white/18 text-white text-[10.5px] font-medium flex items-center gap-1 group-hover:bg-white/18 group-hover:border-white/25 transition-all duration-200 shadow-2xs">
             <span>Открыть</span>
             <ChevronRight
               size={12}
@@ -304,16 +304,14 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = ({
         </div>
       </div>
 
-      {/* Subtle CSS Twinkle Animation */}
+      {/* Pure Opacity Twinkle (preserves razor-sharp SVG vector coordinate rasterization) */}
       <style>{`
         @keyframes skyTwinkle {
           0%, 100% {
-            opacity: 0.85;
-            transform: scale(0.97);
+            opacity: 0.78;
           }
           50% {
             opacity: 1;
-            transform: scale(1.05);
           }
         }
       `}</style>

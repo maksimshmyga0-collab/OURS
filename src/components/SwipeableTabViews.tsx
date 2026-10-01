@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { NavigationTab } from '../types';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 
-const TABS: NavigationTab[] = ['today', 'history', 'profile'];
+const TABS: NavigationTab[] = ['date', 'today', 'history', 'profile'];
 
 interface SwipeableTabViewsProps {
   activeTab: NavigationTab;
@@ -11,6 +11,7 @@ interface SwipeableTabViewsProps {
   hapticEnabled?: boolean;
   disabled?: boolean;
   children: {
+    date: React.ReactNode;
     today: React.ReactNode;
     history: React.ReactNode;
     profile: React.ReactNode;
@@ -19,7 +20,8 @@ interface SwipeableTabViewsProps {
 
 /**
  * SwipeableTabViews:
- * Smooth horizontal swipe navigation between the three main OURS tabs:
+ * Smooth horizontal swipe navigation between the four main OURS tabs:
+ * 0. 'date'    ("Свидание")
  * 1. 'today'   ("Сегодня")
  * 2. 'history' ("История")
  * 3. 'profile' ("Профиль")
@@ -154,11 +156,11 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       }
 
       // Check boundary conditions:
-      // Tab 0 ('today'): cannot swipe right (dx > 0)
-      // Tab 2 ('profile'): cannot swipe left (dx < 0)
+      // Tab 0 ('date'): cannot swipe right (dx > 0)
+      // Tab 3 ('profile'): cannot swipe left (dx < 0)
       if (
         (currentIndexRef.current === 0 && dx > 0) ||
-        (currentIndexRef.current === 2 && dx < 0)
+        (currentIndexRef.current === 3 && dx < 0)
       ) {
         touchState.current.isScrolling = true;
         return;
@@ -178,11 +180,11 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
       // Enforce tab boundaries:
       // Tab 0: cannot drag right beyond 0
-      // Tab 2: cannot drag left beyond 0
+      // Tab 3: cannot drag left beyond 0
       let clampedDx = dx;
       if (currentIndexRef.current === 0 && dx > 0) {
         clampedDx = 0;
-      } else if (currentIndexRef.current === 2 && dx < 0) {
+      } else if (currentIndexRef.current === 3 && dx < 0) {
         clampedDx = 0;
       }
 
@@ -208,7 +210,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     let targetIndex = currentIndexRef.current;
 
     // Single tab advance per swipe
-    if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < 2) {
+    if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < 3) {
       targetIndex = currentIndexRef.current + 1;
     } else if ((dx > threshold || (dx > 35 && isFlick)) && currentIndexRef.current > 0) {
       targetIndex = currentIndexRef.current - 1;
@@ -304,7 +306,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
           if (
             (currentIndexRef.current === 0 && dx > 0) ||
-            (currentIndexRef.current === 2 && dx < 0)
+            (currentIndexRef.current === 3 && dx < 0)
           ) {
             return;
           }
@@ -318,7 +320,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         let clampedDx = dx;
         if (currentIndexRef.current === 0 && dx > 0) {
           clampedDx = 0;
-        } else if (currentIndexRef.current === 2 && dx < 0) {
+        } else if (currentIndexRef.current === 3 && dx < 0) {
           clampedDx = 0;
         }
         setDragOffset(clampedDx);
@@ -342,7 +344,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         const isFlick = Math.abs(dx) > 35 && velocity > 0.32;
 
         let targetIndex = currentIndexRef.current;
-        if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < 2) {
+        if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < 3) {
           targetIndex = currentIndexRef.current + 1;
         } else if ((dx > threshold || (dx > 35 && isFlick)) && currentIndexRef.current > 0) {
           targetIndex = currentIndexRef.current - 1;
@@ -395,19 +397,19 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           alignItems: 'stretch',
         }}
       >
-        {/* Slide 0: Today */}
+        {/* Slide 0: Date */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-2 pb-2 flex flex-col ${
             !isTabVisible(0)
               ? 'h-0 overflow-hidden invisible pointer-events-none'
-              : 'min-h-full opacity-100 visible'
+              : 'h-full opacity-100 visible overflow-visible'
           }`}
           aria-hidden={currentIndex !== 0}
         >
-          {children.today}
+          {children.date}
         </div>
 
-        {/* Slide 1: History */}
+        {/* Slide 1: Today */}
         <div
           className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(1)
@@ -416,10 +418,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           }`}
           aria-hidden={currentIndex !== 1}
         >
-          {children.history}
+          {children.today}
         </div>
 
-        {/* Slide 2: Profile */}
+        {/* Slide 2: History */}
         <div
           className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(2)
@@ -427,6 +429,18 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
               : 'min-h-full opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 2}
+        >
+          {children.history}
+        </div>
+
+        {/* Slide 3: Profile */}
+        <div
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
+            !isTabVisible(3)
+              ? 'h-0 overflow-hidden invisible pointer-events-none'
+              : 'min-h-full opacity-100 visible'
+          }`}
+          aria-hidden={currentIndex !== 3}
         >
           {children.profile}
         </div>

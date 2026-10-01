@@ -49,7 +49,7 @@ export const darkThemeTokens = {
   disabled: '#484447',
 } as const;
 
-export const colors = lightThemeTokens;
+export const colors = darkThemeTokens;
 
 export const radius = {
   sm: '12px',

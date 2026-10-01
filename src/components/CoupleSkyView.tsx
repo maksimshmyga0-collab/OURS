@@ -21,6 +21,7 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
   compact = false,
   className = '',
 }) => {
+  const uid = React.useId().replace(/:/g, '');
   const litPoints = (sky?.points || []).filter((p) => p && p.isLit);
   const litLines = (sky?.lines || []).filter((l) => l && l.isLit);
   const isEmpty = litPoints.length === 0;
@@ -42,11 +43,13 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
         viewBox="0 0 100 100"
         className="w-full h-full block"
         preserveAspectRatio="xMidYMid meet"
+        shapeRendering="geometricPrecision"
+        textRendering="geometricPrecision"
         aria-label={`Наше небо: ${sky?.title || ''}`}
       >
         <defs>
           {/* Subtle star halo */}
-          <radialGradient id="quietStarHalo" cx="50%" cy="50%" r="50%">
+          <radialGradient id={`quietStarHalo-${uid}`} cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.95" />
             <stop offset="35%" stopColor="#FAD4DF" stopOpacity="0.65" />
             <stop offset="70%" stopColor="#E98787" stopOpacity="0.25" />
@@ -54,7 +57,7 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
           </radialGradient>
 
           {/* New star bloom aura */}
-          <radialGradient id="newStarBloomHalo" cx="50%" cy="50%" r="50%">
+          <radialGradient id={`newStarBloomHalo-${uid}`} cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#FFFFFF" stopOpacity="1" />
             <stop offset="30%" stopColor="#FFDEE7" stopOpacity="0.8" />
             <stop offset="65%" stopColor="#E2768E" stopOpacity="0.35" />
@@ -62,7 +65,7 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
           </radialGradient>
 
           {/* Minimalist constellation line stroke */}
-          <linearGradient id="quietLineStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+          <linearGradient id={`quietLineStroke-${uid}`} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#FCE4EC" stopOpacity="0.75" />
             <stop offset="100%" stopColor="#E59CAD" stopOpacity="0.6" />
           </linearGradient>
@@ -79,7 +82,7 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
                 y1={line.from.y}
                 x2={line.to.x}
                 y2={line.to.y}
-                stroke="url(#quietLineStroke)"
+                stroke={`url(#quietLineStroke-${uid})`}
                 strokeWidth={compact ? '1.1' : '1.35'}
                 strokeLinecap="round"
                 strokeDasharray={isNew ? '100' : undefined}
@@ -120,7 +123,7 @@ export const CoupleSkyView: React.FC<CoupleSkyViewProps> = ({
                   cx={point.x}
                   cy={point.y}
                   r={isNew ? 6.5 : 4.8}
-                  fill={isNew ? 'url(#newStarBloomHalo)' : 'url(#quietStarHalo)'}
+                  fill={isNew ? `url(#newStarBloomHalo-${uid})` : `url(#quietStarHalo-${uid})`}
                   opacity={isNew ? 0.95 : 0.75}
                 />
 

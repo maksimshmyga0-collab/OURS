@@ -3,14 +3,13 @@ import { createPortal } from 'react-dom';
 import { CoupleState, CoupleStreakInfo, AppSettings, Moment, HistoryDay } from '../types';
 import { PastelCard } from '../components/PastelCard';
 import { Avatar } from '../components/Avatar';
-import { ThemeSelector } from '../components/ThemeSelector';
+import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { OurSkyPreview } from '../components/OurSkyPreview';
 import {
   Bell,
   Volume2,
   Smartphone,
   Shield,
-  Palette,
   Heart,
   ChevronRight,
   User,
@@ -97,14 +96,26 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
-      {/* Profile Header Card */}
-      <PastelCard color="white" className="flex flex-col items-center text-center p-6 space-y-4">
+      {/* Profile Header Card with frosted-glass surface and strong inner ambient atmospheric illumination */}
+      <div className="relative overflow-hidden isolate rounded-[28px] p-6 space-y-4 border border-[#EBE3E5] dark:border-[#282529] bg-white/85 dark:bg-[#161418]/85 backdrop-blur-xl shadow-[0_2px_12px_rgba(52,48,51,0.02),0_12px_28px_-6px_rgba(52,48,51,0.03)] flex flex-col items-center text-center transition-all duration-300">
+        {/* Inner Glowing Aura System illuminating the frosted card from within behind avatars & names */}
+        <div className="absolute top-0 inset-x-0 h-64 pointer-events-none -z-1 select-none overflow-hidden flex items-center justify-center opacity-85 dark:opacity-80" aria-hidden="true">
+          {/* Layer 1: Wide atmospheric halo illuminating the upper frosted card */}
+          <div className="absolute -top-10 w-[320px] sm:w-[380px] h-[220px] rounded-full blur-3xl animate-diptych-halo bg-[radial-gradient(ellipse_at_center,_rgba(240,185,198,0.55)_0%,_rgba(254,235,240,0.30)_45%,_rgba(254,235,240,0.10)_65%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,85,105,0.40)_0%,_rgba(140,40,60,0.18)_45%,_rgba(140,40,60,0.05)_65%,_transparent_75%)]" />
+
+          {/* Layer 2: Organic fluid rounded wave pulsing behind avatars */}
+          <div className="absolute top-2 w-[240px] sm:w-[270px] h-[150px] rounded-full blur-2xl animate-fluid-blob-1 bg-[radial-gradient(ellipse_at_center,_rgba(240,185,198,0.58)_0%,_rgba(254,235,240,0.28)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,85,105,0.45)_0%,_rgba(140,40,60,0.20)_45%,_transparent_70%)]" />
+
+          {/* Layer 3: Vibrant luminous warm core light right behind avatars and names */}
+          <div className="absolute top-6 w-[170px] sm:w-[200px] h-[110px] rounded-full blur-xl animate-fluid-pulse bg-[radial-gradient(circle,_rgba(254,235,240,0.65)_0%,_rgba(240,185,198,0.35)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(215,85,105,0.52)_0%,_rgba(140,40,60,0.25)_45%,_transparent_70%)]" />
+        </div>
+
         {/* Paired avatars (Large, prominent and expressive on mobile & desktop) */}
-        <div className="flex items-center -space-x-5 pt-2">
+        <div className="relative z-10 inline-flex items-center -space-x-5 pt-2">
           {/* User Avatar with interactive edit click */}
           <div
             onClick={onOpenEditProfile}
-            className="relative cursor-pointer group active:scale-[0.96] transition-transform duration-180 ease-out"
+            className="relative z-10 cursor-pointer group active:scale-[0.96] transition-transform duration-180 ease-out"
             title="Нажмите, чтобы настроить профиль"
           >
             <Avatar
@@ -121,17 +132,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
 
           {/* Partner Avatar */}
-          <Avatar
-            name={couple.partner.name}
-            size="3xl"
-            bgColor={couple.partner.avatarColor}
-            imageUrl={couple.partner.avatarUrl}
-            variant="partner"
-            className="ring-4 ring-white dark:ring-[#111111] shadow-md"
-          />
+          <div className="relative z-10">
+            <Avatar
+              name={couple.partner.name}
+              size="3xl"
+              bgColor={couple.partner.avatarColor}
+              imageUrl={couple.partner.avatarUrl}
+              variant="partner"
+              className="ring-4 ring-white dark:ring-[#111111] shadow-md"
+            />
+          </div>
         </div>
 
-        <div>
+        <div className="relative z-10">
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <h2 className="font-display text-xl font-bold text-[#343033] dark:text-white">
               {couple.user.name} + {couple.partner.name}
@@ -162,7 +175,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
 
         {/* Dynamic «Наша история» statistics: 3 real metrics */}
-        <div className="w-full grid grid-cols-3 gap-2 pt-2">
+        <div className="relative z-10 w-full grid grid-cols-3 gap-2 pt-2">
           {/* 1. Moments count */}
           <div className="rounded-[18px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#242024] p-3 text-center">
             <span className="font-display text-base font-bold text-[#343033] dark:text-white">
@@ -242,7 +255,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               : 'Максимальный уровень пары! ✨'}
           </p>
         </div>
-      </PastelCard>
+      </div>
 
       {/* Paired Highlights Section: «Наше небо» & «LOVELY» */}
       <div className="space-y-3">
@@ -359,22 +372,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </h3>
 
         <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] divide-y divide-[#F2ECEE] dark:divide-[#242024] overflow-hidden shadow-2xs">
-          {/* Theme Mode Selector */}
-          <div className="p-4 space-y-2.5">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
-                <Palette size={16} />
-              </div>
-              <span className="text-xs font-medium text-[#343033] dark:text-white">
-                Тема
-              </span>
-            </div>
-            <ThemeSelector
-              soundEnabled={settings.sounds}
-              hapticEnabled={settings.haptic}
-            />
-          </div>
-
           {/* Notifications Toggle */}
           <div className="p-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">

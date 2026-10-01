@@ -3,6 +3,7 @@ import { HistoryDay, Moment, CoupleState, ReactionEmoji } from '../types';
 import { Lock, ArrowLeft, Sparkles, Heart, Calendar, Layers, Image as ImageIcon } from 'lucide-react';
 import { ReactionIcon } from '../components/ReactionIcon';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
+import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 
 interface HistoryScreenProps {
@@ -75,17 +76,9 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
 
-  // Filter out any legacy mock test IDs
+  // Only real couple history
   const cleanHistory = (history || []).filter(
-    (d) =>
-      d &&
-      d.id &&
-      !d.id.startsWith('hist-yesterday') &&
-      !d.id.startsWith('hist-20-sep') &&
-      !d.id.startsWith('hist-18-sep') &&
-      !d.id.startsWith('hist-14-sep') &&
-      !d.id.startsWith('hist-week-ago') &&
-      !d.id.startsWith('hist-first-day')
+    (d) => d && d.id && !d.id.startsWith('day-hist-') && !d.id.startsWith('hist-')
   );
 
   // Completed / matched today moments from local state
@@ -357,30 +350,30 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         {/* Moments in this Day */}
         <div className="space-y-4">
           {selectedDay.moments.map((m, idx) => (
-            <div
-              key={m.id || idx}
-              className="rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white dark:bg-[#141215] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all"
-            >
-              {/* Moment Prompt & Order Header */}
-              <div className="flex items-start justify-between gap-2 px-1 pt-0.5">
-                <div className="space-y-0.5">
-                  <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                    <Sparkles size={11} />
-                    <span>{m.label || `МОМЕНТ ${m.order || idx + 1}`}</span>
+            <div key={m.id || idx} className="relative overflow-visible">
+              <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+              <div className="relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all">
+                {/* Moment Prompt & Order Header */}
+                <div className="flex items-start justify-between gap-2 px-1 pt-0.5">
+                  <div className="space-y-0.5">
+                    <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
+                      <Sparkles size={11} />
+                      <span>{m.label || `МОМЕНТ ${m.order || idx + 1}`}</span>
+                    </div>
+                    <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug">
+                      {m.prompt}
+                    </h3>
                   </div>
-                  <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug">
-                    {m.prompt}
-                  </h3>
+                  {m.completedAt && (
+                    <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums">
+                      {m.completedAt}
+                    </span>
+                  )}
                 </div>
-                {m.completedAt && (
-                  <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums">
-                    {m.completedAt}
-                  </span>
-                )}
-              </div>
 
-              {/* The Signature Duo Diptych */}
-              {renderCoupleDiptych(m, !isDayUnlocked)}
+                {/* The Signature Duo Diptych */}
+                {renderCoupleDiptych(m, !isDayUnlocked)}
+              </div>
             </div>
           ))}
         </div>
@@ -453,17 +446,20 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
       {/* Empty State */}
       {displayHistory.length === 0 ? (
-        <div className="rounded-[28px] p-8 text-center bg-white/70 dark:bg-[#121212] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-3 my-6">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] flex items-center justify-center text-[#E98787]">
-            <Heart size={22} className="fill-[#E98787]/20" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
-              Ваша история начинается сегодня
-            </h3>
-            <p className="text-xs text-[#777277] dark:text-[#B8B2B5] max-w-xs mx-auto leading-relaxed">
-              Здесь будут бережно сохраняться парные кадры, реакция за реакцией, день за днём.
-            </p>
+        <div className="relative my-6 overflow-visible">
+          <AtmosphericGlow variant="card" insetClassName="-inset-2.5 sm:-inset-3.5" roundedClassName="rounded-[32px]" />
+          <div className="relative rounded-[28px] p-8 text-center bg-white/70 dark:bg-[#121212]/90 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-3">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] flex items-center justify-center text-[#E98787]">
+              <Heart size={22} className="fill-[#E98787]/20" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
+                Ваша история начинается сегодня
+              </h3>
+              <p className="text-xs text-[#777277] dark:text-[#B8B2B5] max-w-xs mx-auto leading-relaxed">
+                Здесь будут бережно сохраняться парные кадры, реакция за реакцией, день за днём.
+              </p>
+            </div>
           </div>
         </div>
       ) : viewMode === 'stream' ? (
@@ -491,30 +487,30 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 {/* Day's Moments Cards */}
                 <div className="space-y-4">
                   {day.moments.map((m, mIdx) => (
-                    <div
-                      key={m.id || mIdx}
-                      className="rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white dark:bg-[#141215] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all"
-                    >
-                      {/* Moment Title & Timestamp */}
-                      <div className="flex items-start justify-between gap-2 px-1 pt-0.5">
-                        <div className="space-y-0.5">
-                          <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                            <Sparkles size={11} />
-                            <span>{m.label || `МОМЕНТ ${m.order || mIdx + 1}`}</span>
+                    <div key={m.id || mIdx} className="relative overflow-visible">
+                      <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+                      <div className="relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all">
+                        {/* Moment Title & Timestamp */}
+                        <div className="flex items-start justify-between gap-2 px-1 pt-0.5">
+                          <div className="space-y-0.5">
+                            <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
+                              <Sparkles size={11} />
+                              <span>{m.label || `МОМЕНТ ${m.order || mIdx + 1}`}</span>
+                            </div>
+                            <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug">
+                              {m.prompt}
+                            </h3>
                           </div>
-                          <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug">
-                            {m.prompt}
-                          </h3>
+                          {m.completedAt && (
+                            <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums">
+                              {m.completedAt}
+                            </span>
+                          )}
                         </div>
-                        {m.completedAt && (
-                          <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums">
-                            {m.completedAt}
-                          </span>
-                        )}
-                      </div>
 
-                      {/* Couple Diptych View */}
-                      {renderCoupleDiptych(m, !isDayUnlocked)}
+                        {/* Couple Diptych View */}
+                        {renderCoupleDiptych(m, !isDayUnlocked)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -524,25 +520,28 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
           {/* Dedicated 7-day boundary reminder for Free tier */}
           {!isUnlockedGlobally && (
-            <div className="rounded-[24px] p-5 bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#F2D1D8] dark:border-[#382229] shadow-2xs text-center space-y-3 mt-4 animate-in fade-in duration-200">
-              <div className="w-10 h-10 mx-auto rounded-full bg-white dark:bg-[#2A161E] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shadow-2xs">
-                <Sparkles size={18} />
+            <div className="relative overflow-visible mt-4">
+              <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+              <div className="relative rounded-[24px] p-5 bg-[#FAF0F2]/90 dark:bg-[#1E1417]/90 backdrop-blur-md border border-[#F2D1D8] dark:border-[#382229] shadow-2xs text-center space-y-3 animate-in fade-in duration-200">
+                <div className="w-10 h-10 mx-auto rounded-full bg-white dark:bg-[#2A161E] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shadow-2xs">
+                  <Sparkles size={18} />
+                </div>
+                <div className="space-y-1 max-w-xs mx-auto">
+                  <h4 className="font-display text-base font-bold text-[#343033] dark:text-white">
+                    Здесь начинается ваша более старая история ✨
+                  </h4>
+                  <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                    С LOVELY все воспоминания старше 7 дней остаются с вами навсегда.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenLovely}
+                  className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-[#E98787] text-white text-xs font-semibold hover:bg-[#DE7676] active:scale-98 transition-all shadow-xs cursor-pointer"
+                >
+                  Открыть LOVELY
+                </button>
               </div>
-              <div className="space-y-1 max-w-xs mx-auto">
-                <h4 className="font-display text-base font-bold text-[#343033] dark:text-white">
-                  Здесь начинается ваша более старая история ✨
-                </h4>
-                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
-                  С LOVELY все воспоминания старше 7 дней остаются с вами навсегда.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleOpenLovely}
-                className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-[#E98787] text-white text-xs font-semibold hover:bg-[#DE7676] active:scale-98 transition-all shadow-xs cursor-pointer"
-              >
-                Открыть LOVELY
-              </button>
             </div>
           )}
         </div>
@@ -561,18 +560,19 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 : 'bg-[#FAF2EE]/70 dark:bg-[#1F1714]';
 
             return (
-              <div
-                key={day.id}
-                onClick={() => {
-                  triggerHaptic(true);
-                  if (isDayUnlocked) {
-                    setSelectedDayId(day.id);
-                  } else {
-                    handleOpenLovely();
-                  }
-                }}
-                className={`rounded-[24px] p-4 sm:p-5 border border-[#EBE3E5] dark:border-[#242024] shadow-2xs transition-all duration-150 cursor-pointer active:scale-[0.99] hover:border-[#E98787]/50 ${cardBgColor}`}
-              >
+              <div key={day.id} className="relative overflow-visible">
+                <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+                <div
+                  onClick={() => {
+                    triggerHaptic(true);
+                    if (isDayUnlocked) {
+                      setSelectedDayId(day.id);
+                    } else {
+                      handleOpenLovely();
+                    }
+                  }}
+                  className={`relative rounded-[24px] p-4 sm:p-5 border border-[#EBE3E5] dark:border-[#242024] shadow-2xs transition-all duration-150 cursor-pointer active:scale-[0.99] hover:border-[#E98787]/50 backdrop-blur-md ${cardBgColor}`}
+                >
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
@@ -642,6 +642,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   </div>
                 )}
               </div>
+            </div>
             );
           })}
         </div>

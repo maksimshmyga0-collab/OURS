@@ -18,6 +18,7 @@ import { OnboardingFlow } from './components/OnboardingFlow';
 import { TodayScreen } from './screens/TodayScreen';
 import { HistoryScreen } from './screens/HistoryScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { DateScreen } from './screens/DateScreen';
 import { SwipeableTabViews } from './components/SwipeableTabViews';
 import { playSoftChime, triggerHaptic } from './services/feedback';
 import { calculateCoupleStreak } from './services/streak/streakService';
@@ -29,6 +30,7 @@ import {
 import { getCoupleMatchedDates } from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 import { LegalScreen, LegalDocumentType } from './screens/LegalScreen';
+import { dateInvitationService } from './services/dates/dateInvitationService';
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
@@ -37,10 +39,23 @@ export default function App() {
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [activeLegalDoc, setActiveLegalDoc] = useState<LegalDocumentType | null>(null);
+  const [hasUnreadDateInvitation, setHasUnreadDateInvitation] = useState<boolean>(() =>
+    dateInvitationService.hasUnreadIncomingInvitation()
+  );
   // Fast startup: if local state has completed onboarding, show TodayScreen instantly without waiting for network init
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(
     () => !getInitialAppState().hasCompletedOnboarding
   );
+
+  // Subscribe to date invitation updates for bottom tab badge
+  useEffect(() => {
+    const unsubscribe = dateInvitationService.subscribe((inv) => {
+      setHasUnreadDateInvitation(
+        Boolean(inv && inv.status === 'pending' && inv.senderId === 'partner' && !inv.read)
+      );
+    });
+    return unsubscribe;
+  }, []);
 
   // 1. Initialize anonymous session and restore multi-device state in background
   useEffect(() => {
@@ -689,6 +704,13 @@ export default function App() {
                 disabled={isLovelyModalOpen || isStreakModalOpen || isEditProfileOpen || Boolean(activeLegalDoc)}
               >
                 {{
+                  date: (
+                    <DateScreen
+                      couple={appState.couple}
+                      soundEnabled={appState.settings.sounds}
+                      hapticEnabled={appState.settings.haptic}
+                    />
+                  ),
                   today: (
                     <TodayScreen
                       couple={appState.couple}
@@ -747,6 +769,7 @@ export default function App() {
                 playSoftChime('tap', appState.settings.sounds);
                 triggerHaptic(appState.settings.haptic);
               }}
+              hasDateNotification={hasUnreadDateInvitation}
             />
 
             {/* LOVELY One-Time Purchase Modal for the Couple */}

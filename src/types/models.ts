@@ -143,4 +143,4 @@ export interface AppSettings {
   theme?: ThemeMode;
 }
 
-export type NavigationTab = 'today' | 'history' | 'profile';
+export type NavigationTab = 'date' | 'today' | 'history' | 'profile';

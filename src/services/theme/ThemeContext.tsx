@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useCallback } from 'react';
 import { ThemeMode, ResolvedTheme } from '../../types';
 
 export type ThemePreference = ThemeMode;
@@ -14,11 +14,84 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const STORAGE_THEME_KEY = 'ours_theme_mode_v1';
 
-export function getSystemTheme(): ResolvedTheme {
-  if (typeof window !== 'undefined' && window.matchMedia) {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+/**
+ * Permanently enforce Dark Theme across DOM, PWA meta tags, and Native Capacitor / TMA wrappers.
+ */
+export function enforcePermanentDarkTheme(): void {
+  if (typeof document === 'undefined') return;
+
+  try {
+    const root = document.documentElement;
+
+    // 1. Root DOM class and attribute enforcement
+    if (root.classList.contains('light')) {
+      root.classList.remove('light');
+    }
+    if (!root.classList.contains('dark')) {
+      root.classList.add('dark');
+    }
+    root.dataset.theme = 'dark';
+    root.setAttribute('data-theme', 'dark');
+    root.style.colorScheme = 'dark';
+
+    // 2. Meta tags for browser viewport and mobile address bar
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement('meta');
+      metaThemeColor.setAttribute('name', 'theme-color');
+      document.head.appendChild(metaThemeColor);
+    }
+    metaThemeColor.setAttribute('content', '#000000');
+
+    let metaColorScheme = document.querySelector('meta[name="color-scheme"]');
+    if (!metaColorScheme) {
+      metaColorScheme = document.createElement('meta');
+      metaColorScheme.setAttribute('name', 'color-scheme');
+      document.head.appendChild(metaColorScheme);
+    }
+    metaColorScheme.setAttribute('content', 'dark');
+
+    let metaAppleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if (!metaAppleStatusBar) {
+      metaAppleStatusBar = document.createElement('meta');
+      metaAppleStatusBar.setAttribute('name', 'apple-mobile-web-app-status-bar-style');
+      document.head.appendChild(metaAppleStatusBar);
+    }
+    metaAppleStatusBar.setAttribute('content', 'black-translucent');
+
+    // 3. Persist locked dark theme to localStorage
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem(STORAGE_THEME_KEY, 'dark');
+    }
+
+    // 4. Native Capacitor Plugins (Android & iOS)
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      try {
+        if (win.Capacitor?.Plugins?.StatusBar) {
+          // 'DARK' style renders light status bar icons/text for dark backgrounds
+          win.Capacitor.Plugins.StatusBar.setStyle?.({ style: 'DARK' });
+          win.Capacitor.Plugins.StatusBar.setBackgroundColor?.({ color: '#000000' });
+        }
+        if (win.Capacitor?.Plugins?.NavigationBar) {
+          win.Capacitor.Plugins.NavigationBar.setColor?.({ color: '#000000', darkButtons: false });
+        }
+        if (win.Telegram?.WebApp) {
+          win.Telegram.WebApp.setHeaderColor?.('#000000');
+          win.Telegram.WebApp.setBackgroundColor?.('#000000');
+        }
+      } catch {
+        // Safe fallback
+      }
+    }
+  } catch {
+    // Safe fallback
   }
-  return 'light';
+}
+
+/** Always returns 'dark' for backward compatibility */
+export function getSystemTheme(): ResolvedTheme {
+  return 'dark';
 }
 
 interface ThemeProviderProps {
@@ -27,142 +100,34 @@ interface ThemeProviderProps {
   onThemePersist?: (theme: ThemeMode) => void;
 }
 
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({
-  children,
-  initialTheme,
-  onThemePersist,
-}) => {
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_THEME_KEY);
-      if (saved === 'light' || saved === 'dark' || saved === 'system') {
-        return saved as ThemeMode;
-      }
-    } catch {
-      // fallback
-    }
-    if (initialTheme === 'light' || initialTheme === 'dark' || initialTheme === 'system') {
-      return initialTheme;
-    }
-    return 'system';
-  });
-
-  const [systemPreference, setSystemPreference] = useState<ResolvedTheme>(getSystemTheme);
-
-  // Sync with prop if it changes externally
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
+  // Enforce dark theme on mount and keep it locked
   useEffect(() => {
-    if (initialTheme && initialTheme !== theme) {
-      setThemeState(initialTheme);
-    }
-  }, [initialTheme]);
+    enforcePermanentDarkTheme();
 
-  // Dynamic listener for prefers-color-scheme with Android/Capacitor focus & visibility fallback
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    
-    const updateSystemPreference = () => {
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setSystemPreference(isDark ? 'dark' : 'light');
-    };
-
-    // Initialize current match
-    updateSystemPreference();
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', updateSystemPreference);
-    } else if ('addListener' in mediaQuery) {
-      (mediaQuery as any).addListener(updateSystemPreference);
-    }
-
-    // Android WebView / Capacitor: updates when user returns from system settings or pulls notification shade
-    const handleVisibilityOrFocus = () => {
-      if (document.visibilityState !== 'hidden') {
-        updateSystemPreference();
-      }
-    };
-
-    window.addEventListener('focus', handleVisibilityOrFocus);
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    // Re-assert dark theme when app resumes or gains focus
+    const handleReassert = () => enforcePermanentDarkTheme();
+    window.addEventListener('focus', handleReassert);
+    document.addEventListener('visibilitychange', handleReassert);
 
     return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener('change', updateSystemPreference);
-      } else if ('removeListener' in mediaQuery) {
-        (mediaQuery as any).removeListener(updateSystemPreference);
-      }
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleReassert);
+      document.removeEventListener('visibilitychange', handleReassert);
     };
   }, []);
 
-  const resolvedTheme: ResolvedTheme = useMemo(() => {
-    if (theme === 'system') {
-      return systemPreference;
-    }
-    return theme;
-  }, [theme, systemPreference]);
+  const setTheme = useCallback((_newTheme: ThemeMode) => {
+    // Theme switching is permanently disabled. Always locked to dark.
+    enforcePermanentDarkTheme();
+  }, []);
 
-  // Apply resolved theme to DOM with smooth micro-transition (150-250ms)
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-
-    const root = document.documentElement;
-    root.classList.add('theme-transitioning');
-
-    if (resolvedTheme === 'dark') {
-      root.classList.remove('light');
-      root.classList.add('dark');
-      root.dataset.theme = 'dark';
-      root.setAttribute('data-theme', 'dark');
-      root.style.colorScheme = 'dark';
-    } else {
-      root.classList.remove('dark');
-      root.classList.add('light');
-      root.dataset.theme = 'light';
-      root.setAttribute('data-theme', 'light');
-      root.style.colorScheme = 'light';
-    }
-
-    // Update meta theme-color for mobile address bar
-    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (metaThemeColor) {
-      metaThemeColor.setAttribute('content', resolvedTheme === 'dark' ? '#000000' : '#FFF9FA');
-    }
-
-    const timer = setTimeout(() => {
-      root.classList.remove('theme-transitioning');
-    }, 220);
-
-    return () => {
-      clearTimeout(timer);
-      root.classList.remove('theme-transitioning');
-    };
-  }, [resolvedTheme]);
-
-  const setTheme = useCallback(
-    (newTheme: ThemeMode) => {
-      setThemeState(newTheme);
-      try {
-        localStorage.setItem(STORAGE_THEME_KEY, newTheme);
-      } catch {
-        // ignore
-      }
-      if (onThemePersist) {
-        onThemePersist(newTheme);
-      }
-    },
-    [onThemePersist]
-  );
-
-  const value = useMemo(
+  const value = useMemo<ThemeContextType>(
     () => ({
-      theme,
-      resolvedTheme,
+      theme: 'dark',
+      resolvedTheme: 'dark',
       setTheme,
     }),
-    [theme, resolvedTheme, setTheme]
+    [setTheme]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -171,7 +136,11 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
 export const useTheme = (): ThemeContextType => {
   const context = useContext(ThemeContext);
   if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
+    return {
+      theme: 'dark',
+      resolvedTheme: 'dark',
+      setTheme: () => {},
+    };
   }
   return context;
 };

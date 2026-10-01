@@ -110,3 +110,117 @@ export function triggerHaptic(enabled: boolean = true) {
     }
   }
 }
+
+/**
+ * Soft whispery paper unsealing + warm crystalline chime
+ */
+export function playEnvelopeOpenSound(enabled: boolean = true) {
+  if (!enabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+
+  // 1. Soft paper friction release (filtered whisper noise or rapid soft downward sine sweep)
+  const osc1 = ctx.createOscillator();
+  const gain1 = ctx.createGain();
+  osc1.type = 'triangle';
+  osc1.frequency.setValueAtTime(420, now);
+  osc1.frequency.exponentialRampToValueAtTime(180, now + 0.12);
+  gain1.gain.setValueAtTime(0.001, now);
+  gain1.gain.exponentialRampToValueAtTime(0.035, now + 0.02);
+  gain1.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  osc1.connect(gain1);
+  gain1.connect(ctx.destination);
+  osc1.start(now);
+  osc1.stop(now + 0.19);
+
+  // 2. Gentle magical harmonic resonance
+  const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+  notes.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    const startT = now + 0.08 + idx * 0.05;
+    osc.frequency.setValueAtTime(freq, startT);
+    gain.gain.setValueAtTime(0.0001, startT);
+    gain.gain.exponentialRampToValueAtTime(0.03 / (idx + 1), startT + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startT + 0.45);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startT);
+    osc.stop(startT + 0.48);
+  });
+}
+
+/**
+ * Tactile paper glide as card slides out of envelope
+ */
+export function playCardSlideSound(enabled: boolean = true) {
+  if (!enabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(320, now);
+  osc.frequency.exponentialRampToValueAtTime(587.33, now + 0.16); // up to D5
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.exponentialRampToValueAtTime(0.032, now + 0.04);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.32);
+}
+
+/**
+ * Warm celebratory romantic bloom when invite is sent
+ */
+export function playInviteSentSound(enabled: boolean = true) {
+  if (!enabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+
+  const arpeggio = [440, 554.37, 659.25, 880]; // A major
+  arpeggio.forEach((freq, idx) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    const startT = now + idx * 0.055;
+    osc.frequency.setValueAtTime(freq, startT);
+    gain.gain.setValueAtTime(0.001, startT);
+    gain.gain.exponentialRampToValueAtTime(0.04 / (idx * 0.2 + 1), startT + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startT + 0.55);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(startT);
+    osc.stop(startT + 0.6);
+  });
+}
+
+/**
+ * Subtle paper flutter / card shuffle sound
+ */
+export function playCardShuffleSound(enabled: boolean = true) {
+  if (!enabled) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(480, now);
+  osc.frequency.exponentialRampToValueAtTime(260, now + 0.1);
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.exponentialRampToValueAtTime(0.03, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + 0.2);
+}
+

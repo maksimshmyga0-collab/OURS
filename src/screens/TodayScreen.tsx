@@ -9,6 +9,9 @@ import { MatchAnimation } from '../components/MatchAnimation';
 import { PhotoPickerModal } from '../components/PhotoPickerModal';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 import { OurSkyPreview } from '../components/OurSkyPreview';
+import { MatchButton } from '../components/MatchButton';
+import { TouchReadyButton } from '../components/TouchReadyButton';
+import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { Check, Sparkles, Clock, Heart } from 'lucide-react';
 import { CoupleStreakInfo, MomentPhoto } from '../types';
@@ -105,7 +108,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     activeMoment.partnerPhoto && !activeMoment.userPhoto
   );
 
-  // Set of moment IDs that have already played or completed Match animation on this device
+  // Track moments that have played Match animation
   const handledMatchMomentsRef = useRef<Set<string>>(new Set());
 
   // On mount / initial load: seed all moments that are already opened so we NEVER replay on app restart
@@ -120,35 +123,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       }
     });
   }, []);
-
-  // Automatic bidirectional Match trigger:
-  // Fires only when both photos are newly present and the moment hasn't played Match yet
-  useEffect(() => {
-    const hasBoth = Boolean(activeMoment.userPhoto && activeMoment.partnerPhoto);
-
-    // If already revealed/reacted/completed or already marked as handled on this device, do nothing
-    if (
-      activeMoment.status === 'REVEALED' ||
-      activeMoment.status === 'REACTED' ||
-      activeMoment.status === 'COMPLETED' ||
-      handledMatchMomentsRef.current.has(activeMoment.id)
-    ) {
-      handledMatchMomentsRef.current.add(activeMoment.id);
-      return;
-    }
-
-    // When both photos are available on a fresh unrevealed moment: trigger Match animation
-    if (hasBoth && !isMatching) {
-      handledMatchMomentsRef.current.add(activeMoment.id);
-      setIsMatching(true);
-    }
-  }, [
-    activeMoment.id,
-    activeMoment.userPhoto,
-    activeMoment.partnerPhoto,
-    activeMoment.status,
-    isMatching,
-  ]);
 
   // Handle photo selection for the current user
   const handlePhotoSelected = (photoUrl: string) => {
@@ -184,14 +158,45 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     setIsPhotoPickerOpen(false);
   };
 
+  const handleTouchReadyPhotoSelected = (photoUrl: string, targetMomentId?: string) => {
+    triggerHaptic(hapticEnabled);
+    playSoftChime('tap', soundEnabled);
+
+    const target = (targetMomentId ? moments.find((m) => m.id === targetMomentId) : null) || activeMoment;
+    const nowIso = new Date().toISOString();
+    const partnerPhotoItem: MomentPhoto[] = target.partnerPhoto
+      ? [
+          {
+            userId: couple.partner.id || 'user-b-default',
+            imageUrl: target.partnerPhoto,
+            createdAt: nowIso,
+          },
+        ]
+      : [];
+    const userPhotoItem: MomentPhoto = {
+      userId: couple.user.id || 'user-a-default',
+      imageUrl: photoUrl,
+      createdAt: nowIso,
+    };
+
+    const newPhotos = [userPhotoItem, ...partnerPhotoItem];
+    const newStatus = target.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED';
+
+    onUpdateMoment({
+      ...target,
+      userPhoto: photoUrl,
+      photos: newPhotos,
+      status: newStatus,
+    });
+  };
+
   // Keep activeMoment in a ref to always have latest state for async callbacks
   const activeMomentRef = useRef(activeMoment);
   activeMomentRef.current = activeMoment;
 
-  // Manual fallback trigger for Match animation when both uploaded
+  // Trigger Match animation when user taps the Match CTA
   const handleOpenMoment = () => {
-    if (activeMoment.status !== 'BOTH_UPLOADED' || isMatching) return;
-    if (handledMatchMomentsRef.current.has(activeMoment.id)) return;
+    if (isMatching || isMomentRevealed) return;
     handledMatchMomentsRef.current.add(activeMoment.id);
     setIsMatching(true);
   };
@@ -337,7 +342,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         <PastelCard
           key={activeMoment.id}
           color={getThemeCardColor(activeMoment)}
-          className="p-3.5 sm:p-5.5 pb-5 sm:pb-6 relative overflow-hidden transition-all duration-300 ease-out animate-card-enter"
+          className="p-3.5 sm:p-5.5 pb-5 sm:pb-6 relative overflow-visible transition-all duration-300 ease-out animate-card-enter"
         >
         {/* Card Header info */}
         <div className="flex items-center justify-between mb-3">
@@ -356,11 +361,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/90 dark:bg-[#1E1C1E] border border-[#EED7DC] dark:border-[#2D2024] text-[11px] font-semibold text-[#E2765A] dark:text-[#F2967F] animate-in fade-in duration-200">
               <Clock size={12} />
               Следующее скоро
-            </span>
-          ) : isCurrentMomentReady ? (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] animate-in fade-in duration-200">
-              <Sparkles size={13} />
-              Готово
             </span>
           ) : activeMoment.status === 'BOTH_UPLOADED' ? (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] animate-in fade-in duration-200">
@@ -396,11 +396,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
                 {activeMoment.prompt}
               </h2>
-              {isCurrentMomentReady && (
-                <p className="font-display text-sm sm:text-[15px] font-bold text-[#343033] dark:text-white pt-1 tracking-tight animate-in fade-in duration-200">
-                  Новое касание готово
-                </p>
-              )}
               <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">
                 {activeMoment.status === 'COMPLETED'
                   ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
@@ -412,49 +407,87 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           )}
         </div>
 
-        {/* Photo Slots Section - Moment Duo (Enlarged and optimized for mobile & desktop) */}
-        <div className="relative grid grid-cols-2 items-start gap-2.5 sm:gap-3.5 mb-5">
+        {/* Photo Slots Section - Living Diptych Composition */}
+        <div className="relative mb-5 px-0.5 sm:px-1 overflow-visible">
+          {/* 1. Atmospheric Ambient Backlight Aura embracing both photos as a unified diptych */}
+          <AtmosphericGlow />
 
-          {isCurrentMomentWaiting ? (
-            // Calm waiting placeholders during cooldown
-            <div className="col-span-2 w-full py-6 px-4 rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
-              <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
-                <Clock size={22} className="text-[#E98787] dark:text-[#F0B9C6]" />
-              </div>
-              <div className="space-y-0.5">
-                <p className="text-xs font-semibold text-[#343033] dark:text-white">
-                  Пауза между касаниями
-                </p>
-                <p className="text-[11px] font-semibold text-[#E98787] dark:text-[#F0B9C6]">
-                  через {formatRemainingTime(availability.remainingCooldownMs)}
-                </p>
+          {/* 2. Diptych Central Seam Medallion (Physical & Emotional Connection Bridge) */}
+          {/* State A: Revealed and Matched — The Sacred Union Seal */}
+          {isMomentRevealed && activeMoment.userPhoto && activeMoment.partnerPhoto && (
+            <div className="absolute left-1/2 top-[38%] sm:top-[39%] -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-400">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-[#F2DEE3] dark:border-[#382730] shadow-[0_4px_16px_rgba(215,85,105,0.32)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F]">
+                <Heart size={13} fill="currentColor" />
               </div>
             </div>
-          ) : (
-            <>
-              {/* User Photo Slot */}
-              <PhotoSlot
-                type="user"
-                title={couple.user.name}
-                photoUrl={activeMoment.userPhoto}
-                isRevealed={isMomentRevealed}
-                onPhotoSelected={handlePhotoSelected}
-                onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || 'Твоё фото' })}
-                reaction={activeMoment.partnerReaction}
-              />
-
-              {/* Partner Photo Slot - STRICTLY NON-INTERACTIVE WHEN HIDDEN */}
-              <PhotoSlot
-                type="partner"
-                title={couple.partner.name}
-                photoUrl={activeMoment.partnerPhoto}
-                isRevealed={isMomentRevealed}
-                isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
-                onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || couple.partner.name })}
-                reaction={activeMoment.userReaction}
-              />
-            </>
           )}
+
+          {/* State B: Both uploaded, waiting to open / Match pending */}
+          {activeMoment.status === 'BOTH_UPLOADED' && !isMomentRevealed && (
+            <div className="absolute left-1/2 top-[38%] sm:top-[39%] -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-300">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-rose-100 to-amber-100 dark:from-rose-900/80 dark:to-amber-900/80 backdrop-blur-md border border-rose-200/90 dark:border-rose-700/60 shadow-[0_4px_16px_rgba(215,85,105,0.38)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] animate-pulse">
+                <Sparkles size={13} />
+              </div>
+            </div>
+          )}
+
+          {/* State C: User uploaded, waiting for partner — Gentle whispered connecting light bridge */}
+          {activeMoment.userPhoto && !activeMoment.partnerPhoto && (
+            <div className="absolute left-1/2 top-[38%] sm:top-[39%] -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-rose-200/50 dark:bg-rose-900/40 blur-xs flex items-center justify-center animate-pulse">
+                <div className="w-2 h-2 rounded-full bg-[#E17282] dark:bg-[#F2967F]" />
+              </div>
+            </div>
+          )}
+
+          <div className="relative grid grid-cols-2 items-start gap-2.5 sm:gap-3.5">
+            {isCurrentMomentWaiting ? (
+              // Calm waiting placeholders during cooldown
+              <div className="col-span-2 w-full py-6 px-4 rounded-[24px] bg-white/75 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
+                <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
+                  <Clock size={22} className="text-[#E98787] dark:text-[#F0B9C6]" />
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-[#343033] dark:text-white">
+                    Пауза между касаниями
+                  </p>
+                  <p className="text-[11px] font-semibold text-[#E98787] dark:text-[#F0B9C6]">
+                    через {formatRemainingTime(availability.remainingCooldownMs)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* User Photo Slot with subtle left tilt and organic float */}
+                <div className="w-full animate-diptych-left transition-transform duration-300 ease-out hover:rotate-0 hover:translate-y-0">
+                  <PhotoSlot
+                    type="user"
+                    title={couple.user.name}
+                    photoUrl={activeMoment.userPhoto}
+                    isRevealed={isMomentRevealed}
+                    isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
+                    onPhotoSelected={handlePhotoSelected}
+                    onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || 'Твоё фото' })}
+                    reaction={activeMoment.partnerReaction}
+                  />
+                </div>
+
+                {/* Partner Photo Slot with subtle right tilt and counter-phase organic float */}
+                <div className="w-full animate-diptych-right transition-transform duration-300 ease-out hover:rotate-0 hover:translate-y-0">
+                  <PhotoSlot
+                    type="partner"
+                    title={couple.partner.name}
+                    photoUrl={activeMoment.partnerPhoto}
+                    isRevealed={isMomentRevealed}
+                    isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
+                    isUserUploaded={Boolean(activeMoment.userPhoto)}
+                    onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || couple.partner.name })}
+                    reaction={activeMoment.userReaction}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* State Machine Action Areas */}
@@ -469,48 +502,42 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             </div>
           )}
 
-          {/* State 1: EMPTY or waiting for user's photo (and not in cooldown or matching) */}
+          {/* State 1: Main CTA «Касание готово» (EMPTY or waiting for user's photo) */}
           {!activeMoment.userPhoto &&
             !isMatching &&
             activeMoment.status !== 'COMPLETED' &&
             activeMoment.status !== 'REVEALED' &&
             activeMoment.status !== 'REACTED' &&
             !isCurrentMomentWaiting && (
-              <div className="space-y-1.5 animate-in fade-in duration-250 ease-out">
-                <PrimaryButton
-                  variant="coral"
-                  onClick={() => setIsPhotoPickerOpen(true)}
-                >
-                  <span className="font-display font-bold text-[15px] sm:text-base tracking-tight text-[#FFFFFF]">
-                    {isPartnerUploadedOnly
-                      ? 'Ответить своим кадром'
-                      : isCurrentMomentReady
-                      ? 'Новое касание готово'
-                      : 'Добавить фото'}
-                  </span>
-                </PrimaryButton>
-                {isPartnerUploadedOnly && (
-                  <p className="text-[11px] text-center text-[#E98787] dark:text-[#F0B9C6] pt-0.5 animate-in fade-in duration-200">
-                    {couple.partner.name} уже загрузил(а) фото · как только вы добавите своё, момент сразу откроется
-                  </p>
-                )}
+              <div className="pt-1.5 animate-in fade-in duration-300 ease-out">
+                <TouchReadyButton
+                  onPhotoSelected={handlePhotoSelected}
+                  text="Касание готово"
+                  subtext={
+                    isPartnerUploadedOnly
+                      ? `${couple.partner.name} уже отправил(а) фото · Ваш черёд ♡`
+                      : undefined
+                  }
+                  soundEnabled={soundEnabled}
+                  hapticEnabled={hapticEnabled}
+                />
               </div>
             )}
 
 
 
-          {/* State 3: BOTH_UPLOADED fallback button (if animation hasn't fired yet) */}
-          {activeMoment.status === 'BOTH_UPLOADED' && !isMatching && (
-            <div className="space-y-2 animate-in fade-in zoom-in-[0.98] duration-250 ease-out">
-              <PrimaryButton variant="coral" onClick={handleOpenMoment}>
-                <Sparkles size={16} />
-                <span>Открыть момент</span>
-              </PrimaryButton>
-              <p className="text-[11px] text-center text-[#777277] dark:text-[#B8B2B5]">
-                Оба фото загружены и готовы к MATCH
-              </p>
-            </div>
-          )}
+          {/* State 3: The Signature Match CTA Button */}
+          {(activeMoment.status === 'BOTH_UPLOADED' ||
+            (activeMoment.userPhoto && activeMoment.partnerPhoto && !isMomentRevealed)) &&
+            !isMatching && (
+              <div className="pt-1.5 animate-in fade-in zoom-in-[0.97] duration-400 ease-out">
+                <MatchButton
+                  onClick={handleOpenMoment}
+                  soundEnabled={soundEnabled}
+                  hapticEnabled={hapticEnabled}
+                />
+              </div>
+            )}
 
           {/* State 4 & 5: REVEALED or REACTED */}
           {(activeMoment.status === 'REVEALED' || activeMoment.status === 'REACTED') && (
@@ -562,17 +589,21 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                       </p>
                     </div>
                   ) : availability.isNextMomentReady && availability.nextOrder ? (
-                    <PrimaryButton
-                      variant="coral"
-                      onClick={() => {
-                        const next = moments.find((m) => m.order === availability.nextOrder);
-                        if (next) onSelectActiveMoment(next.id);
-                      }}
-                    >
-                      <span className="font-display font-bold text-[15px] sm:text-base tracking-tight text-[#FFFFFF]">
-                        Новое касание готово
-                      </span>
-                    </PrimaryButton>
+                    <div className="pt-1.5 animate-in fade-in duration-300 ease-out">
+                      <TouchReadyButton
+                        onClick={() => {
+                          const next = moments.find((m) => m.order === availability.nextOrder);
+                          if (next) onSelectActiveMoment(next.id);
+                        }}
+                        onPhotoSelected={(photoUrl) => {
+                          const next = moments.find((m) => m.order === availability.nextOrder);
+                          handleTouchReadyPhotoSelected(photoUrl, next?.id);
+                        }}
+                        text="Касание готово"
+                        soundEnabled={soundEnabled}
+                        hapticEnabled={hapticEnabled}
+                      />
+                    </div>
                   ) : null}
                 </div>
               )}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { ReactionEmoji } from '../types';
 
 export interface ReactionIconProps {
@@ -14,12 +14,16 @@ export interface ReactionIconProps {
  * 3. 🔥 Fire (Огонёк)
  * 4. 😢 Sad (Грустный)
  * 5. 🥹 Touched / Sparkly Eyes (Умиляющийся)
+ *
+ * Uses unique scoped gradient IDs per instance to prevent DOM ID collision blurriness.
  */
 export const ReactionIcon: React.FC<ReactionIconProps> = ({
   reaction,
   size = 24,
   className = '',
 }) => {
+  const uid = useId().replace(/:/g, '');
+
   switch (reaction) {
     case '❤️':
     case 'heart':
@@ -30,27 +34,28 @@ export const ReactionIcon: React.FC<ReactionIconProps> = ({
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          shapeRendering="geometricPrecision"
           className={`shrink-0 select-none ${className}`}
         >
           <defs>
-            <linearGradient id="oursHeartGrad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`oursHeartGrad-${uid}`} x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#FFA0AD" />
               <stop offset="50%" stopColor="#F27285" />
               <stop offset="100%" stopColor="#E4566C" />
             </linearGradient>
-            <radialGradient id="oursHeartGlow" cx="35%" cy="30%" r="45%">
+            <radialGradient id={`oursHeartGlow-${uid}`} cx="35%" cy="30%" r="45%">
               <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.45" />
               <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
             </radialGradient>
           </defs>
           <path
             d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-            fill="url(#oursHeartGrad)"
+            fill={`url(#oursHeartGrad-${uid})`}
           />
           {/* Subtle soft specular shine on top-left lobe */}
           <path
             d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-            fill="url(#oursHeartGlow)"
+            fill={`url(#oursHeartGlow-${uid})`}
           />
           <circle cx="7.5" cy="7" r="1.5" fill="#FFFFFF" opacity="0.65" />
         </svg>
@@ -65,16 +70,17 @@ export const ReactionIcon: React.FC<ReactionIconProps> = ({
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          shapeRendering="geometricPrecision"
           className={`shrink-0 select-none ${className}`}
         >
           <defs>
-            <linearGradient id="oursLaughGrad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`oursLaughGrad-${uid}`} x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#FFC876" />
               <stop offset="100%" stopColor="#F99F44" />
             </linearGradient>
           </defs>
           {/* Base Face Circle */}
-          <circle cx="12" cy="12" r="10" fill="url(#oursLaughGrad)" />
+          <circle cx="12" cy="12" r="10" fill={`url(#oursLaughGrad-${uid})`} />
           
           {/* Soft Blush Cheeks */}
           <circle cx="4.8" cy="13.2" r="2" fill="#E86278" opacity="0.45" />
@@ -116,15 +122,16 @@ export const ReactionIcon: React.FC<ReactionIconProps> = ({
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          shapeRendering="geometricPrecision"
           className={`shrink-0 select-none ${className}`}
         >
           <defs>
-            <linearGradient id="oursFireOuter" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`oursFireOuter-${uid}`} x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#FF775A" />
               <stop offset="50%" stopColor="#F9544A" />
               <stop offset="100%" stopColor="#E03C4B" />
             </linearGradient>
-            <linearGradient id="oursFireInner" x1="12" y1="10" x2="12" y2="21" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`oursFireInner-${uid}`} x1="12" y1="10" x2="12" y2="21" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#FFF176" />
               <stop offset="100%" stopColor="#FFA726" />
             </linearGradient>
@@ -132,12 +139,12 @@ export const ReactionIcon: React.FC<ReactionIconProps> = ({
           {/* Outer Organic Flame */}
           <path
             d="M12.5 2.5c.3 2.6-1.2 4.4-2.8 6.2-1.8 2.1-3.7 4.3-3.7 7.3a6 6 0 0012 0c0-4-2.5-6.5-3.8-8.8-.9-1.6-1.2-3.1-.7-4.7z"
-            fill="url(#oursFireOuter)"
+            fill={`url(#oursFireOuter-${uid})`}
           />
           {/* Inner Golden Core */}
           <path
             d="M12 11c-.4 1.5-1.2 2.5-2 3.6-.9 1.1-1.5 2.2-1.5 3.7a3.5 3.5 0 007 0c0-2-1.4-3.5-2.1-4.7-.5-.9-.8-1.8-.4-2.6z"
-            fill="url(#oursFireInner)"
+            fill={`url(#oursFireInner-${uid})`}
           />
         </svg>
       );
@@ -151,20 +158,21 @@ export const ReactionIcon: React.FC<ReactionIconProps> = ({
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          shapeRendering="geometricPrecision"
           className={`shrink-0 select-none ${className}`}
         >
           <defs>
-            <linearGradient id="oursSadGrad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`oursSadGrad-${uid}`} x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#A4C4FB" />
               <stop offset="100%" stopColor="#7E9FE8" />
             </linearGradient>
-            <linearGradient id="oursTearGrad" x1="17.5" y1="12.5" x2="17.5" y2="18" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`oursTearGrad-${uid}`} x1="17.5" y1="12.5" x2="17.5" y2="18" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#E1F5FE" />
               <stop offset="100%" stopColor="#4FC3F7" />
             </linearGradient>
           </defs>
           {/* Soft Periwinkle Face Circle */}
-          <circle cx="12" cy="12" r="10" fill="url(#oursSadGrad)" />
+          <circle cx="12" cy="12" r="10" fill={`url(#oursSadGrad-${uid})`} />
           
           {/* Gentle Blush */}
           <circle cx="5" cy="14" r="1.8" fill="#5C7BC9" opacity="0.35" />
@@ -186,7 +194,7 @@ export const ReactionIcon: React.FC<ReactionIconProps> = ({
           {/* Cute Crystal Teardrop */}
           <path
             d="M17.5 13c-1.2 1.8-1.5 2.8-1.5 3.5a1.5 1.5 0 003 0c0-.7-.3-1.7-1.5-3.5z"
-            fill="url(#oursTearGrad)"
+            fill={`url(#oursTearGrad-${uid})`}
           />
           <circle cx="17.2" cy="15.5" r="0.4" fill="#FFFFFF" />
         </svg>
@@ -203,16 +211,17 @@ export const ReactionIcon: React.FC<ReactionIconProps> = ({
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
+          shapeRendering="geometricPrecision"
           className={`shrink-0 select-none ${className}`}
         >
           <defs>
-            <linearGradient id="oursTouchedGrad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+            <linearGradient id={`oursTouchedGrad-${uid}`} x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stopColor="#FFB3C3" />
               <stop offset="100%" stopColor="#F4839B" />
             </linearGradient>
           </defs>
           {/* Soft Rose Pink Face Circle */}
-          <circle cx="12" cy="12" r="10" fill="url(#oursTouchedGrad)" />
+          <circle cx="12" cy="12" r="10" fill={`url(#oursTouchedGrad-${uid})`} />
 
           {/* Cute Rosy Blush Cheeks */}
           <circle cx="4.8" cy="14" r="2.2" fill="#E64A6E" opacity="0.45" />

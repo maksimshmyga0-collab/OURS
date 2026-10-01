@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Camera, Lock, CheckCircle2 } from 'lucide-react';
+import { Camera, Lock, Check, Sparkles, Heart } from 'lucide-react';
 import { ReactionEmoji } from '../types';
 import { ReactionIcon } from './ReactionIcon';
 import { optimizePhotoForUpload } from '../services/storage/imageOptimizer';
@@ -12,6 +12,7 @@ interface PhotoSlotProps {
   photoUrl: string | null;
   isRevealed: boolean;
   isPartnerUploaded?: boolean;
+  isUserUploaded?: boolean;
   onAddPhoto?: () => void;
   onPhotoSelected?: (photoDataUrl: string) => void;
   onOpenFullscreen?: (photoUrl: string, title?: string) => void;
@@ -24,7 +25,8 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
   title,
   photoUrl,
   isRevealed,
-  isPartnerUploaded: _isPartnerUploaded = false,
+  isPartnerUploaded = false,
+  isUserUploaded = false,
   onAddPhoto,
   onPhotoSelected,
   onOpenFullscreen,
@@ -85,7 +87,9 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
     }
   };
 
+  // =========================================================================
   // 1. USER SLOT
+  // =========================================================================
   if (type === 'user') {
     if (photoUrl) {
       return (
@@ -97,9 +101,11 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             onChange={handleFileChange}
             className="hidden"
           />
+
+          {/* Photo Frame Container */}
           <div
             onClick={() => handleOpenViewer(photoUrl, 'Твоё фото')}
-            className="relative w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB] dark:border-[#42262E] soft-card-shadow group cursor-pointer transition-transform duration-180 ease-out active:scale-[0.98]"
+            className="group relative w-full aspect-[4/5] rounded-[24px] sm:rounded-[26px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] cursor-pointer transition-all duration-200 ease-out active:scale-[0.98] hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)] select-none"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -110,42 +116,64 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
             }}
             aria-label="Открыть твоё фото на весь экран"
           >
+            {/* Top glass luster sheen */}
+            <div className="absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-white/30 via-white/5 to-transparent dark:from-white/10 dark:to-transparent pointer-events-none z-10" />
+
+            {/* Inner subtle frame hairline */}
+            <div className="absolute inset-0 rounded-[24px] sm:rounded-[26px] border border-white/60 dark:border-white/10 pointer-events-none z-10" />
+
+            {/* Actual photo image */}
             <img
               src={photoUrl}
               alt="Твоё фото"
+              loading="eager"
+              decoding="async"
               referrerPolicy="no-referrer"
-              className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-102"
+              className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-103"
             />
+
+            {/* State Overlay: Revealed (Partner reaction) vs Unrevealed (Check badge + Replace button) */}
             {isRevealed ? (
               reaction && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] shadow-xs flex items-center justify-center animate-in zoom-in-75 fade-in duration-200 ease-out pointer-events-auto"
+                  className="absolute bottom-2.5 right-2.5 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#2D2024] shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center justify-center animate-in zoom-in-75 fade-in duration-250 ease-out pointer-events-auto z-20"
                 >
-                  <ReactionIcon reaction={reaction} size={18} />
+                  <ReactionIcon reaction={reaction} size={20} />
                 </div>
               )
             ) : (
               <>
-                <div className="absolute top-2.5 right-2.5 bg-white/95 dark:bg-[#1E1C1E] rounded-full p-1 border border-[#EBE3E5] dark:border-[#352F35] text-[#E98787] shadow-xs animate-in zoom-in-75 duration-200 ease-out pointer-events-none">
-                  <CheckCircle2 size={17} />
+                {/* Floating Ready Checkmark at top-right */}
+                <div className="absolute top-2.5 right-2.5 bg-black/40 backdrop-blur-md rounded-full w-6 h-6 border border-white/20 text-white flex items-center justify-center shadow-sm pointer-events-none z-10">
+                  <Check size={13} strokeWidth={2.5} className="text-emerald-300" />
                 </div>
+
+                {/* Floating Replace Button at bottom (frosted glass pill that doesn't obstruct photo) */}
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleSlotClick();
                   }}
-                  className="absolute inset-x-3 bottom-2.5 bg-white/95 dark:bg-[#1C1A1C] border border-[#EBE3E5] dark:border-[#352F35] shadow-xs py-1.5 rounded-xl text-[11px] font-semibold text-[#343033] dark:text-white text-center transition-all duration-180 ease-out hover:bg-white dark:hover:bg-[#252225] active:scale-[0.96] cursor-pointer z-10"
+                  className="absolute inset-x-3.5 bottom-2.5 bg-black/45 hover:bg-black/60 backdrop-blur-md border border-white/25 shadow-md py-1.5 rounded-full text-[11px] font-medium tracking-wide text-white text-center transition-all duration-180 ease-out active:scale-[0.96] cursor-pointer z-10 flex items-center justify-center gap-1.5"
                 >
-                  Заменить
+                  <span>Заменить</span>
                 </button>
               </>
             )}
           </div>
-          <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight truncate max-w-full text-center transition-colors duration-200">
-            {title}{isRevealed ? '' : ' · Фото отправлено'}
-          </span>
+
+          {/* Clean metadata title & status below card */}
+          <div className="flex flex-col items-center mt-2 text-center max-w-full">
+            <span className="font-display font-semibold text-xs sm:text-[13px] text-[#343033] dark:text-[#FAF5F7] tracking-tight truncate max-w-full">
+              {title}
+            </span>
+            <span className="text-[10px] text-[#8A8488] dark:text-[#A8A1A4] font-medium mt-0.5 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              {isRevealed ? 'Момент открыт' : 'Кадр отправлен'}
+            </span>
+          </div>
 
           {/* Local fallback Fullscreen Viewer if not handled by parent */}
           {!onOpenFullscreen && (
@@ -160,6 +188,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
       );
     }
 
+    // User Slot: Empty / Touch to Add
     return (
       <div className={`w-full flex-1 flex flex-col items-center ${className}`}>
         <input
@@ -169,44 +198,62 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
           onChange={handleFileChange}
           className="hidden"
         />
+
+        {/* Empty Upload Slot Button */}
         <button
           type="button"
           onClick={handleSlotClick}
-          className="w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] bg-white dark:bg-[#141214] border-2 border-dashed border-[#E5D7DA] dark:border-[#35252A] hover:border-[#E98787] dark:hover:border-[#E98787] flex flex-col items-center justify-center p-3 text-center transition-all duration-180 ease-out active:scale-[0.97] cursor-pointer group shadow-2xs"
+          className={`group relative w-full aspect-[4/5] rounded-[24px] sm:rounded-[26px] bg-gradient-to-b from-[#FFFFFF] via-[#FFF8F9] to-[#FDF4F6] dark:from-[#1A1417] dark:via-[#161114] dark:to-[#130E11] border-2 border-dashed ${
+            isPartnerUploaded
+              ? 'border-[#E98787] shadow-[0_6px_22px_-2px_rgba(233,135,135,0.32)] animate-pulse'
+              : 'border-[#F0D5DC] dark:border-[#3D252E] hover:border-[#E98787] dark:hover:border-[#E98787] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.12)] hover:shadow-[0_8px_24px_-4px_rgba(233,135,135,0.22)]'
+          } flex flex-col items-center justify-center p-3 text-center transition-all duration-200 ease-out active:scale-[0.98] cursor-pointer select-none`}
         >
-          <div className="w-11 h-11 rounded-2xl bg-[#FBF0F2] dark:bg-[#25161A] group-hover:bg-[#F6DCE1] dark:group-hover:bg-[#341B22] flex items-center justify-center text-[#E98787] mb-2 transition-colors duration-200 ease-out">
-            <Camera size={20} />
+          {/* Subtle inner ambient glow */}
+          <div className="absolute inset-0 rounded-[24px] sm:rounded-[26px] bg-radial from-[#FFF0F3]/50 to-transparent dark:from-[#2A161E]/30 pointer-events-none" />
+
+          {/* Central Camera Medallion */}
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FFF0F3] to-[#FCE6EB] dark:from-[#2A1820] dark:to-[#201217] border border-[#F5D8DF] dark:border-[#422632] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] mb-2.5 shadow-xs transition-transform duration-250 ease-out group-hover:scale-108 group-active:scale-95">
+            <Camera size={22} strokeWidth={2.1} />
           </div>
-          <span className="text-xs font-semibold text-[#343033] dark:text-white">
-            Добавить фото
+
+          <span className="font-display font-semibold text-xs text-[#343033] dark:text-white tracking-tight">
+            {isPartnerUploaded ? 'Ответить своим кадром' : 'Добавить фото'}
+          </span>
+          <span className="text-[10px] text-[#A69FA3] dark:text-[#8A8186] mt-0.5 font-medium">
+            {isPartnerUploaded ? 'Партнёр уже ждёт тебя ♡' : 'Поделись моментом'}
           </span>
         </button>
-        <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-2 tracking-tight truncate max-w-full text-center">
-          {title}
-        </span>
+
+        {/* Quiet Label */}
+        <div className="flex flex-col items-center mt-2 text-center max-w-full">
+          <span className="font-display font-semibold text-xs sm:text-[13px] text-[#343033] dark:text-[#FAF5F7] tracking-tight truncate max-w-full">
+            {title}
+          </span>
+          <span className="text-[10px] text-[#A69FA3] dark:text-[#8A8186] font-medium mt-0.5">
+            Твой черёд
+          </span>
+        </div>
       </div>
     );
   }
 
+  // =========================================================================
   // 2. PARTNER SLOT
-  // If photo is uploaded by partner
+  // =========================================================================
   if (photoUrl) {
     const isBlurred = !isRevealed;
 
     return (
       <div className={`w-full flex-1 flex flex-col items-center select-none ${className} animate-photo-enter`}>
+        {/* Photo Card Container */}
         <div
           onClick={!isBlurred ? () => handleOpenViewer(photoUrl, title) : undefined}
-          className={`relative w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#E9C3CB]/70 dark:border-[#42262E]/80 soft-card-shadow group ${
+          className={`group relative w-full aspect-[4/5] rounded-[24px] sm:rounded-[26px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] select-none ${
             !isBlurred
-              ? 'cursor-pointer active:scale-[0.98] transition-transform duration-180 ease-out'
-              : 'select-none pointer-events-none'
+              ? 'cursor-pointer active:scale-[0.98] transition-all duration-200 ease-out hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)]'
+              : 'pointer-events-none'
           }`}
-          style={{
-            isolation: 'isolate',
-            transform: 'translateZ(0)',
-            WebkitMaskImage: '-webkit-radial-gradient(white, black)',
-          }}
           role={!isBlurred ? 'button' : undefined}
           tabIndex={!isBlurred ? 0 : -1}
           onKeyDown={(e) => {
@@ -217,63 +264,81 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
           }}
           aria-label={!isBlurred ? `Открыть фото ${title} на весь экран` : undefined}
         >
-          {/* Partner Photo: ultra maximum abstract gaussian blur + chromatic dispersion before MATCH */}
+          {/* Top glass luster sheen */}
+          <div className="absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-white/30 via-white/5 to-transparent dark:from-white/10 dark:to-transparent pointer-events-none z-10" />
+
+          {/* Inner subtle frame hairline */}
+          <div className="absolute inset-0 rounded-[24px] sm:rounded-[26px] border border-white/60 dark:border-white/10 pointer-events-none z-10" />
+
+          {/* Partner Photo: Gaussian blur + gentle chromatic dispersion before MATCH */}
           <img
             src={photoUrl}
             alt={title}
+            loading="eager"
+            decoding="async"
             referrerPolicy="no-referrer"
             style={{
-              filter: isBlurred ? 'blur(45px) saturate(160%) contrast(105%) brightness(0.98)' : 'none',
-              transform: isBlurred ? 'scale(1.48)' : 'scale(1)',
+              filter: isBlurred ? 'blur(38px) saturate(145%) brightness(0.98)' : 'none',
+              transform: isBlurred ? 'scale(1.35)' : 'scale(1)',
               opacity: isBlurred ? 0.95 : 1,
               willChange: 'filter, transform, opacity',
             }}
             className={`w-full h-full object-cover transition-[filter,transform,opacity] duration-500 ease-out ${
-              isBlurred
-                ? 'select-none pointer-events-none'
-                : 'group-hover:scale-102'
+              isBlurred ? 'select-none pointer-events-none partner-blurred-photo' : 'group-hover:scale-103'
             }`}
           />
 
-          {/* Deep Frosted Color Diffusion Layer before MATCH (ensures 100% facial detail occlusion) */}
+          {/* Atmospheric Frosted Glass Veil before MATCH */}
           {isBlurred && (
-            <div className="absolute inset-0 backdrop-blur-[36px] bg-white/20 dark:bg-black/25 pointer-events-none" />
+            <div className="absolute inset-0 backdrop-blur-[24px] bg-gradient-to-b from-white/35 via-rose-50/20 to-white/45 dark:from-black/45 dark:via-[#1D1418]/30 dark:to-black/55 pointer-events-none" />
           )}
 
-          {/* Calm overlay before MATCH */}
+          {/* Dreamy Frosted Seal Medallion before MATCH */}
           {isBlurred && (
-            <>
-              <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center pointer-events-none transition-opacity duration-300 z-10">
-                <div className="w-10 h-10 rounded-2xl bg-white/90 dark:bg-[#1E1C1E]/95 backdrop-blur-md flex items-center justify-center text-[#E98787] shadow-xs mb-1.5 border border-white/60 dark:border-white/10">
-                  <CheckCircle2 size={18} />
-                </div>
-                <span className="text-[11px] font-semibold text-[#343033] dark:text-white px-2 py-0.5 rounded-full bg-white/80 dark:bg-black/60 backdrop-blur-xs shadow-2xs">
-                  Взгляд добавлен
-                </span>
-                <span className="text-[9px] text-[#777277] dark:text-[#B8B2B5] mt-0.5 font-medium">
-                  Скрыто до MATCH
-                </span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-3 text-center pointer-events-none z-10">
+              {/* Soft breathing glow behind medallion */}
+              <div className="absolute w-20 h-20 rounded-full bg-rose-300/30 dark:bg-rose-500/20 blur-xl animate-[pulse_4s_ease-in-out_infinite]" />
+
+              {/* Medallion badge */}
+              <div className="relative w-12 h-12 rounded-2xl bg-white/90 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-white/80 dark:border-white/15 shadow-[0_4px_16px_rgba(215,85,105,0.22)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] mb-2">
+                <Sparkles size={20} className="animate-pulse" />
               </div>
 
-              <div className="absolute top-2.5 right-2.5 text-[#8A8488] dark:text-[#B8B2B5] pointer-events-none z-10">
-                <Lock size={14} />
-              </div>
-            </>
+              {/* Enigmatic text */}
+              <span className="font-display font-semibold text-xs text-[#343033] dark:text-white tracking-tight">
+                Кадр {title} сохранён
+              </span>
+              <span className="text-[10px] text-[#8A8488] dark:text-[#C5BEC2] font-medium mt-0.5">
+                Откроется при MATCH ✨
+              </span>
+            </div>
           )}
 
-          {/* Reaction badge after MATCH */}
+          {/* Partner Reaction Badge after MATCH */}
           {isRevealed && reaction && (
             <div
               onClick={(e) => e.stopPropagation()}
-              className="absolute bottom-2.5 right-2.5 w-9 h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] shadow-xs flex items-center justify-center animate-in zoom-in-75 fade-in duration-200 ease-out pointer-events-auto"
+              className="absolute bottom-2.5 right-2.5 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#2D2024] shadow-[0_4px_12px_rgba(0,0,0,0.12)] flex items-center justify-center animate-in zoom-in-75 fade-in duration-250 ease-out pointer-events-auto z-20"
             >
-              <ReactionIcon reaction={reaction} size={18} />
+              <ReactionIcon reaction={reaction} size={20} />
             </div>
           )}
         </div>
-        <span className="text-xs font-semibold text-[#343033] dark:text-white mt-2 tracking-tight truncate max-w-full text-center transition-colors duration-200">
-          {title}{isRevealed ? '' : ' · Готово'}
-        </span>
+
+        {/* Clean metadata title & status below card */}
+        <div className="flex flex-col items-center mt-2 text-center max-w-full">
+          <span className="font-display font-semibold text-xs sm:text-[13px] text-[#343033] dark:text-[#FAF5F7] tracking-tight truncate max-w-full">
+            {title}
+          </span>
+          <span className="text-[10px] text-[#8A8488] dark:text-[#A8A1A4] font-medium mt-0.5 flex items-center gap-1">
+            <span
+              className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                isRevealed ? 'bg-emerald-500' : 'bg-rose-400 animate-pulse'
+              }`}
+            />
+            {isRevealed ? 'Момент открыт' : 'Кадр добавлен'}
+          </span>
+        </div>
 
         {/* Local fallback Fullscreen Viewer if not handled by parent (only when revealed) */}
         {!onOpenFullscreen && !isBlurred && (
@@ -288,23 +353,56 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
     );
   }
 
-  // Partner slot before upload -> clean, calm waiting state
+  // =========================================================================
+  // 3. PARTNER SLOT: WAITING FOR UPLOAD (Before partner sends photo)
+  // =========================================================================
+  // Notice: If the user has already uploaded their photo, this slot represents an intentional, romantic "Awaiting Your Partner" state!
   return (
     <div className={`w-full flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
-      <div className="w-full aspect-[4/5] rounded-[20px] sm:rounded-[22px] bg-white/70 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] flex flex-col items-center justify-center p-3 text-center select-none shadow-2xs relative overflow-hidden pointer-events-none">
-        <div className="w-11 h-11 rounded-2xl bg-[#FAF1F3] dark:bg-[#20181B] flex items-center justify-center text-[#8A8488] dark:text-[#B8B2B5] mb-2">
-          <Lock size={18} />
+      <div
+        className={`relative w-full aspect-[4/5] rounded-[24px] sm:rounded-[26px] ${
+          isUserUploaded
+            ? 'bg-gradient-to-b from-[#FFFDFE] via-[#FAF1F4] to-[#F6E6ED] dark:from-[#1D1418] dark:via-[#191115] dark:to-[#140D11] border border-dashed border-[#E8CCD5] dark:border-[#3D252E] shadow-[0_4px_16px_rgba(215,85,105,0.08)]'
+            : 'bg-gradient-to-b from-[#FDF9FA] via-[#FAF3F5] to-[#F7EEF1] dark:from-[#171316] dark:via-[#151114] dark:to-[#120E11] border border-dashed border-[#ECD9DE] dark:border-[#35252C] shadow-[0_2px_10px_rgba(0,0,0,0.02)]'
+        } flex flex-col items-center justify-center p-3 text-center select-none overflow-hidden transition-all duration-300`}
+      >
+        {/* Soft breathing aura when user is waiting for partner */}
+        {isUserUploaded && (
+          <div className="absolute inset-0 rounded-[24px] sm:rounded-[26px] bg-radial from-rose-200/30 to-transparent dark:from-rose-900/20 animate-pulse pointer-events-none" />
+        )}
+
+        {/* Soft centered icon */}
+        <div
+          className={`w-12 h-12 rounded-2xl ${
+            isUserUploaded
+              ? 'bg-white/95 dark:bg-[#28181F] border border-[#F2D6DD] dark:border-[#422530] text-[#E17282] dark:text-[#F2967F] shadow-xs'
+              : 'bg-white/80 dark:bg-white/5 border border-[#F2DEE3] dark:border-[#2F1F26] text-[#C0A8AF] dark:text-[#7A6B72] shadow-xs'
+          } flex items-center justify-center mb-2.5 transition-all duration-300`}
+        >
+          {isUserUploaded ? (
+            <Heart size={20} className="animate-pulse fill-rose-100 dark:fill-rose-950/40 text-[#E17282] dark:text-[#F2967F]" />
+          ) : (
+            <Lock size={19} strokeWidth={2} />
+          )}
         </div>
-        <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5]">
+
+        <span className="font-display font-semibold text-xs text-[#5A5458] dark:text-[#D4CBD0] tracking-tight">
           Взгляд {title}
         </span>
-        <span className="text-[10px] text-[#A69FA3] dark:text-[#807B7E] mt-0.5">
-          Ждём {title}
+        <span className="text-[10px] text-[#A89FA3] dark:text-[#7D757A] mt-0.5 font-medium">
+          {isUserUploaded ? `Ждём кадр от ${title} ♡` : `Ждём ${title}`}
         </span>
       </div>
-      <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-2 tracking-tight truncate max-w-full text-center">
-        {title}
-      </span>
+
+      {/* Quiet Label */}
+      <div className="flex flex-col items-center mt-2 text-center max-w-full">
+        <span className="font-display font-semibold text-xs sm:text-[13px] text-[#5A5458] dark:text-[#D4CBD0] tracking-tight truncate max-w-full">
+          {title}
+        </span>
+        <span className="text-[10px] text-[#A89FA3] dark:text-[#7D757A] font-medium mt-0.5">
+          {isUserUploaded ? 'Касание в пути...' : 'Ожидание'}
+        </span>
+      </div>
     </div>
   );
 };

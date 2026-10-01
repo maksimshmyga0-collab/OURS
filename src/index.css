@@ -23,50 +23,19 @@
 }
 
 /* ==========================================================================
-   OURS Theme Design Tokens
+   OURS Theme Design Tokens — Permanently Locked Dark Theme
    ========================================================================== */
 :root,
-html.light,
-html[data-theme="light"],
-[data-theme="light"] {
-  color-scheme: light;
-  --sat: env(safe-area-inset-top, 0px);
-  --sab: env(safe-area-inset-bottom, 0px);
-  --sal: env(safe-area-inset-left, 0px);
-  --sar: env(safe-area-inset-right, 0px);
-  --blue: #97B2EB;
-  --ours-blue: #97B2EB;
-  --ours-bg: #FFF9FA;
-  --ours-surface: #FFFFFF;
-  --ours-surface-subtle: #FAF5F7;
-  --ours-surface-elevated: #FFFFFF;
-  --ours-text-primary: #343033;
-  --ours-text-secondary: #777277;
-  --ours-text-muted: #A8A1A4;
-  --ours-border: #EBE3E5;
-  --ours-border-subtle: #F2ECEE;
-  --ours-border-divider: #F0E6E8;
-  --ours-accent: #F0B9C6;
-  --ours-accent-coral: #E98787;
-  --ours-card-pink: #FAF0F2;
-  --ours-card-pink-border: #EED7DC;
-  --ours-card-blue: #EDF4FB;
-  --ours-card-blue-border: #D5E3F0;
-  --ours-card-peach: #FAF2EE;
-  --ours-card-peach-border: #EEDBD2;
-  --ours-card-cream: #FAF6EC;
-  --ours-card-cream-border: #EBE3CD;
-  --ours-card-lilac: #F6F0F7;
-  --ours-card-lilac-border: #E7DCE8;
-  --ours-header-bg: rgba(255, 249, 250, 0.92);
-  --ours-nav-bg: rgba(255, 249, 250, 0.92);
-}
-
+html,
 html.dark,
 :root.dark,
 html[data-theme="dark"],
 [data-theme="dark"] {
-  color-scheme: dark;
+  color-scheme: dark !important;
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
   --blue: #97B2EB;
   --ours-blue: #97B2EB;
   --ours-bg: #000000;
@@ -97,6 +66,8 @@ html[data-theme="dark"],
 
 * {
   box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 html,
@@ -105,6 +76,27 @@ body,
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* High-precision vector and typography rendering */
+svg {
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+}
+
+/* Crisp rendering on high-DPI displays */
+img {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ensure backdrop-blur containers composite cleanly without subpixel blur */
+header,
+nav,
+[role="dialog"] {
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 button,
@@ -120,19 +112,25 @@ textarea {
   line-height: inherit;
   letter-spacing: inherit;
   color: inherit;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 html {
-  background-color: var(--ours-bg);
-  color: var(--ours-text-primary);
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+  color-scheme: dark !important;
   -webkit-tap-highlight-color: transparent;
   scrollbar-gutter: stable;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 html.dark,
 html[data-theme="dark"] {
   background-color: #000000 !important;
   color: #FFFFFF !important;
+  color-scheme: dark !important;
 }
 
 body {
@@ -140,13 +138,17 @@ body {
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: var(--ours-bg);
-  color: var(--ours-text-primary);
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: dark !important;
   user-select: none;
   -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
 }
 
+html body,
 html.dark body,
 html[data-theme="dark"] body {
   background-color: #000000 !important;
@@ -156,37 +158,31 @@ html[data-theme="dark"] body {
 #root {
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: var(--ours-bg);
-  color: var(--ours-text-primary);
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
 }
 
+html #root,
 html.dark #root,
 html[data-theme="dark"] #root {
   background-color: #000000 !important;
   color: #FFFFFF !important;
 }
 
-/* Strict requirement 9: NEVER filter, invert, or darken user photos */
-img,
+/* Strict requirement 9: NEVER filter, invert, or darken user photos (except partner blurred preview) */
+img:not(.partner-blurred-photo),
 video,
 canvas {
   filter: none !important;
   color-scheme: light !important;
 }
 
-/* Form controls adapt according to theme */
-html.light input,
-html.light textarea,
-html.light select,
-html.light button {
-  color-scheme: light;
-}
-
-html.dark input,
-html.dark textarea,
-html.dark select,
-html.dark button {
-  color-scheme: dark;
+/* Form controls locked to dark theme */
+input,
+textarea,
+select,
+button {
+  color-scheme: dark !important;
 }
 
 /* Micro-transition (150-250ms) for pleasant instant theme change */
@@ -612,84 +608,198 @@ html.dark .soft-card-shadow {
   animation: screen-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Card / Prompt entry: opacity 0 -> 1, translateY 5px -> 0, scale 0.99 -> 1 */
+/* Card / Prompt entry: clean opacity and integer translateY without persistent scale matrix */
 @keyframes card-enter {
   0% {
     opacity: 0;
-    transform: translateY(5px) scale(0.99);
+    transform: translateY(4px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 .animate-card-enter {
-  animation: card-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: card-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* Moment transition: exit and enter */
 @keyframes moment-exit {
   0% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
   100% {
     opacity: 0;
-    transform: translateY(-5px) scale(0.98);
+    transform: translateY(-4px);
   }
 }
 
 @keyframes moment-enter {
   0% {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: translateY(4px);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 .animate-moment-exit {
-  animation: moment-exit 320ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  animation: moment-exit 300ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
 .animate-moment-enter {
-  animation: moment-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: moment-enter 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Photo arrival & upload enter: opacity 0 -> 1, scale 0.98 -> 1 */
+/* Photo arrival & upload enter: opacity fade without scale transform */
 @keyframes photo-enter {
   0% {
     opacity: 0;
-    transform: scale(0.98);
   }
   100% {
     opacity: 1;
-    transform: scale(1);
   }
 }
 
 .animate-photo-enter {
-  animation: photo-enter 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: photo-enter 300ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* Reaction selection highlight */
 @keyframes reaction-pop {
   0% {
-    transform: scale(0.94);
+    transform: scale(0.96);
   }
   50% {
-    transform: scale(1.08);
+    transform: scale(1.06);
   }
   100% {
-    transform: scale(1.04);
+    transform: scale(1);
   }
 }
 
 .animate-reaction-select {
   animation: reaction-pop 260ms cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Diptych Organic Floating Choreography - Integer pixel translation without rotation to preserve 100% sharp text & borders */
+@keyframes diptych-float-left {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes diptych-float-right {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes diptych-halo-breathe {
+  0%, 100% {
+    opacity: 0.65;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+}
+
+.animate-diptych-left {
+  animation: diptych-float-left 7.5s ease-in-out infinite;
+}
+
+.animate-diptych-right {
+  animation: diptych-float-right 8.2s ease-in-out infinite;
+}
+
+.animate-diptych-halo {
+  animation: diptych-halo-breathe 6.8s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Touch Ready Button - Calm subtle enter animation */
+@keyframes touch-btn-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-touch-enter {
+  animation: touch-btn-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Organic Chaotic Fluid Glow Animations - Strictly center-aligned */
+@keyframes fluid-glow-blob-1 {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 46% 54% 44% 56% / 54% 46% 52% 48%;
+  }
+  33% {
+    transform: scale(1.025, 0.98) rotate(3deg);
+    border-radius: 42% 58% 50% 50% / 48% 54% 46% 52%;
+  }
+  66% {
+    transform: scale(0.98, 1.025) rotate(-3deg);
+    border-radius: 52% 48% 44% 56% / 46% 52% 48% 54%;
+  }
+}
+
+@keyframes fluid-glow-blob-2 {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 54% 46% 50% 50% / 48% 52% 46% 54%;
+  }
+  33% {
+    transform: scale(1.02, 1.01) rotate(-3deg);
+    border-radius: 48% 52% 46% 54% / 54% 46% 52% 48%;
+  }
+  66% {
+    transform: scale(0.98, 0.99) rotate(3deg);
+    border-radius: 44% 56% 52% 48% / 50% 50% 50% 50%;
+  }
+}
+
+@keyframes fluid-glow-pulse {
+  0%, 100% {
+    opacity: 0.72;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.04);
+  }
+}
+
+.animate-fluid-blob-1 {
+  animation: fluid-glow-blob-1 9s ease-in-out infinite alternate;
+  will-change: transform, border-radius;
+}
+
+.animate-fluid-blob-2 {
+  animation: fluid-glow-blob-2 11.5s ease-in-out infinite alternate;
+  will-change: transform, border-radius;
+}
+
+.animate-fluid-pulse {
+  animation: fluid-glow-pulse 6s ease-in-out infinite;
+  will-change: transform, opacity;
 }
 
 /* Accessibility: respect user preferences for reduced motion */

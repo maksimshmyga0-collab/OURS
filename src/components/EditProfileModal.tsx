@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import { UserProfile, CoupleStreakInfo } from '../types';
 import { Avatar } from './Avatar';
 import { PrimaryButton } from './PrimaryButton';
-import { ThemeSelector } from './ThemeSelector';
 import { X, Camera, RotateCcw, Check, ChevronRight, Sparkles } from 'lucide-react';
 import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
@@ -226,17 +225,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 )}
               </button>
             </div>
-          </div>
-
-          {/* SECTION: «Тема» — Compact Segmented Control */}
-          <div className="bg-white dark:bg-[#161416] rounded-[24px] p-4.5 border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5">
-            <h3 className="font-display text-sm font-bold text-[#343033] dark:text-white">
-              Тема
-            </h3>
-            <ThemeSelector
-              soundEnabled={soundEnabled}
-              hapticEnabled={hapticEnabled}
-            />
           </div>
 
           {/* SECTION 2: «Наша история» — Dynamic Real Metrics */}

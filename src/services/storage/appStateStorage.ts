@@ -49,15 +49,36 @@ export function getInitialAppState(): AppState {
         parsed.couple.user
       ) {
         if (!parsed.settings) {
-          parsed.settings = { notifications: true, sounds: true, haptic: true, theme: savedThemePreference || 'system' };
+          parsed.settings = { notifications: true, sounds: true, haptic: true, theme: 'dark' };
         } else {
-          parsed.settings.theme = savedThemePreference || parsed.settings.theme || 'system';
+          parsed.settings.theme = 'dark';
         }
         if (!parsed.couple.pairSeed) {
           parsed.couple.pairSeed = `${parsed.couple.inviteCode || 'OURS'}-${parsed.couple.user?.name || 'user'}-${parsed.couple.partner?.name || 'partner'}`.toLowerCase().replace(/\s+/g, '-');
         }
         if (parsed.couple.isLovely === undefined) {
           parsed.couple.isLovely = parsed.couple.subscription === 'premium';
+        }
+
+        // Clean out test mock history
+        if (Array.isArray(parsed.history)) {
+          parsed.history = parsed.history.filter(
+            (d: HistoryDay) => d && d.id && !d.id.startsWith('day-hist-') && !d.id.startsWith('hist-')
+          );
+        } else {
+          parsed.history = [];
+        }
+
+        // Clean out test mock partner photo in today's moment if it was the placeholder
+        if (
+          parsed.todayMoments[0] &&
+          parsed.todayMoments[0].partnerPhoto &&
+          parsed.todayMoments[0].partnerPhoto.includes('photo-1534528741775')
+        ) {
+          parsed.todayMoments[0].partnerPhoto = null;
+          if (parsed.todayMoments[0].status === 'USER_UPLOADED' && !parsed.todayMoments[0].userPhoto) {
+            parsed.todayMoments[0].status = 'EMPTY';
+          }
         }
 
         return syncAppStateForDate(parsed);
@@ -89,16 +110,19 @@ export function getInitialAppState(): AppState {
       notifications: true,
       sounds: true,
       haptic: true,
-      theme: savedThemePreference || 'system',
+      theme: 'dark',
     },
   };
 }
 
 export function saveAppState(state: AppState): void {
   try {
+    if (state.settings) {
+      state.settings.theme = 'dark';
+    }
     appStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    if (typeof window !== 'undefined' && window.localStorage && state.settings?.theme) {
-      localStorage.setItem('ours_theme_mode_v1', state.settings.theme);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.setItem('ours_theme_mode_v1', 'dark');
     }
   } catch {
     // ignore

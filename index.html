@@ -1,50 +1,28 @@
 <!doctype html>
-<html lang="ru" class="light">
+<html lang="ru" class="dark" data-theme="dark" style="color-scheme: dark;">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#FFF9FA" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#000000" />
     <script>
       (function() {
         try {
-          var stored = localStorage.getItem('ours_theme_mode_v1');
-          if (!stored) {
-            try {
-              var state = JSON.parse(localStorage.getItem('ours_app_state_v2') || '{}');
-              if (state && state.settings && state.settings.theme) {
-                stored = state.settings.theme;
-              }
-            } catch (e) {}
-          }
-          var isDark = false;
-          if (stored === 'dark') {
-            isDark = true;
-          } else if (stored === 'light') {
-            isDark = false;
-          } else {
-            isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          }
           var root = document.documentElement;
+          root.classList.remove('light');
+          root.classList.add('dark');
+          root.setAttribute('data-theme', 'dark');
+          root.style.colorScheme = 'dark';
           var meta = document.querySelector('meta[name="theme-color"]');
-          if (isDark) {
-            root.classList.remove('light');
-            root.classList.add('dark');
-            root.setAttribute('data-theme', 'dark');
-            root.style.colorScheme = 'dark';
-            if (meta) meta.setAttribute('content', '#000000');
-          } else {
-            root.classList.remove('dark');
-            root.classList.add('light');
-            root.setAttribute('data-theme', 'light');
-            root.style.colorScheme = 'light';
-            if (meta) meta.setAttribute('content', '#FFF9FA');
-          }
+          if (meta) meta.setAttribute('content', '#000000');
+          try {
+            localStorage.setItem('ours_theme_mode_v1', 'dark');
+          } catch (e) {}
         } catch (e) {}
       })();
     </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>OURS — Ежедневный ритуал для двоих</title>
     <meta name="description" content="Приватное приложение для двоих. Маленькие моменты, которые становятся вашей общей историей." />
     <meta property="og:title" content="OURS — Ежедневный ритуал для двоих" />
@@ -57,7 +35,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Unbounded:wght@400;500;600;700&display=block">
   </head>
-  <body class="bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] antialiased select-none font-sans overflow-x-hidden">
+  <body class="bg-[#000000] text-[#FFFFFF] antialiased select-none font-sans overflow-x-hidden">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

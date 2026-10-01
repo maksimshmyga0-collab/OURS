@@ -39,6 +39,7 @@ export const OursLogo: React.FC<OursLogoProps> = ({
         decoding="async"
         crossOrigin="anonymous"
         className="w-full h-full object-contain pointer-events-none select-none"
+        style={{ imageRendering: '-webkit-optimize-contrast' }}
       />
     </div>
   );

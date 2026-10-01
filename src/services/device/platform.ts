@@ -39,9 +39,28 @@ export function initTelegramWebApp(): void {
       tg.ready?.();
       tg.expand?.();
       tg.enableClosingConfirmation?.();
+      tg.setHeaderColor?.('#000000');
+      tg.setBackgroundColor?.('#000000');
     }
   } catch {
     // Ignore Telegram WebApp initialization errors in standard browser
+  }
+}
+
+export function initNativeAppearance(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const win = window as any;
+    if (win.Capacitor?.Plugins?.StatusBar) {
+      // Style.Dark means light text/icons for dark backgrounds
+      win.Capacitor.Plugins.StatusBar.setStyle?.({ style: 'DARK' });
+      win.Capacitor.Plugins.StatusBar.setBackgroundColor?.({ color: '#000000' });
+    }
+    if (win.Capacitor?.Plugins?.NavigationBar) {
+      win.Capacitor.Plugins.NavigationBar.setColor?.({ color: '#000000', darkButtons: false });
+    }
+  } catch {
+    // Ignore native plugin errors in web browser
   }
 }
 
