@@ -36,6 +36,15 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [viewerPhoto, setViewerPhoto] = useState<{ url: string; title: string } | null>(null);
+  const prevPhotoRef = useRef<string | null>(photoUrl);
+  const hasAppearedRef = useRef<boolean>(Boolean(photoUrl));
+
+  React.useEffect(() => {
+    if (photoUrl && !hasAppearedRef.current) {
+      hasAppearedRef.current = true;
+    }
+    prevPhotoRef.current = photoUrl;
+  }, [photoUrl]);
 
   const handleOpenViewer = (url: string, photoTitle: string) => {
     triggerHaptic(true);
@@ -92,8 +101,9 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
   // =========================================================================
   if (type === 'user') {
     if (photoUrl) {
+      const shouldAnimate = !hasAppearedRef.current;
       return (
-        <div className={`w-full flex-1 flex flex-col items-center ${className} animate-photo-enter`}>
+        <div className={`w-full flex-1 flex flex-col items-center ${className} ${shouldAnimate ? 'animate-photo-enter' : ''}`}>
           <input
             ref={fileInputRef}
             type="file"
@@ -243,9 +253,10 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
   // =========================================================================
   if (photoUrl) {
     const isBlurred = !isRevealed;
+    const shouldAnimate = !hasAppearedRef.current;
 
     return (
-      <div className={`w-full flex-1 flex flex-col items-center select-none ${className} animate-photo-enter`}>
+      <div className={`w-full flex-1 flex flex-col items-center select-none ${className} ${shouldAnimate ? 'animate-photo-enter' : ''}`}>
         {/* Photo Card Container */}
         <div
           onClick={!isBlurred ? () => handleOpenViewer(photoUrl, title) : undefined}

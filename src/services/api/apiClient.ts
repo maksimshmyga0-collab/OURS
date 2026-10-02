@@ -897,6 +897,15 @@ export class ApiClient {
       return () => {};
     }
 
+    // Clean up existing subscription for this pair to prevent duplicate listeners
+    const existing = this.activeChannels.get(pairId);
+    if (existing) {
+      this.activeChannels.delete(pairId);
+      try {
+        supabase.removeChannel(existing);
+      } catch {}
+    }
+
     try {
       const channel = supabase
         .channel(`pair-sync-${pairId}`)
@@ -955,7 +964,9 @@ export class ApiClient {
 
       return () => {
         this.activeChannels.delete(pairId);
-        supabase.removeChannel(channel);
+        try {
+          supabase.removeChannel(channel);
+        } catch {}
       };
     } catch {
       return () => {};
@@ -1028,8 +1039,7 @@ export class ApiClient {
         moment: {
           id: momentId,
           userPhoto: storageUrl,
-          partnerPhoto: partnerPhotoUrl,
-          status: partnerPhotoUrl ? 'BOTH_UPLOADED' : 'USER_UPLOADED',
+          ...(partnerPhotoUrl ? { partnerPhoto: partnerPhotoUrl, status: 'BOTH_UPLOADED' } : {}),
           completedTimestamp: matchTs,
         } as any,
       };

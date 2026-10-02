@@ -225,7 +225,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     });
   }, [onUpdateMoment]);
 
-  // Handle independent per-user reaction selection
+  // Handle independent per-user reaction selection: automatically completes and saves moment to history
   const handleSelectReaction = (emoji: ReactionEmoji) => {
     triggerHaptic(hapticEnabled);
     playSoftChime('react', soundEnabled);
@@ -235,7 +235,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       ...activeMoment,
       userReaction: emoji,
       partnerReaction: activeMoment.partnerReaction || null,
-      status: 'REACTED',
+      status: 'COMPLETED',
       completedTimestamp: matchTs,
       completedAt: new Date(matchTs).toLocaleTimeString('ru-RU', {
         hour: '2-digit',
@@ -243,38 +243,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       }),
     };
     onUpdateMoment(updated);
-  };
-
-  // Complete moment & advance timestamp preserving shared server match timestamp
-  const handleSaveAndComplete = () => {
-    triggerHaptic(hapticEnabled);
-    playSoftChime('success', soundEnabled);
-
-    setMomentTransition('exiting');
-    setTimeout(() => {
-      const matchTs = activeMoment.completedTimestamp || getSynchronizedNow();
-      const updated: Moment = {
-        ...activeMoment,
-        status: 'COMPLETED',
-        completedTimestamp: matchTs,
-        completedAt: new Date(matchTs).toLocaleTimeString('ru-RU', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      };
-      onUpdateMoment(updated);
-
-      // If there is a next moment within the 3 allowed moments, select it
-      const nextMoment = moments.find((m) => m.order === activeMoment.order + 1);
-      if (nextMoment) {
-        onSelectActiveMoment(nextMoment.id);
-      }
-
-      setMomentTransition('entering');
-      setTimeout(() => {
-        setMomentTransition('idle');
-      }, 380);
-    }, 320);
   };
 
   const getThemeCardColor = (_moment: Moment): PastelCardColor => {
@@ -519,22 +487,15 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               </div>
             )}
 
-          {/* State 4 & 5: REVEALED or REACTED (Active Reaction Picker for THIS user) */}
-          {(activeMoment.status === 'REVEALED' || activeMoment.status === 'REACTED') &&
-            !isMatching && (
+          {/* State 4: REVEALED (Active Reaction Picker for THIS user) */}
+          {(activeMoment.status === 'REVEALED' || (activeMoment.status === 'REACTED' && !activeMoment.userReaction)) &&
+            !isMatching &&
+            !activeMoment.userReaction && (
               <div className="space-y-4 pt-1 animate-in fade-in duration-300 ease-out">
                 <ReactionPicker
                   selectedReaction={activeMoment.userReaction}
                   onSelectReaction={handleSelectReaction}
                 />
-
-                {activeMoment.userReaction && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out">
-                    <PrimaryButton variant="coral" onClick={handleSaveAndComplete}>
-                      <span>Сохранить в историю</span>
-                    </PrimaryButton>
-                  </div>
-                )}
               </div>
             )}
 

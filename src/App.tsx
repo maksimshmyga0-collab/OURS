@@ -321,8 +321,12 @@ export default function App() {
     // Immediate initial sync
     pollState();
 
-    // Fast polling interval (1.5s)
-    const interval = setInterval(pollState, 1500);
+    // Background safety heartbeat (8s; Realtime handles instant sync)
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        pollState();
+      }
+    }, 8000);
 
     // Sync on window focus and visibility change
     const onVisibilityOrFocus = () => {
@@ -558,11 +562,31 @@ export default function App() {
           const uploadedM = res.moment;
           setAppState((prev) => ({
             ...prev,
-            todayMoments: prev.todayMoments.map((m) =>
-              m.id === uploadedM.id || m.order === updated.order
-                ? { ...m, ...uploadedM, id: uploadedM.id }
-                : m
-            ),
+            todayMoments: prev.todayMoments.map((m) => {
+              if (m.id === uploadedM.id || m.order === updated.order) {
+                // Strictly preserve existing photos: never overwrite an existing photo with null
+                const userPhoto = uploadedM.userPhoto || m.userPhoto || updated.userPhoto;
+                const partnerPhoto = uploadedM.partnerPhoto || m.partnerPhoto || updated.partnerPhoto;
+                const hasBoth = Boolean(userPhoto && partnerPhoto);
+                const status = hasBoth
+                  ? (m.status === 'COMPLETED' ? 'COMPLETED' : m.status === 'REVEALED' ? 'REVEALED' : 'BOTH_UPLOADED')
+                  : (userPhoto ? 'USER_UPLOADED' : m.status);
+
+                return {
+                  ...m,
+                  ...uploadedM,
+                  id: uploadedM.id || m.id,
+                  userPhoto,
+                  partnerPhoto,
+                  status,
+                  photos: [
+                    ...(userPhoto ? [{ userId: prev.couple.user.id || '', imageUrl: userPhoto, createdAt: new Date().toISOString() }] : []),
+                    ...(partnerPhoto ? [{ userId: prev.couple.partner.id || '', imageUrl: partnerPhoto, createdAt: new Date().toISOString() }] : []),
+                  ],
+                };
+              }
+              return m;
+            }),
           }));
         }
       }

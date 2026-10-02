@@ -79,7 +79,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         }
       }).catch(() => {});
     }
-  }, [couple?.id, couple?.user?.id, couple?.user?.name, couple?.partner?.name]);
+  }, [couple?.id]);
 
   const addTimer = (fn: () => void, ms: number) => {
     const t = setTimeout(fn, ms);
