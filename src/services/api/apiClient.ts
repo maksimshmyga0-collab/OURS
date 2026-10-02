@@ -1131,49 +1131,10 @@ export class ApiClient {
   }
 
   /**
-   * Complete Moment in public.moments
+   * Complete Moment in public.moments with user's selected reaction emoji
    */
-  async completeMoment(momentId: string): Promise<{ success: boolean; moment?: Moment }> {
-    const userId = await this.ensureAuthenticatedUser();
-    if (!this.currentPairId) {
-      const { data: membership } = await supabase
-        .from('pair_members')
-        .select('pair_id')
-        .eq('user_id', userId)
-        .limit(1)
-        .maybeSingle();
-      if (membership?.pair_id) this.currentPairId = membership.pair_id;
-    }
-
-    // Ensure a reaction row exists so it is permanently counted as completed & included in History
-    const { data: existingReaction } = await supabase
-      .from('reactions')
-      .select('reaction')
-      .eq('moment_id', momentId)
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (!existingReaction) {
-      await supabase.from('reactions').upsert(
-        {
-          moment_id: momentId,
-          user_id: userId,
-          reaction: '❤️',
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: 'moment_id,user_id' }
-      );
-    }
-
-    if (this.currentPairId) {
-      this.broadcastPairUpdate(this.currentPairId, { action: 'moment_completed', momentId, userId });
-      this.invalidateHistoryCache(this.currentPairId);
-      const state = await this.assemblePairData(this.currentPairId, userId);
-      const moment = state.moments.find((m) => m.id === momentId);
-      return { success: true, moment };
-    }
-
-    return { success: true };
+  async completeMoment(momentId: string, emoji?: ReactionEmoji): Promise<{ success: boolean; moment?: Moment }> {
+    return this.submitReaction(momentId, emoji || '❤️');
   }
 
   /**

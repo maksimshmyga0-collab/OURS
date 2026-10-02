@@ -214,8 +214,8 @@ export default function App() {
               // Monotonic status progression strictly based on CURRENT USER's own interaction state
               let status: string;
               if (userReaction) {
-                // If current user has already selected their reaction, status is COMPLETED or REACTED
-                status = prevM.status === 'COMPLETED' || srvM.status === 'COMPLETED' ? 'COMPLETED' : 'REACTED';
+                // If current user has selected their reaction, status is COMPLETED
+                status = 'COMPLETED';
               } else if (hasBoth) {
                 // If THIS user has already revealed locally in this session, or server confirmed THIS user revealed:
                 status = (prevM.status === 'REVEALED' || srvM.status === 'REVEALED') ? 'REVEALED' : 'BOTH_UPLOADED';
@@ -517,15 +517,34 @@ export default function App() {
     });
 
     try {
-      if (updated.status === 'COMPLETED') {
-        const res = await apiClient.completeMoment(updated.id);
+      if (updated.userReaction) {
+        const res = await apiClient.submitReaction(updated.id, updated.userReaction);
+        if (res.success && res.moment) {
+          const reactedM = res.moment;
+          setAppState((prev) => ({
+            ...prev,
+            todayMoments: prev.todayMoments.map((m) =>
+              m.id === reactedM.id || m.order === updated.order
+                ? {
+                    ...m,
+                    ...reactedM,
+                    id: reactedM.id,
+                    status: 'COMPLETED',
+                    userReaction: updated.userReaction,
+                  }
+                : m
+            ),
+          }));
+        }
+      } else if (updated.status === 'COMPLETED') {
+        const res = await apiClient.completeMoment(updated.id, updated.userReaction || undefined);
         if (res.success && res.moment) {
           const completedM = res.moment;
           setAppState((prev) => ({
             ...prev,
             todayMoments: prev.todayMoments.map((m) =>
               m.id === completedM.id || m.order === updated.order
-                ? { ...m, ...completedM, id: completedM.id }
+                ? { ...m, ...completedM, id: completedM.id, status: 'COMPLETED' }
                 : m
             ),
           }));
@@ -539,19 +558,6 @@ export default function App() {
             todayMoments: prev.todayMoments.map((m) =>
               m.id === revealedM.id || m.order === updated.order
                 ? { ...m, ...revealedM, id: revealedM.id }
-                : m
-            ),
-          }));
-        }
-      } else if (updated.userReaction) {
-        const res = await apiClient.submitReaction(updated.id, updated.userReaction);
-        if (res.success && res.moment) {
-          const reactedM = res.moment;
-          setAppState((prev) => ({
-            ...prev,
-            todayMoments: prev.todayMoments.map((m) =>
-              m.id === reactedM.id || m.order === updated.order
-                ? { ...m, ...reactedM, id: reactedM.id }
                 : m
             ),
           }));

@@ -229,6 +229,8 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const handleSelectReaction = (emoji: ReactionEmoji) => {
     triggerHaptic(hapticEnabled);
     playSoftChime('react', soundEnabled);
+    setIsMatching(false);
+    setMatchRevealedEarly(false);
 
     const matchTs = activeMoment.completedTimestamp || getSynchronizedNow();
     const updated: Moment = {
@@ -291,7 +293,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               : activeMoment.label}
           </span>
 
-          {activeMoment.status === 'COMPLETED' ? (
+          {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) ? (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#2B7348] dark:text-[#52B778] animate-in fade-in duration-200">
               <Check size={14} />
               Сохранено
@@ -336,7 +338,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                 {activeMoment.prompt}
               </h2>
               <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">
-                {activeMoment.status === 'COMPLETED'
+                {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)
                   ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
                   : isPartnerUploadedOnly
                   ? `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`
@@ -500,7 +502,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             )}
 
           {/* State 6: COMPLETED (Post-Match Waiting State for THIS user) */}
-          {activeMoment.status === 'COMPLETED' && !isMatching && (
+          {(activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)) && !isMatching && (
             <div className="pt-1 animate-in fade-in duration-300 ease-out">
               {availability.isAllCompleted ? (
                 // State after 3rd moment: peaceful completion
