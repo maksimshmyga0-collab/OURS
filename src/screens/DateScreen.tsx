@@ -567,115 +567,144 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         </div>
 
         {/* =========================================================================
-            COMPACT STATUS PLATE (КОМПАКТНАЯ ПЛАШКА СОСТОЯНИЯ ПРИГЛАШЕНИЯ)
+        {/* =========================================================================
+            COMPACT STATUS / INVITATION PLATE (КОМПАКТНАЯ ПЛАШКА ПРИГЛАШЕНИЯ)
             ========================================================================= */}
         {invitation && (
-          <div className="w-full max-w-[280px] xs:max-w-[305px] mx-auto mt-2.5 xs:mt-3 px-3.5 py-2.5 rounded-2xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.18)] dark:shadow-none transition-all duration-300 animate-[card-enter_280ms_cubic-bezier(0.22,1,0.36,1)]">
-            {/* Row 1: Header / Title */}
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] truncate">
-                <span>💌</span>
-                <span className="truncate">
-                  {invitation.status === 'pending' && invitation.senderId === 'partner'
-                    ? 'Тебе предлагают свидание'
-                    : 'Свидание'}
-                </span>
-              </div>
-
-              {invitation.status !== 'pending' && (
-                <button
-                  type="button"
-                  onClick={() => dateInvitationService.clearInvitation(couple?.id)}
-                  title="Закрыть"
-                  className="text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer shrink-0 p-0.5"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-
-            {/* Row 2: Date idea title */}
-            <div
-              onClick={invitation.status === 'pending' && invitation.senderId === 'partner' ? handleOpenIncomingInvitation : undefined}
-              className={`text-xs xs:text-sm font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-2 ${
-                invitation.status === 'pending' && invitation.senderId === 'partner' ? 'cursor-pointer hover:text-[#E98787] transition-colors' : ''
-              }`}
-            >
-              «{invitation.idea.title}»
-            </div>
-
-            {/* Row 3: Action Buttons for incoming pending invitation OR Status line */}
+          <>
+            {/* STATE A: Incoming Pending Invitation from Partner -> Entire card is clickable to expand, NO Accept/Decline buttons */}
             {invitation.status === 'pending' && invitation.senderId === 'partner' ? (
-              <div className="flex items-center gap-2 mt-1">
-                <button
-                  type="button"
-                  onClick={handleAcceptIncomingInvitation}
-                  className="flex-1 h-[36px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5B] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_8px_-2px_rgba(233,135,135,0.3)] text-white font-display font-semibold text-xs tracking-tight flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <Check size={14} strokeWidth={2.4} />
-                  <span>Принять</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeclineIncomingInvitation}
-                  className="px-3.5 h-[36px] rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-[#777277] dark:text-[#C5BEC2] font-medium text-xs active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>Отклонить</span>
-                </button>
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={handleOpenIncomingInvitation}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleOpenIncomingInvitation();
+                  }
+                }}
+                className="w-full max-w-[280px] xs:max-w-[305px] mx-auto mt-2.5 xs:mt-3 p-3.5 rounded-2xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.18)] dark:shadow-none hover:border-[#E98787]/60 dark:hover:border-[#E98787]/50 active:scale-[0.985] transition-all duration-200 cursor-pointer group text-left relative overflow-hidden select-none animate-[card-enter_280ms_cubic-bezier(0.22,1,0.36,1)]"
+              >
+                {/* Header row */}
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] truncate">
+                    <span>💌</span>
+                    <span className="truncate">Тебе предлагают свидание</span>
+                    {!invitation.read && (
+                      <span
+                        className="w-2 h-2 rounded-full bg-[#E98787] shrink-0 animate-pulse shadow-[0_0_6px_rgba(233,135,135,0.8)]"
+                        title="Новое приглашение"
+                      />
+                    )}
+                  </div>
+                  <ChevronRight
+                    size={15}
+                    className="text-[#E98787] dark:text-[#F0B9C6] shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+                  />
+                </div>
+
+                {/* Sender info */}
+                <div className="text-[11px] text-[#8C8488] dark:text-[#B5ADB1] font-medium flex items-center gap-1 mb-1 truncate">
+                  <Heart size={10} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
+                  <span className="truncate">{invitation.senderName || partnerDisplayName} зовёт тебя</span>
+                </div>
+
+                {/* Date idea title */}
+                <div className="text-xs xs:text-sm font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-2">
+                  «{invitation.idea.title}»
+                </div>
+
+                {/* Gentle hint to open */}
+                <div className="flex items-center justify-between text-[11px] font-medium text-[#E98787] dark:text-[#F0B9C6] pt-1.5 border-t border-[#F2E1E6]/70 dark:border-[#33272F]">
+                  <span>Нажмите, чтобы открыть</span>
+                  <span className="text-[10px] opacity-75">Посмотреть детали →</span>
+                </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-1 text-xs font-medium">
-                <div
-                  className={`inline-flex items-center gap-1.5 font-semibold ${
-                    invitation.status === 'pending'
-                      ? 'text-amber-600 dark:text-amber-400'
-                      : invitation.status === 'accepted'
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-stone-500 dark:text-stone-400'
-                  }`}
-                >
-                  {invitation.status === 'pending' && (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
-                      <span>{partnerDisplayName}: Ожидание</span>
-                    </>
-                  )}
-                  {invitation.status === 'accepted' && (
-                    <>
-                      <Check size={13} strokeWidth={2.5} className="shrink-0" />
-                      <span>
-                        {invitation.senderId === 'user'
-                          ? `${partnerDisplayName}: Согласна`
-                          : 'Ты: Согласна'}
-                      </span>
-                    </>
-                  )}
-                  {invitation.status === 'declined' && (
-                    <>
-                      <span className="w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0" />
-                      <span>
-                        {invitation.senderId === 'user'
-                          ? `${partnerDisplayName}: Отказ`
-                          : 'Ты: Отказ'}
-                      </span>
-                    </>
+              /* STATE B: Sent invitation or resolved invitation (accepted/declined) */
+              <div className="w-full max-w-[280px] xs:max-w-[305px] mx-auto mt-2.5 xs:mt-3 px-3.5 py-2.5 rounded-2xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.18)] dark:shadow-none transition-all duration-300 animate-[card-enter_280ms_cubic-bezier(0.22,1,0.36,1)]">
+                {/* Row 1: Header / Title */}
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] truncate">
+                    <span>💌</span>
+                    <span className="truncate">Свидание</span>
+                  </div>
+
+                  {invitation.status !== 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => dateInvitationService.clearInvitation(couple?.id)}
+                      title="Закрыть"
+                      className="text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer shrink-0 p-0.5"
+                    >
+                      <X size={13} />
+                    </button>
                   )}
                 </div>
 
-                {/* Status confirmation label */}
-                {invitation.status === 'accepted' && (
-                  <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
-                    Свидание согласовано ✨
-                  </span>
-                )}
-                {invitation.status === 'declined' && (
-                  <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
-                    Приглашение отклонено
-                  </span>
-                )}
+                {/* Row 2: Date idea title */}
+                <div
+                  onClick={handleOpenIncomingInvitation}
+                  className="text-xs xs:text-sm font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-2 cursor-pointer hover:text-[#E98787] transition-colors"
+                >
+                  «{invitation.idea.title}»
+                </div>
+
+                {/* Row 3: Status line */}
+                <div className="flex flex-col gap-1 text-xs font-medium">
+                  <div
+                    className={`inline-flex items-center gap-1.5 font-semibold ${
+                      invitation.status === 'pending'
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : invitation.status === 'accepted'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-stone-500 dark:text-stone-400'
+                    }`}
+                  >
+                    {invitation.status === 'pending' && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                        <span>{partnerDisplayName}: Ожидание</span>
+                      </>
+                    )}
+                    {invitation.status === 'accepted' && (
+                      <>
+                        <Check size={13} strokeWidth={2.5} className="shrink-0" />
+                        <span>
+                          {invitation.senderId === 'user'
+                            ? `${partnerDisplayName}: Согласна`
+                            : 'Ты: Согласна'}
+                        </span>
+                      </>
+                    )}
+                    {invitation.status === 'declined' && (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0" />
+                        <span>
+                          {invitation.senderId === 'user'
+                            ? `${partnerDisplayName}: Отказ`
+                            : 'Ты: Отказ'}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Status confirmation label */}
+                  {invitation.status === 'accepted' && (
+                    <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
+                      Свидание согласовано ✨
+                    </span>
+                  )}
+                  {invitation.status === 'declined' && (
+                    <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
+                      Приглашение отклонено
+                    </span>
+                  )}
+                </div>
               </div>
             )}
-          </div>
+          </>
         )}
       </footer>
 
@@ -854,14 +883,18 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               {/* Upper Ribbon */}
               <div className="flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-[#E98787] dark:text-[#F0B9C6] mb-3">
                 <span className="w-5 h-px bg-[#E98787]/40" />
-                <span>Входящее приглашение 💌</span>
+                <span>{invitation.senderId === 'partner' ? 'Входящее приглашение 💌' : 'Приглашение на свидание 💌'}</span>
                 <span className="w-5 h-px bg-[#E98787]/40" />
               </div>
 
               {/* Partner invite heading */}
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold mb-2">
                 <Heart size={13} fill="currentColor" />
-                <span>{invitation.senderName || partnerDisplayName} предлагает свидание</span>
+                <span>
+                  {invitation.senderId === 'partner'
+                    ? `${invitation.senderName || partnerDisplayName} предлагает свидание`
+                    : `Ты зовёшь ${partnerDisplayName} на свидание`}
+                </span>
               </div>
 
               {/* Tag Badge */}
@@ -879,25 +912,45 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 {invitation.idea.description}
               </p>
 
-              {/* Action Buttons: 'Принять' / 'Отклонить' */}
-              <div className="flex flex-col gap-2.5 w-full">
-                <button
-                  type="button"
-                  onClick={handleAcceptIncomingInvitation}
-                  className="w-full h-[52px] xs:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Check size={18} strokeWidth={2.4} />
-                  <span>Принять</span>
-                </button>
+              {/* Action Buttons: 'Принять' / 'Отклонить' only in expanded state when pending for recipient */}
+              {invitation.status === 'pending' && invitation.senderId === 'partner' ? (
+                <div className="flex flex-col gap-2.5 w-full">
+                  <button
+                    type="button"
+                    onClick={handleAcceptIncomingInvitation}
+                    className="w-full h-[52px] xs:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Check size={18} strokeWidth={2.4} />
+                    <span>Принять</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleDeclineIncomingInvitation}
-                  className="w-full py-2.5 px-4 rounded-full text-[#8A8488] dark:text-[#9E969B] hover:text-[#343033] dark:hover:text-white font-medium text-xs active:scale-[0.985] transition-colors cursor-pointer"
-                >
-                  Отклонить
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleDeclineIncomingInvitation}
+                    className="w-full py-2.5 px-4 rounded-full text-[#8A8488] dark:text-[#9E969B] hover:text-[#343033] dark:hover:text-white font-medium text-xs active:scale-[0.985] transition-colors cursor-pointer"
+                  >
+                    Отклонить
+                  </button>
+                </div>
+              ) : (
+                <div className="w-full py-3 px-4 rounded-2xl bg-[#FAF0F2] dark:bg-[#2A2026] text-center border border-[#ECD4DC]/60 dark:border-[#3D3039]">
+                  <span className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center justify-center gap-1.5">
+                    {invitation.status === 'accepted' ? (
+                      <>
+                        <Check size={14} strokeWidth={2.4} />
+                        <span>Свидание согласовано ✨</span>
+                      </>
+                    ) : invitation.status === 'declined' ? (
+                      <span>Приглашение отклонено</span>
+                    ) : (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span>Ожидаем ответ от {partnerDisplayName}...</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
