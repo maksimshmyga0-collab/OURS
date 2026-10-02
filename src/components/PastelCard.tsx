@@ -9,7 +9,7 @@ interface PastelCardProps {
   onClick?: () => void;
 }
 
-export const PastelCard: React.FC<PastelCardProps> = ({
+export const PastelCard: React.FC<PastelCardProps> = React.memo(({
   children,
   color = 'white',
   className = '',
@@ -42,4 +42,4 @@ export const PastelCard: React.FC<PastelCardProps> = ({
       {children}
     </div>
   );
-};
+});

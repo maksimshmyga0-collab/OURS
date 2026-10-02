@@ -74,6 +74,18 @@ export class ApiClient {
   private currentUserId: string | null = null;
   private currentPairId: string | null = null;
   private activeChannels: Map<string, any> = new Map();
+  private historyCache: Map<string, { data: HistoryDay[]; timestamp: number }> = new Map();
+
+  /**
+   * Invalidate history cache on data mutations
+   */
+  invalidateHistoryCache(pairId?: string): void {
+    if (pairId) {
+      this.historyCache.delete(pairId);
+    } else {
+      this.historyCache.clear();
+    }
+  }
 
   /**
    * Broadcast instant Realtime event to other pair members on WebSocket channel
@@ -481,10 +493,17 @@ export class ApiClient {
   /**
    * Lazy-fetch complete history for the pair on demand (e.g. when opening History tab or Our Sky modal)
    */
-  async fetchHistory(pairId?: string): Promise<HistoryDay[]> {
+  async fetchHistory(pairId?: string, forceRefresh: boolean = false): Promise<HistoryDay[]> {
     const targetPairId = pairId || this.currentPairId;
     if (!targetPairId || !supabaseConfig.isConfigured) {
       return [];
+    }
+
+    if (!forceRefresh) {
+      const cached = this.historyCache.get(targetPairId);
+      if (cached && Date.now() - cached.timestamp < 45000) {
+        return cached.data;
+      }
     }
 
     try {
@@ -614,6 +633,7 @@ export class ApiClient {
           };
         });
 
+      this.historyCache.set(targetPairId, { data: historyDays, timestamp: Date.now() });
       return historyDays;
     } catch (err) {
       console.warn('[OURS History] Exception lazy-loading history:', err);
@@ -976,6 +996,7 @@ export class ApiClient {
 
     // Instant Realtime broadcast across pair channel
     this.broadcastPairUpdate(pairId, { action: 'photo_uploaded', momentId, userId });
+    this.invalidateHistoryCache(pairId);
 
     try {
       const { data: mPhotos } = await supabase
@@ -1039,6 +1060,7 @@ export class ApiClient {
     // Instant Realtime broadcast across pair channel
     if (this.currentPairId) {
       this.broadcastPairUpdate(this.currentPairId, { action: 'moment_revealed', momentId, userId });
+      this.invalidateHistoryCache(this.currentPairId);
     }
 
     if (this.currentPairId) {
@@ -1078,6 +1100,7 @@ export class ApiClient {
     // Instant Realtime broadcast across pair channel
     if (this.currentPairId) {
       this.broadcastPairUpdate(this.currentPairId, { action: 'reaction_submitted', momentId, userId });
+      this.invalidateHistoryCache(this.currentPairId);
     }
 
     if (this.currentPairId) {
@@ -1126,6 +1149,7 @@ export class ApiClient {
 
     if (this.currentPairId) {
       this.broadcastPairUpdate(this.currentPairId, { action: 'moment_completed', momentId, userId });
+      this.invalidateHistoryCache(this.currentPairId);
       const state = await this.assemblePairData(this.currentPairId, userId);
       const moment = state.moments.find((m) => m.id === momentId);
       return { success: true, moment };

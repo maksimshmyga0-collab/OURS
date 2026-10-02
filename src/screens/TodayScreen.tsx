@@ -12,6 +12,7 @@ import { OurSkyPreview } from '../components/OurSkyPreview';
 import { MatchButton } from '../components/MatchButton';
 import { TouchReadyButton } from '../components/TouchReadyButton';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
+import { WaitingCloudGlow } from '../components/WaitingCloudGlow';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { Check, Sparkles, Clock, Heart } from 'lucide-react';
 import { CoupleStreakInfo, MomentPhoto } from '../types';
@@ -226,16 +227,11 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
 
 
-  // Handle reaction on partner photo with the requested 4-step motion choreography:
-  // Step 1: Button press animation (ReactionPicker)
-  // Step 2: Selected reaction becomes active (~260ms)
-  // Step 3: Current match-moment softly exits (320ms: opacity 1 -> 0, scale 1 -> 0.98, translateY 0 -> -5px)
-  // Step 4: Next moment softly enters (380ms: opacity 0 -> 1, scale 0.98 -> 1, translateY 6px -> 0)
+  // Handle independent per-user reaction selection
   const handleSelectReaction = (emoji: ReactionEmoji) => {
     triggerHaptic(hapticEnabled);
     playSoftChime('react', soundEnabled);
 
-    // Step 2: Mark reaction immediately so button highlights
     const matchTs = activeMoment.completedTimestamp || getSynchronizedNow();
     const updated: Moment = {
       ...activeMoment,
@@ -249,29 +245,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       }),
     };
     onUpdateMoment(updated);
-
-    // After 280ms of reaction confirmation, smoothly transition moment out
-    setTimeout(() => {
-      setMomentTransition('exiting');
-
-      setTimeout(() => {
-        // Step 3 -> 4: Complete the moment and smoothly reveal the next moment
-        onUpdateMoment({
-          ...updated,
-          status: 'COMPLETED',
-        });
-
-        const nextMoment = moments.find((m) => m.order === activeMoment.order + 1);
-        if (nextMoment) {
-          onSelectActiveMoment(nextMoment.id);
-        }
-
-        setMomentTransition('entering');
-        setTimeout(() => {
-          setMomentTransition('idle');
-        }, 380);
-      }, 320);
-    }, 280);
   };
 
   // Complete moment & advance timestamp preserving shared server match timestamp
@@ -442,18 +415,21 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
           <div className="relative grid grid-cols-2 items-start gap-2.5 sm:gap-3.5">
             {isCurrentMomentWaiting ? (
-              // Calm waiting placeholders during cooldown
-              <div className="col-span-2 w-full py-6 px-4 rounded-[24px] bg-white/75 dark:bg-[#141214]/80 border border-[#EBE3E5] dark:border-[#242024] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
-                <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
-                  <Clock size={22} className="text-[#E98787] dark:text-[#F0B9C6]" />
-                </div>
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-[#343033] dark:text-white">
-                    Пауза между касаниями
-                  </p>
-                  <p className="text-[11px] font-semibold text-[#E98787] dark:text-[#F0B9C6]">
-                    через {formatRemainingTime(availability.remainingCooldownMs)}
-                  </p>
+              // Calm waiting placeholders during cooldown with living cherry-burgundy cloud glow
+              <div className="col-span-2 w-full relative overflow-visible my-1">
+                <WaitingCloudGlow />
+                <div className="relative z-10 w-full py-6 px-4 rounded-[24px] bg-white/85 dark:bg-[#161418]/85 backdrop-blur-xl border border-[#EBE3E5] dark:border-[#282529] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
+                  <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
+                    <Clock size={22} className="text-[#E98787] dark:text-[#F0B9C6]" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-semibold text-[#343033] dark:text-white">
+                      Пауза между касаниями
+                    </p>
+                    <p className="text-[11px] font-semibold text-[#E98787] dark:text-[#F0B9C6]">
+                      через {formatRemainingTime(availability.remainingCooldownMs)}
+                    </p>
+                  </div>
                 </div>
               </div>
             ) : (

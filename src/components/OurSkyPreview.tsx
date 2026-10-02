@@ -33,7 +33,7 @@ export interface OurSkyPreviewProps {
  * - Tactile, pressable window leading directly to the full OurSkyModal
  * - Follows OURS aesthetic: minimal, warm, quiet, zero-pill typography
  */
-export const OurSkyPreview: React.FC<OurSkyPreviewProps> = ({
+export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
   couple,
   todayMoments = [],
   history = [],
@@ -317,4 +317,4 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = ({
       `}</style>
     </div>
   );
-};
+});

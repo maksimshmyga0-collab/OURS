@@ -8,7 +8,7 @@ interface BottomTabBarProps {
   hasDateNotification?: boolean;
 }
 
-export const BottomTabBar: React.FC<BottomTabBarProps> = ({
+export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
   activeTab,
   onTabChange,
   hasDateNotification = false,
@@ -84,4 +84,4 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = ({
       </div>
     </nav>
   );
-};
+});

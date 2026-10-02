@@ -11,7 +11,7 @@ interface CoupleHeaderProps {
   onOpenStreak?: () => void;
 }
 
-export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
+export const CoupleHeader: React.FC<CoupleHeaderProps> = React.memo(({
   couple,
   onOpenProfile,
   currentStreak = 0,
@@ -86,4 +86,4 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = ({
       </div>
     </header>
   );
-};
+});

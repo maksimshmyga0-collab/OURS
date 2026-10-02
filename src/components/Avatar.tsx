@@ -135,7 +135,7 @@ const AbstractAvatarVariantBlue: React.FC<{ hashSeed: number }> = ({ hashSeed })
   );
 };
 
-export const Avatar: React.FC<AvatarProps> = ({
+export const Avatar: React.FC<AvatarProps> = React.memo(({
   name,
   size = 'md',
   bgColor,
@@ -183,6 +183,7 @@ export const Avatar: React.FC<AvatarProps> = ({
         <img
           src={imageUrl}
           alt={name}
+          decoding="async"
           className="w-full h-full object-cover"
           onError={() => setHasError(true)}
         />
@@ -193,4 +194,4 @@ export const Avatar: React.FC<AvatarProps> = ({
       )}
     </div>
   );
-};
+});

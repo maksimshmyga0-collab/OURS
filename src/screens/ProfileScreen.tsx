@@ -14,7 +14,6 @@ import {
   ChevronRight,
   User,
   Sparkles,
-  Camera,
   LogOut,
   UserMinus,
   FileText,
@@ -126,9 +125,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               variant="user"
               className="ring-4 ring-white dark:ring-[#111111] shadow-md"
             />
-            <div className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-[#E98787] text-white flex items-center justify-center border-2 border-white dark:border-[#111111] shadow-xs">
-              <Camera size={13} />
-            </div>
           </div>
 
           {/* Partner Avatar */}

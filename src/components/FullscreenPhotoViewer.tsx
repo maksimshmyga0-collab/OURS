@@ -193,6 +193,7 @@ export const FullscreenPhotoViewer: React.FC<FullscreenPhotoViewerProps> = ({
         <img
           src={photoUrl}
           alt={alt}
+          decoding="async"
           referrerPolicy="no-referrer"
           className="max-w-full max-h-[82vh] sm:max-h-[86vh] w-auto h-auto object-contain rounded-[20px] sm:rounded-[24px] shadow-[0_20px_60px_rgba(0,0,0,0.7)] border border-white/10 select-none pointer-events-auto"
         />

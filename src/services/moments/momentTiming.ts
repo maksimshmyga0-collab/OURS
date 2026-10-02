@@ -66,6 +66,123 @@ export function formatRussianDate(dateKey: string): string {
   }
 }
 
+/**
+ * Formats a moment's MATCH timestamp strictly as:
+ * HH:mm DD.MM.YY
+ *
+ * Examples:
+ * 11:35 02.01.26
+ * 09:42 28.09.26
+ * 18:05 01.10.26
+ * 23:17 31.12.26
+ */
+export function formatMatchCardTimestamp(
+  input: Moment | string | number | Date | null | undefined
+): string {
+  if (!input) return '';
+
+  let dateObj: Date | null = null;
+  let explicitTimeStr: string | null = null;
+  let fallbackDateKey: string | null = null;
+
+  if (typeof input === 'object' && !(input instanceof Date)) {
+    const moment = input as Moment;
+    fallbackDateKey = moment.dateKey || null;
+
+    // 1. Try completedTimestamp (numeric ms or ISO string)
+    if (moment.completedTimestamp) {
+      if (typeof moment.completedTimestamp === 'number') {
+        const d = new Date(moment.completedTimestamp);
+        if (!isNaN(d.getTime())) dateObj = d;
+      } else if (typeof moment.completedTimestamp === 'string') {
+        const d = parseDateTimeRobust(moment.completedTimestamp);
+        if (d) dateObj = d;
+      }
+    }
+
+    // 2. Try completedAt (ISO string or timestamp or time string)
+    if (!dateObj && moment.completedAt) {
+      const d = parseDateTimeRobust(moment.completedAt);
+      if (d) {
+        dateObj = d;
+      } else if (/^\d{1,2}:\d{2}/.test(moment.completedAt)) {
+        const match = moment.completedAt.match(/^(\d{1,2}):(\d{2})/);
+        if (match) {
+          explicitTimeStr = `${match[1].padStart(2, '0')}:${match[2]}`;
+        }
+      }
+    }
+
+    // 3. Try createdAt
+    if (!dateObj && moment.createdAt) {
+      const d = parseDateTimeRobust(moment.createdAt);
+      if (d) dateObj = d;
+    }
+
+    // 4. Combine explicitTimeStr with fallbackDateKey
+    if (!dateObj && explicitTimeStr && fallbackDateKey && /^\d{4}-\d{2}-\d{2}$/.test(fallbackDateKey)) {
+      const [y, m, d] = fallbackDateKey.split('-').map(Number);
+      const [hh, mm] = explicitTimeStr.split(':').map(Number);
+      dateObj = new Date(y, m - 1, d, hh, mm, 0);
+    }
+  } else if (input instanceof Date) {
+    if (!isNaN(input.getTime())) dateObj = input;
+  } else if (typeof input === 'number') {
+    const d = new Date(input);
+    if (!isNaN(d.getTime())) dateObj = d;
+  } else if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (/^\d{2}:\d{2}\s\d{2}\.\d{2}\.\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    const d = parseDateTimeRobust(trimmed);
+    if (d) {
+      dateObj = d;
+    } else if (/^\d{1,2}:\d{2}/.test(trimmed)) {
+      explicitTimeStr = trimmed;
+    }
+  }
+
+  if (dateObj && !isNaN(dateObj.getTime())) {
+    const hours = String(dateObj.getHours()).padStart(2, '0');
+    const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const year = String(dateObj.getFullYear() % 100).padStart(2, '0');
+    return `${hours}:${minutes} ${day}.${month}.${year}`;
+  }
+
+  if (fallbackDateKey && /^\d{4}-\d{2}-\d{2}$/.test(fallbackDateKey)) {
+    const [y, m, d] = fallbackDateKey.split('-').map(Number);
+    const day = String(d).padStart(2, '0');
+    const month = String(m).padStart(2, '0');
+    const year = String(y % 100).padStart(2, '0');
+    const time = explicitTimeStr || '12:00';
+    return `${time} ${day}.${month}.${year}`;
+  }
+
+  return '';
+}
+
+function parseDateTimeRobust(raw: string): Date | null {
+  if (!raw || typeof raw !== 'string') return null;
+  const str = raw.trim();
+
+  // Pattern: "YYYY-MM-DD HH:mm" or "YYYY-MM-DD HH:mm:ss"
+  const spaceMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (spaceMatch) {
+    const [, y, m, d, hh, mm, ss] = spaceMatch;
+    const date = new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), ss ? Number(ss) : 0);
+    if (!isNaN(date.getTime())) return date;
+  }
+
+  // Standard ISO parser
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  return null;
+}
+
 let serverTimeOffset = 0;
 
 /**

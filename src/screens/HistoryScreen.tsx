@@ -5,6 +5,7 @@ import { ReactionIcon } from '../components/ReactionIcon';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
+import { formatMatchCardTimestamp } from '../services/moments/momentTiming';
 
 interface HistoryScreenProps {
   history: HistoryDay[];
@@ -188,6 +189,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   src={userPhoto}
                   alt={couple.user.name}
                   loading="lazy"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
                 />
@@ -255,6 +257,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   src={partnerPhoto}
                   alt={couple.partner.name}
                   loading="lazy"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
                 />
@@ -354,19 +357,19 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
               <div className="relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all">
                 {/* Moment Prompt & Order Header */}
-                <div className="flex items-start justify-between gap-2 px-1 pt-0.5">
-                  <div className="space-y-0.5">
+                <div className="flex items-start justify-between gap-2.5 px-1 pt-0.5">
+                  <div className="flex-1 min-w-0 space-y-0.5">
                     <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                      <Sparkles size={11} />
+                      <Sparkles size={11} className="shrink-0" />
                       <span>{m.label || `МОМЕНТ ${m.order || idx + 1}`}</span>
                     </div>
-                    <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug">
+                    <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
                       {m.prompt}
                     </h3>
                   </div>
-                  {m.completedAt && (
-                    <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums">
-                      {m.completedAt}
+                  {formatMatchCardTimestamp(m) && (
+                    <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums text-right">
+                      {formatMatchCardTimestamp(m)}
                     </span>
                   )}
                 </div>
@@ -491,19 +494,19 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                       <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
                       <div className="relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all">
                         {/* Moment Title & Timestamp */}
-                        <div className="flex items-start justify-between gap-2 px-1 pt-0.5">
-                          <div className="space-y-0.5">
+                        <div className="flex items-start justify-between gap-2.5 px-1 pt-0.5">
+                          <div className="flex-1 min-w-0 space-y-0.5">
                             <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                              <Sparkles size={11} />
+                              <Sparkles size={11} className="shrink-0" />
                               <span>{m.label || `МОМЕНТ ${m.order || mIdx + 1}`}</span>
                             </div>
-                            <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug">
+                            <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
                               {m.prompt}
                             </h3>
                           </div>
-                          {m.completedAt && (
-                            <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums">
-                              {m.completedAt}
+                          {formatMatchCardTimestamp(m) && (
+                            <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums text-right">
+                              {formatMatchCardTimestamp(m)}
                             </span>
                           )}
                         </div>
@@ -609,11 +612,11 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                         >
                           {uP && pP ? (
                             <div className="grid grid-cols-2 w-full h-full">
-                              <img src={uP} alt="" className="w-full h-full object-cover border-r border-white/20" />
-                              <img src={pP} alt="" className="w-full h-full object-cover" />
+                              <img src={uP} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover border-r border-white/20" />
+                              <img src={pP} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                             </div>
                           ) : uP || pP ? (
-                            <img src={uP || pP!} alt="" className="w-full h-full object-cover" />
+                            <img src={uP || pP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[#777277]">
                               <ImageIcon size={14} />

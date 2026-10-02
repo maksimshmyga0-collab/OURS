@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   AppState,
   getInitialAppState,
@@ -260,6 +260,40 @@ export default function App() {
               res.pair!.subscription === 'premium' ||
               (prev.couple.isLovely && !res.pair!.isLovely && prev.couple.lovelyPurchasedAt ? true : res.pair!.isLovely)
             );
+
+            // Fast delta check: if nothing changed in moments, couple, or active moment, avoid re-rendering entire app
+            const momentsChanged =
+              moments.length !== prev.todayMoments.length ||
+              moments.some((m, i) => {
+                const pm = prev.todayMoments[i];
+                return (
+                  !pm ||
+                  pm.id !== m.id ||
+                  pm.status !== m.status ||
+                  pm.userPhoto !== m.userPhoto ||
+                  pm.partnerPhoto !== m.partnerPhoto ||
+                  pm.userReaction !== m.userReaction ||
+                  pm.partnerReaction !== m.partnerReaction ||
+                  pm.completedAt !== m.completedAt
+                );
+              });
+
+            const coupleChanged =
+              prev.couple.connected !== res.pair!.connected ||
+              prev.couple.isLovely !== isLovelyActive ||
+              prev.couple.subscription !== (isLovelyActive ? 'premium' : (res.pair!.subscription || 'free')) ||
+              prev.couple.user.name !== res.pair!.user.name ||
+              prev.couple.user.avatarUrl !== res.pair!.user.avatarUrl ||
+              prev.couple.partner.name !== res.pair!.partner.name ||
+              prev.couple.partner.avatarUrl !== res.pair!.partner.avatarUrl ||
+              prev.couple.daysTogether !== res.pair!.daysTogether;
+
+            const historyChanged =
+              Boolean(res.history && res.history.length > 0 && res.history.length !== prev.history.length);
+
+            if (!momentsChanged && !coupleChanged && !historyChanged && validActiveId === prev.activeMomentId) {
+              return prev; // Identical state -> zero re-renders!
+            }
 
             return {
               ...prev,
@@ -537,23 +571,23 @@ export default function App() {
   };
 
   // Switch active moment
-  const handleSelectActiveMoment = (momentId: string) => {
+  const handleSelectActiveMoment = useCallback((momentId: string) => {
     setAppState((prev) => ({
       ...prev,
       activeMomentId: momentId,
     }));
-  };
+  }, []);
 
   // Update App Settings
-  const handleUpdateSettings = (newSettings: AppSettings) => {
+  const handleUpdateSettings = useCallback((newSettings: AppSettings) => {
     setAppState((prev) => ({
       ...prev,
       settings: newSettings,
     }));
-  };
+  }, []);
 
   // Update Theme Mode
-  const handleUpdateTheme = (theme: ThemeMode) => {
+  const handleUpdateTheme = useCallback((theme: ThemeMode) => {
     setAppState((prev) => ({
       ...prev,
       settings: {
@@ -561,7 +595,7 @@ export default function App() {
         theme,
       },
     }));
-  };
+  }, []);
 
   // One-time purchase for the couple: LOVELY ♡
   const handlePurchaseLovely = async () => {
@@ -626,7 +660,7 @@ export default function App() {
   };
 
   // Update Current User Profile (Name & Photo)
-  const handleSaveProfile = async (updated: Partial<UserProfile>) => {
+  const handleSaveProfile = useCallback(async (updated: Partial<UserProfile>) => {
     setAppState((prev) => ({
       ...prev,
       couple: {
@@ -647,7 +681,7 @@ export default function App() {
     } catch (err) {
       console.error('[OURS] Failed to save profile:', err);
     }
-  };
+  }, []);
 
   if (isLoadingSession) {
     return (

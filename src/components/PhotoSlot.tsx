@@ -20,7 +20,7 @@ interface PhotoSlotProps {
   className?: string;
 }
 
-export const PhotoSlot: React.FC<PhotoSlotProps> = ({
+export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
   type,
   title,
   photoUrl,
@@ -405,4 +405,4 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = ({
       </div>
     </div>
   );
-};
+});

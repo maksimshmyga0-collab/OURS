@@ -16,7 +16,7 @@ export interface AtmosphericGlowProps {
  * 2. 'prominent': Organic, chaotic, luminous fluid aura behind the floating Date envelope
  * 3. 'card': Multi-layered organic glow behind cards in History and sections
  */
-export const AtmosphericGlow: React.FC<AtmosphericGlowProps> = ({
+export const AtmosphericGlow: React.FC<AtmosphericGlowProps> = React.memo(({
   className = '',
   insetClassName,
   roundedClassName = 'rounded-[36px]',
@@ -86,4 +86,4 @@ export const AtmosphericGlow: React.FC<AtmosphericGlowProps> = ({
       aria-hidden="true"
     />
   );
-};
+});
