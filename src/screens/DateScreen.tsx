@@ -553,7 +553,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 <span>💌</span>
                 <span className="truncate">
                   {invitation.status === 'pending' && invitation.senderId === 'partner'
-                    ? `${invitation.senderName || partnerDisplayName} приглашает тебя`
+                    ? 'Тебе предлагают свидание'
                     : 'Свидание'}
                 </span>
               </div>
@@ -571,22 +571,36 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             </div>
 
             {/* Row 2: Date idea title */}
-            <p className="text-xs xs:text-sm font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-2">
+            <div
+              onClick={invitation.status === 'pending' && invitation.senderId === 'partner' ? handleOpenIncomingInvitation : undefined}
+              className={`text-xs xs:text-sm font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-2 ${
+                invitation.status === 'pending' && invitation.senderId === 'partner' ? 'cursor-pointer hover:text-[#E98787] transition-colors' : ''
+              }`}
+            >
               «{invitation.idea.title}»
-            </p>
+            </div>
 
-            {/* Row 3: Action (Open) or Status */}
+            {/* Row 3: Action Buttons for incoming pending invitation OR Status line */}
             {invitation.status === 'pending' && invitation.senderId === 'partner' ? (
-              <button
-                type="button"
-                onClick={handleOpenIncomingInvitation}
-                className="w-full h-[36px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5B] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_4px_14px_-3px_rgba(233,135,135,0.3)] text-white font-display font-semibold text-xs tracking-tight flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-[0.985] transition-all duration-200 cursor-pointer"
-              >
-                <span>Открыть</span>
-                <span className="text-[13px] leading-none">→</span>
-              </button>
+              <div className="flex items-center gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={handleAcceptIncomingInvitation}
+                  className="flex-1 h-[36px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5B] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4),0_2px_8px_-2px_rgba(233,135,135,0.3)] text-white font-display font-semibold text-xs tracking-tight flex items-center justify-center gap-1.5 hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <Check size={14} strokeWidth={2.4} />
+                  <span>Принять</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeclineIncomingInvitation}
+                  className="px-3.5 h-[36px] rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 text-[#777277] dark:text-[#C5BEC2] font-medium text-xs active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <span>Отклонить</span>
+                </button>
+              </div>
             ) : (
-              <div className="flex items-center justify-between text-xs font-medium">
+              <div className="flex flex-col gap-1 text-xs font-medium">
                 <div
                   className={`inline-flex items-center gap-1.5 font-semibold ${
                     invitation.status === 'pending'
@@ -597,18 +611,44 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   }`}
                 >
                   {invitation.status === 'pending' && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                      <span>{partnerDisplayName}: Ожидание</span>
+                    </>
                   )}
                   {invitation.status === 'accepted' && (
-                    <Check size={13} strokeWidth={2.5} className="shrink-0" />
+                    <>
+                      <Check size={13} strokeWidth={2.5} className="shrink-0" />
+                      <span>
+                        {invitation.senderId === 'user'
+                          ? `${partnerDisplayName}: Согласна`
+                          : 'Ты: Согласна'}
+                      </span>
+                    </>
                   )}
                   {invitation.status === 'declined' && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0" />
+                    <>
+                      <span className="w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0" />
+                      <span>
+                        {invitation.senderId === 'user'
+                          ? `${partnerDisplayName}: Отказ`
+                          : 'Ты: Отказ'}
+                      </span>
+                    </>
                   )}
-                  <span>
-                    {partnerDisplayName}: {getStatusLabel()}
-                  </span>
                 </div>
+
+                {/* Status confirmation label */}
+                {invitation.status === 'accepted' && (
+                  <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
+                    Свидание согласовано ✨
+                  </span>
+                )}
+                {invitation.status === 'declined' && (
+                  <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
+                    Приглашение отклонено
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -795,9 +835,9 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               </div>
 
               {/* Partner invite heading */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold mb-3">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold mb-2">
                 <Heart size={13} fill="currentColor" />
-                <span>{invitation.senderName || partnerDisplayName} приглашает тебя</span>
+                <span>{invitation.senderName || partnerDisplayName} предлагает свидание</span>
               </div>
 
               {/* Tag Badge */}
@@ -806,7 +846,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               </div>
 
               {/* Date Title */}
-              <h2 className="text-xl xs:text-2xl font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-3 leading-snug px-1">
+              <h2 className="text-xl xs:text-2xl font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-2 leading-snug px-1">
                 {invitation.idea.title}
               </h2>
 
@@ -815,7 +855,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 {invitation.idea.description}
               </p>
 
-              {/* Action Buttons: 'Согласна' / 'Отказ' */}
+              {/* Action Buttons: 'Принять' / 'Отклонить' */}
               <div className="flex flex-col gap-2.5 w-full">
                 <button
                   type="button"
@@ -823,7 +863,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   className="w-full h-[52px] xs:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Check size={18} strokeWidth={2.4} />
-                  <span>Согласна</span>
+                  <span>Принять</span>
                 </button>
 
                 <button
@@ -831,7 +871,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   onClick={handleDeclineIncomingInvitation}
                   className="w-full py-2.5 px-4 rounded-full text-[#8A8488] dark:text-[#9E969B] hover:text-[#343033] dark:hover:text-white font-medium text-xs active:scale-[0.985] transition-colors cursor-pointer"
                 >
-                  Отказ
+                  Отклонить
                 </button>
               </div>
             </div>

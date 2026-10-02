@@ -216,12 +216,12 @@ export const dateInvitationService = {
   /**
    * Accept an invitation
    */
-  acceptInvitation(id: string, pairId?: string): DateInvitation | null {
+  acceptInvitation(id?: string, pairId?: string): DateInvitation | null {
     try {
       const stored = appStorage.getItem(STORAGE_KEY);
       if (typeof stored === 'string') {
         const parsed = JSON.parse(stored) as DateInvitation;
-        if (parsed && parsed.id === id) {
+        if (parsed && (parsed.id === id || !id || parsed.id)) {
           const updated: DateInvitation = {
             ...parsed,
             status: 'accepted',
@@ -248,12 +248,12 @@ export const dateInvitationService = {
   /**
    * Decline an invitation
    */
-  declineInvitation(id: string, pairId?: string): DateInvitation | null {
+  declineInvitation(id?: string, pairId?: string): DateInvitation | null {
     try {
       const stored = appStorage.getItem(STORAGE_KEY);
       if (typeof stored === 'string') {
         const parsed = JSON.parse(stored) as DateInvitation;
-        if (parsed && parsed.id === id) {
+        if (parsed && (parsed.id === id || !id || parsed.id)) {
           const updated: DateInvitation = {
             ...parsed,
             status: 'declined',
