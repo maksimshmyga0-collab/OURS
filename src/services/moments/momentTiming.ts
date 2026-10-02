@@ -202,16 +202,16 @@ export function getSynchronizedNow(): number {
 }
 
 /**
- * Checks whether a moment has achieved MATCH or completion for the pair.
- * A moment is completed for the pair if:
+ * Checks whether a moment has achieved completion for the current user.
+ * A moment is completed for the current user if:
  * 1. It has status 'COMPLETED', OR
- * 2. Both partner and user photos are present AND MATCH has occurred (status is REVEALED or REACTED or reaction given)
+ * 2. Both photos are present AND this user has submitted their reaction (userReaction is set)
  */
 export function isMomentMatchCompleted(m: Moment): boolean {
   if (m.status === 'COMPLETED') return true;
   if (
     Boolean(m.userPhoto && m.partnerPhoto) &&
-    (m.status === 'REVEALED' || m.status === 'REACTED' || m.userReaction || m.partnerReaction)
+    (m.status === 'REACTED' || Boolean(m.userReaction))
   ) {
     return true;
   }

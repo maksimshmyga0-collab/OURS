@@ -413,7 +413,7 @@ export class ApiClient {
         createdAt: p.created_at,
       }));
 
-      // Determine authoritative status
+      // Determine authoritative status strictly for the CURRENT user
       const hasBoth = Boolean(userPhotoUrl && partnerPhotoUrl);
       const hasUser = Boolean(userPhotoUrl);
 
@@ -424,7 +424,6 @@ export class ApiClient {
       const partnerReactClean = pEmoji === '✨' ? null : (pEmoji as ReactionEmoji | null);
 
       const hasUserReaction = Boolean(userReactClean);
-      const hasMatchMarker = Boolean(userReactionObj || partnerReactionObj);
 
       // Authoritative shared server timestamp when MATCH occurred for the pair
       let matchTimestamp: number | undefined = undefined;
@@ -441,11 +440,13 @@ export class ApiClient {
       let status = 'EMPTY';
       if (hasBoth) {
         if (hasUserReaction) {
+          // Current user has already chosen their reaction
           status = 'COMPLETED';
-        } else if (hasMatchMarker || Boolean(partnerReactClean)) {
-          // If match marker or partner reaction exists, moment is revealed for the pair, but current user can still choose their reaction
+        } else if (uEmoji === '✨') {
+          // Current user previously clicked touch / revealed
           status = 'REVEALED';
         } else {
+          // Both photos exist, waiting for THIS user to click [ КОСНУТЬСЯ ]
           status = 'BOTH_UPLOADED';
         }
       } else if (hasUser) {
@@ -907,6 +908,13 @@ export class ApiClient {
           }
         )
         .on(
+          'broadcast',
+          { event: 'date_invitation_change' },
+          () => {
+            onUpdate();
+          }
+        )
+        .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'photos' },
           () => {
@@ -1334,6 +1342,122 @@ export class ApiClient {
       console.error('[YooKassa Client] Failed to check status:', err);
       return { success: false, status: 'error', isLovely: false, error: err.message };
     }
+  }
+
+  /**
+   * Get cached or active current user auth id
+   */
+  getCurrentUserId(): string | null {
+    return this.currentUserId;
+  }
+
+  /**
+   * Fetch active date invitation from server for pair
+   */
+  async fetchDateInvitation(pairId: string): Promise<any> {
+    if (!pairId) return null;
+    try {
+      const res = await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}`);
+      const data = await res.json();
+      if (data && data.success) {
+        return data.invitation || null;
+      }
+    } catch (err) {
+      console.warn('[OURS Date] Failed to fetch date invitation:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Send a new date invitation and broadcast to partner
+   */
+  async sendDateInvitation(payload: {
+    pairId: string;
+    id?: string;
+    senderUserId: string;
+    senderName: string;
+    recipientName: string;
+    idea: any;
+  }): Promise<any> {
+    if (!payload.pairId) return null;
+    try {
+      const res = await fetch('/api/dates/invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data && data.success && data.invitation) {
+        this.broadcastPairUpdate(payload.pairId, { action: 'date_invitation_created', invitation: data.invitation });
+        return data.invitation;
+      }
+    } catch (err) {
+      console.warn('[OURS Date] Failed to send date invitation:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Mark date invitation as read by recipient
+   */
+  async markDateInvitationAsRead(pairId: string): Promise<any> {
+    if (!pairId) return null;
+    try {
+      const res = await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}/read`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        this.broadcastPairUpdate(pairId, { action: 'date_invitation_read' });
+        return data.invitation;
+      }
+    } catch (err) {
+      console.warn('[OURS Date] Failed to mark invitation as read:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Respond to date invitation (accepted / declined)
+   */
+  async respondToDateInvitation(pairId: string, status: 'accepted' | 'declined'): Promise<any> {
+    if (!pairId) return null;
+    try {
+      const res = await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}/respond`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        this.broadcastPairUpdate(pairId, { action: 'date_invitation_responded', status });
+        return data.invitation;
+      }
+    } catch (err) {
+      console.warn('[OURS Date] Failed to respond to invitation:', err);
+    }
+    return null;
+  }
+
+  /**
+   * Clear date invitation for pair
+   */
+  async clearDateInvitation(pairId: string): Promise<boolean> {
+    if (!pairId) return false;
+    try {
+      const res = await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data && data.success) {
+        this.broadcastPairUpdate(pairId, { action: 'date_invitation_cleared' });
+        return true;
+      }
+    } catch (err) {
+      console.warn('[OURS Date] Failed to clear invitation:', err);
+    }
+    return false;
   }
 }
 

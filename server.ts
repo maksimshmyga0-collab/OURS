@@ -253,6 +253,92 @@ async function startServer() {
     }
   });
 
+  // --------------------------------------------------------------------------
+  // Date Invitations REST API Endpoints
+  // --------------------------------------------------------------------------
+  const dateInvitationsByPair = new Map<string, any>();
+
+  // 1. Get active date invitation for a pair
+  app.get('/api/dates/invitation/:pairId', (req, res) => {
+    const { pairId } = req.params;
+    if (!pairId) {
+      return res.status(400).json({ success: false, error: 'pairId is required' });
+    }
+    const invitation = dateInvitationsByPair.get(pairId) || null;
+    return res.json({ success: true, invitation });
+  });
+
+  // 2. Create or update date invitation for a pair
+  app.post('/api/dates/invitation', (req, res) => {
+    try {
+      const { pairId, id, senderUserId, senderName, recipientName, idea, status, readByRecipient } = req.body;
+      if (!pairId || !idea) {
+        return res.status(400).json({ success: false, error: 'pairId and idea are required' });
+      }
+
+      const invitation = {
+        id: id || `inv-${Date.now()}`,
+        pairId,
+        senderUserId: senderUserId || '',
+        senderName: senderName || 'Ты',
+        recipientName: recipientName || 'Партнёр',
+        idea,
+        status: status || 'pending',
+        readByRecipient: Boolean(readByRecipient),
+        createdAt: new Date().toISOString(),
+      };
+
+      dateInvitationsByPair.set(pairId, invitation);
+      return res.json({ success: true, invitation });
+    } catch (err: any) {
+      console.error('[Date Invitations API] Error saving invitation:', err);
+      return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+    }
+  });
+
+  // 3. Mark date invitation as read by recipient
+  app.patch('/api/dates/invitation/:pairId/read', (req, res) => {
+    const { pairId } = req.params;
+    if (!pairId) {
+      return res.status(400).json({ success: false, error: 'pairId is required' });
+    }
+    const invitation = dateInvitationsByPair.get(pairId);
+    if (invitation) {
+      invitation.readByRecipient = true;
+      dateInvitationsByPair.set(pairId, invitation);
+      return res.json({ success: true, invitation });
+    }
+    return res.json({ success: true, invitation: null });
+  });
+
+  // 4. Accept or decline date invitation
+  app.patch('/api/dates/invitation/:pairId/respond', (req, res) => {
+    const { pairId } = req.params;
+    const { status } = req.body;
+    if (!pairId || !status) {
+      return res.status(400).json({ success: false, error: 'pairId and status are required' });
+    }
+    const invitation = dateInvitationsByPair.get(pairId);
+    if (invitation) {
+      invitation.status = status; // 'accepted' | 'declined'
+      invitation.readByRecipient = true;
+      invitation.respondedAt = new Date().toISOString();
+      dateInvitationsByPair.set(pairId, invitation);
+      return res.json({ success: true, invitation });
+    }
+    return res.json({ success: true, invitation: null });
+  });
+
+  // 5. Delete or clear date invitation
+  app.delete('/api/dates/invitation/:pairId', (req, res) => {
+    const { pairId } = req.params;
+    if (!pairId) {
+      return res.status(400).json({ success: false, error: 'pairId is required' });
+    }
+    dateInvitationsByPair.delete(pairId);
+    return res.json({ success: true });
+  });
+
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({

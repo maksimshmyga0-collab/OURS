@@ -130,22 +130,8 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     matchRevealedEarly ||
     activeMoment.status === 'REVEALED' ||
     activeMoment.status === 'REACTED' ||
-    activeMoment.status === 'COMPLETED';
-
-  // Auto-trigger Match animation when both photos are present and match hasn't been played yet for this moment
-  useEffect(() => {
-    if (
-      activeMoment &&
-      activeMoment.userPhoto &&
-      activeMoment.partnerPhoto &&
-      (activeMoment.status === 'BOTH_UPLOADED' || !isMomentRevealed) &&
-      !handledMatchMomentsRef.current.has(activeMoment.id) &&
-      !isMatching
-    ) {
-      handledMatchMomentsRef.current.add(activeMoment.id);
-      setIsMatching(true);
-    }
-  }, [activeMoment, isMatching, isMomentRevealed]);
+    activeMoment.status === 'COMPLETED' ||
+    Boolean(activeMoment.userReaction);
 
   // Handle photo selection for the current user
   const handlePhotoSelected = (photoUrl: string) => {
@@ -170,11 +156,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
     const newPhotos = [userPhotoItem, ...partnerPhotoItem];
     const newStatus = activeMoment.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED';
-
-    if (activeMoment.partnerPhoto && !handledMatchMomentsRef.current.has(activeMoment.id)) {
-      handledMatchMomentsRef.current.add(activeMoment.id);
-      setIsMatching(true);
-    }
 
     onUpdateMoment({
       ...activeMoment,
@@ -210,11 +191,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     const newPhotos = [userPhotoItem, ...partnerPhotoItem];
     const newStatus = target.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED';
 
-    if (target.partnerPhoto && !handledMatchMomentsRef.current.has(target.id)) {
-      handledMatchMomentsRef.current.add(target.id);
-      setIsMatching(true);
-    }
-
     onUpdateMoment({
       ...target,
       userPhoto: photoUrl,
@@ -227,7 +203,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const activeMomentRef = useRef(activeMoment);
   activeMomentRef.current = activeMoment;
 
-  // Trigger Match animation when user taps the Match CTA
+  // Trigger Match animation when THIS user explicitly taps the Match CTA
   const handleOpenMoment = () => {
     if (isMatching || isMomentRevealed) return;
     handledMatchMomentsRef.current.add(activeMoment.id);
@@ -239,7 +215,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     setMatchRevealedEarly(true);
   }, []);
 
-  // When match animation completes (1100ms) -> commit REVEALED status safely
+  // When match animation completes (2950ms) -> commit REVEALED status for THIS user safely
   const handleMatchComplete = useCallback(() => {
     setIsMatching(false);
     setMatchRevealedEarly(false);
@@ -526,10 +502,14 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
 
 
-          {/* State 3: The Signature Match CTA Button */}
+          {/* State 3: The Signature Match CTA Button [ КОСНУТЬСЯ ] */}
           {(activeMoment.status === 'BOTH_UPLOADED' ||
-            (activeMoment.userPhoto && activeMoment.partnerPhoto && !isMomentRevealed)) &&
-            !isMatching && (
+            (activeMoment.userPhoto && activeMoment.partnerPhoto && !isMomentRevealed && !activeMoment.userReaction)) &&
+            !isMatching &&
+            activeMoment.status !== 'COMPLETED' &&
+            activeMoment.status !== 'REVEALED' &&
+            activeMoment.status !== 'REACTED' &&
+            !activeMoment.userReaction && (
               <div className="pt-1.5 animate-in fade-in zoom-in-[0.97] duration-400 ease-out">
                 <MatchButton
                   onClick={handleOpenMoment}
@@ -539,26 +519,27 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
               </div>
             )}
 
-          {/* State 4 & 5: REVEALED or REACTED */}
-          {(activeMoment.status === 'REVEALED' || activeMoment.status === 'REACTED') && (
-            <div className="space-y-4 pt-1 animate-in fade-in duration-300 ease-out">
-              <ReactionPicker
-                selectedReaction={activeMoment.userReaction}
-                onSelectReaction={handleSelectReaction}
-              />
+          {/* State 4 & 5: REVEALED or REACTED (Active Reaction Picker for THIS user) */}
+          {(activeMoment.status === 'REVEALED' || activeMoment.status === 'REACTED') &&
+            !isMatching && (
+              <div className="space-y-4 pt-1 animate-in fade-in duration-300 ease-out">
+                <ReactionPicker
+                  selectedReaction={activeMoment.userReaction}
+                  onSelectReaction={handleSelectReaction}
+                />
 
-              {activeMoment.userReaction && (
-                <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out">
-                  <PrimaryButton variant="coral" onClick={handleSaveAndComplete}>
-                    <span>Сохранить в историю</span>
-                  </PrimaryButton>
-                </div>
-              )}
-            </div>
-          )}
+                {activeMoment.userReaction && (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out">
+                    <PrimaryButton variant="coral" onClick={handleSaveAndComplete}>
+                      <span>Сохранить в историю</span>
+                    </PrimaryButton>
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* State 6: COMPLETED */}
-          {(activeMoment.status === 'COMPLETED' || (isMomentMatchCompleted(activeMoment) && activeMoment.status !== 'REVEALED' && activeMoment.status !== 'REACTED')) && (
+          {/* State 6: COMPLETED (Post-Match Waiting State for THIS user) */}
+          {activeMoment.status === 'COMPLETED' && !isMatching && (
             <div className="pt-1 animate-in fade-in duration-300 ease-out">
               {availability.isAllCompleted ? (
                 // State after 3rd moment: peaceful completion

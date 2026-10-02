@@ -211,23 +211,14 @@ export default function App() {
               const userReaction = srvM.userReaction || prevM.userReaction || null;
               const partnerReaction = srvM.partnerReaction || prevM.partnerReaction || null;
 
-              // Monotonic status progression based on CURRENT USER's reaction state
+              // Monotonic status progression strictly based on CURRENT USER's own interaction state
               let status: string;
               if (userReaction) {
-                // If current user has already selected their reaction, status is COMPLETED / REACTED
+                // If current user has already selected their reaction, status is COMPLETED or REACTED
                 status = prevM.status === 'COMPLETED' || srvM.status === 'COMPLETED' ? 'COMPLETED' : 'REACTED';
-              } else if (
-                hasBoth &&
-                (prevM.status === 'REVEALED' ||
-                  srvM.status === 'REVEALED' ||
-                  prevM.status === 'REACTED' ||
-                  srvM.status === 'REACTED' ||
-                  partnerReaction)
-              ) {
-                // Moment is revealed/matched, but current user has not yet chosen a reaction -> keep REVEALED
-                status = 'REVEALED';
               } else if (hasBoth) {
-                status = 'BOTH_UPLOADED';
+                // If THIS user has already revealed locally in this session, or server confirmed THIS user revealed:
+                status = (prevM.status === 'REVEALED' || srvM.status === 'REVEALED') ? 'REVEALED' : 'BOTH_UPLOADED';
               } else if (userPhoto) {
                 status = 'USER_UPLOADED';
               } else {
@@ -310,6 +301,14 @@ export default function App() {
             };
           });
         }
+
+        // Live sync active Date invitation for this pair across devices
+        apiClient.fetchDateInvitation(pairId).then((srvInv) => {
+          dateInvitationService.syncFromServer(
+            srvInv,
+            apiClient.getCurrentUserId() || appState.couple.user.id || null
+          );
+        }).catch(() => {});
       } catch (err) {
         // Silent catch for brief network drop
       } finally {

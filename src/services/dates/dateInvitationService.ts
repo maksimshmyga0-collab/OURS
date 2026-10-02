@@ -7,6 +7,7 @@
  */
 
 import { appStorage } from '../storage/keyValueStorage';
+import { apiClient } from '../api/apiClient';
 
 export type DateInvitationStatus = 'pending' | 'accepted' | 'declined';
 
@@ -20,6 +21,7 @@ export interface DateInvitationIdea {
 export interface DateInvitation {
   id: string;
   pairId?: string;
+  senderUserId?: string;
   senderId: 'user' | 'partner';
   senderName: string;
   recipientName: string;
@@ -53,7 +55,6 @@ export const dateInvitationService = {
       if (typeof stored === 'string') {
         const parsed = JSON.parse(stored) as DateInvitation;
         if (parsed && parsed.id && parsed.status && parsed.id !== 'inv-init-1') {
-          // Ensure read property exists
           if (typeof parsed.read === 'undefined') {
             parsed.read = false;
           }
@@ -90,9 +91,53 @@ export const dateInvitationService = {
   },
 
   /**
+   * Sync invitation received from server / realtime poll
+   */
+  syncFromServer(serverInv: any, currentUserId: string | null): DateInvitation | null {
+    if (!serverInv) {
+      const existing = this.getInvitation();
+      if (existing) {
+        appStorage.removeItem(STORAGE_KEY);
+        notifyListeners(null);
+      }
+      return null;
+    }
+
+    const isSender = Boolean(
+      (currentUserId && serverInv.senderUserId === currentUserId) ||
+      (!currentUserId && serverInv.senderId === 'user')
+    );
+
+    const formatted: DateInvitation = {
+      id: serverInv.id || `inv-${Date.now()}`,
+      pairId: serverInv.pairId,
+      senderUserId: serverInv.senderUserId,
+      senderId: isSender ? 'user' : 'partner',
+      senderName: serverInv.senderName || (isSender ? 'Ты' : 'Партнёр'),
+      recipientName: serverInv.recipientName || (isSender ? 'Партнёр' : 'Ты'),
+      idea: serverInv.idea,
+      status: serverInv.status || 'pending',
+      createdAt: serverInv.createdAt || new Date().toISOString(),
+      respondedAt: serverInv.respondedAt,
+      // If current user is sender, read is always true for sender.
+      // If current user is recipient, read is serverInv.readByRecipient (or local read state).
+      read: isSender ? true : Boolean(serverInv.readByRecipient),
+    };
+
+    try {
+      appStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
+    } catch {
+      // ignore
+    }
+
+    notifyListeners(formatted);
+    return formatted;
+  },
+
+  /**
    * Mark incoming invitation as read (called when recipient opens the invitation scene)
    */
-  markAsRead(id: string): DateInvitation | null {
+  markAsRead(id: string, pairId?: string): DateInvitation | null {
     try {
       const stored = appStorage.getItem(STORAGE_KEY);
       if (typeof stored === 'string') {
@@ -104,6 +149,12 @@ export const dateInvitationService = {
           };
           appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
           notifyListeners(updated);
+
+          const targetPairId = pairId || parsed.pairId;
+          if (targetPairId) {
+            apiClient.markDateInvitationAsRead(targetPairId).catch(() => {});
+          }
+
           return updated;
         }
         return parsed;
@@ -121,18 +172,21 @@ export const dateInvitationService = {
     idea: DateInvitationIdea,
     userName: string,
     partnerName: string,
-    pairId?: string
+    pairId?: string,
+    senderUserId?: string
   ): DateInvitation {
+    const invId = `inv-${Date.now()}`;
     const invitation: DateInvitation = {
-      id: `inv-${Date.now()}`,
+      id: invId,
       pairId,
+      senderUserId: senderUserId || apiClient.getCurrentUserId() || '',
       senderId: 'user',
       senderName: userName || 'Ты',
       recipientName: partnerName || 'Партнёр',
       idea,
       status: 'pending',
       createdAt: new Date().toISOString(),
-      read: false,
+      read: true, // Sender has seen their own invitation
     };
 
     try {
@@ -142,13 +196,27 @@ export const dateInvitationService = {
     }
 
     notifyListeners(invitation);
+
+    if (pairId) {
+      apiClient.sendDateInvitation({
+        pairId,
+        id: invId,
+        senderUserId: senderUserId || apiClient.getCurrentUserId() || '',
+        senderName: userName || 'Ты',
+        recipientName: partnerName || 'Партнёр',
+        idea,
+      }).catch((err) => {
+        console.warn('[DateInvitationService] Failed to send to server:', err);
+      });
+    }
+
     return invitation;
   },
 
   /**
    * Accept an invitation
    */
-  acceptInvitation(id: string): DateInvitation | null {
+  acceptInvitation(id: string, pairId?: string): DateInvitation | null {
     try {
       const stored = appStorage.getItem(STORAGE_KEY);
       if (typeof stored === 'string') {
@@ -162,6 +230,12 @@ export const dateInvitationService = {
           };
           appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
           notifyListeners(updated);
+
+          const targetPairId = pairId || parsed.pairId;
+          if (targetPairId) {
+            apiClient.respondToDateInvitation(targetPairId, 'accepted').catch(() => {});
+          }
+
           return updated;
         }
       }
@@ -174,7 +248,7 @@ export const dateInvitationService = {
   /**
    * Decline an invitation
    */
-  declineInvitation(id: string): DateInvitation | null {
+  declineInvitation(id: string, pairId?: string): DateInvitation | null {
     try {
       const stored = appStorage.getItem(STORAGE_KEY);
       if (typeof stored === 'string') {
@@ -188,6 +262,12 @@ export const dateInvitationService = {
           };
           appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
           notifyListeners(updated);
+
+          const targetPairId = pairId || parsed.pairId;
+          if (targetPairId) {
+            apiClient.respondToDateInvitation(targetPairId, 'declined').catch(() => {});
+          }
+
           return updated;
         }
       }
@@ -200,13 +280,19 @@ export const dateInvitationService = {
   /**
    * Clear or reset invitation
    */
-  clearInvitation(): void {
+  clearInvitation(pairId?: string): void {
+    const existing = this.getInvitation();
+    const targetPairId = pairId || existing?.pairId;
     try {
       appStorage.removeItem(STORAGE_KEY);
     } catch {
       // ignore
     }
     notifyListeners(null);
+
+    if (targetPairId) {
+      apiClient.clearDateInvitation(targetPairId).catch(() => {});
+    }
   },
 
   /**

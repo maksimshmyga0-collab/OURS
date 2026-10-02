@@ -141,7 +141,8 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       },
       couple?.user?.name || 'Ты',
       couple?.partner?.name || 'Партнёр',
-      couple?.id
+      couple?.id,
+      couple?.user?.id
     );
     setInvitation(sent);
     handleCloseModal();
@@ -152,7 +153,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     if (!invitation) return;
     clearTimers();
     // Mark as read upon actually opening the invitation to clear the tab notification dot
-    dateInvitationService.markAsRead(invitation.id);
+    dateInvitationService.markAsRead(invitation.id, couple?.id);
     setIsIncomingClosing(false);
     setIsIncomingModalOpen(true);
     playSoftChime('tap', soundEnabled);
@@ -177,7 +178,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     if (!invitation) return;
     playSoftChime('tap', soundEnabled);
     triggerHaptic(hapticEnabled);
-    const updated = dateInvitationService.acceptInvitation(invitation.id);
+    const updated = dateInvitationService.acceptInvitation(invitation.id, couple?.id);
     if (updated) {
       setInvitation(updated);
     }
@@ -188,7 +189,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   const handleDeclineIncomingInvitation = () => {
     if (!invitation) return;
     triggerHaptic(hapticEnabled);
-    const updated = dateInvitationService.declineInvitation(invitation.id);
+    const updated = dateInvitationService.declineInvitation(invitation.id, couple?.id);
     if (updated) {
       setInvitation(updated);
     }
@@ -560,7 +561,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               {invitation.status !== 'pending' && (
                 <button
                   type="button"
-                  onClick={() => dateInvitationService.clearInvitation()}
+                  onClick={() => dateInvitationService.clearInvitation(couple?.id)}
                   title="Закрыть"
                   className="text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer shrink-0 p-0.5"
                 >
