@@ -93,35 +93,67 @@ export const dateInvitationService = {
   /**
    * Sync invitation received from server / realtime poll
    */
-  syncFromServer(serverInv: any, currentUserId: string | null): DateInvitation | null {
-    if (!serverInv) {
+  syncFromServer(
+    serverInv: any,
+    currentUserId?: string | null,
+    currentUserName?: string | null,
+    _partnerName?: string | null
+  ): DateInvitation | null {
+    if (!serverInv || !serverInv.id) {
       const existing = this.getInvitation();
       if (existing) {
-        appStorage.removeItem(STORAGE_KEY);
-        notifyListeners(null);
+        const createdAgo = Date.now() - new Date(existing.createdAt).getTime();
+        // Only clear if invitation is old, preventing race conditions during fresh creation
+        if (createdAgo > 60000) {
+          appStorage.removeItem(STORAGE_KEY);
+          notifyListeners(null);
+        }
       }
       return null;
     }
 
-    const isSender = Boolean(
-      (currentUserId && serverInv.senderUserId === currentUserId) ||
-      (!currentUserId && serverInv.senderId === 'user')
-    );
+    // Determine if THIS device is the creator (sender) or the recipient
+    const localInv = this.getInvitation();
+    let isSender = false;
+
+    if (localInv && localInv.id === serverInv.id && localInv.senderId === 'user') {
+      // 1. This device created this exact invitation locally
+      isSender = true;
+    } else if (localInv && localInv.id === serverInv.id && localInv.senderId === 'partner') {
+      // 2. This device previously received this exact invitation as incoming
+      isSender = false;
+    } else if (currentUserId && serverInv.senderUserId) {
+      // 3. Match against authenticated / assigned User ID
+      isSender = String(serverInv.senderUserId).trim() === String(currentUserId).trim();
+    } else if (currentUserId && serverInv.recipientUserId) {
+      // 4. Match against recipient User ID
+      isSender = String(serverInv.recipientUserId).trim() !== String(currentUserId).trim();
+    } else if (currentUserName && serverInv.senderName && serverInv.recipientName) {
+      // 5. Match against display names
+      const myName = String(currentUserName).trim().toLowerCase();
+      const sName = String(serverInv.senderName).trim().toLowerCase();
+      const rName = String(serverInv.recipientName).trim().toLowerCase();
+      if (myName && sName && myName === sName && myName !== rName) {
+        isSender = true;
+      } else if (myName && rName && myName === rName && myName !== sName) {
+        isSender = false;
+      }
+    }
 
     const formatted: DateInvitation = {
-      id: serverInv.id || `inv-${Date.now()}`,
+      id: serverInv.id,
       pairId: serverInv.pairId,
       senderUserId: serverInv.senderUserId,
       senderId: isSender ? 'user' : 'partner',
-      senderName: serverInv.senderName || (isSender ? 'Ты' : 'Партнёр'),
-      recipientName: serverInv.recipientName || (isSender ? 'Партнёр' : 'Ты'),
+      senderName: serverInv.senderName || (isSender ? (currentUserName || 'Ты') : 'Партнёр'),
+      recipientName: serverInv.recipientName || (isSender ? 'Партнёр' : (currentUserName || 'Ты')),
       idea: serverInv.idea,
       status: serverInv.status || 'pending',
       createdAt: serverInv.createdAt || new Date().toISOString(),
       respondedAt: serverInv.respondedAt,
-      // If current user is sender, read is always true for sender.
-      // If current user is recipient, read is serverInv.readByRecipient (or local read state).
-      read: isSender ? true : Boolean(serverInv.readByRecipient),
+      // Sender always has read = true.
+      // Recipient has read = true if server or local says it was read.
+      read: isSender ? true : Boolean(serverInv.readByRecipient || (localInv?.id === serverInv.id && localInv?.read)),
     };
 
     try {
@@ -173,7 +205,8 @@ export const dateInvitationService = {
     userName: string,
     partnerName: string,
     pairId?: string,
-    senderUserId?: string
+    senderUserId?: string,
+    recipientUserId?: string
   ): DateInvitation {
     const invId = `inv-${Date.now()}`;
     const invitation: DateInvitation = {
@@ -203,6 +236,7 @@ export const dateInvitationService = {
         id: invId,
         senderUserId: senderUserId || apiClient.getCurrentUserId() || '',
         senderName: userName || 'Ты',
+        recipientUserId: recipientUserId || '',
         recipientName: partnerName || 'Партнёр',
         idea,
       }).catch((err) => {

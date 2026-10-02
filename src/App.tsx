@@ -306,7 +306,9 @@ export default function App() {
         apiClient.fetchDateInvitation(pairId).then((srvInv) => {
           dateInvitationService.syncFromServer(
             srvInv,
-            apiClient.getCurrentUserId() || appState.couple.user.id || null
+            apiClient.getCurrentUserId() || appState.couple.user.id || null,
+            appState.couple.user?.name,
+            appState.couple.partner?.name
           );
         }).catch(() => {});
       } catch (err) {

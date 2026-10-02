@@ -42,26 +42,38 @@ export function calculateCoupleStreak(
   history: HistoryDay[],
   referenceDate: Date = new Date()
 ): CoupleStreakInfo {
-  // Aggregate all moments grouped by dateKey
+  // Aggregate all unique moments grouped by dateKey
+  const seenMomentIds = new Set<string>();
   const momentsByDate: Record<string, Moment[]> = {};
+
+  const addMomentIfUnique = (m: Moment, fallbackDateKey: string) => {
+    if (!isMomentActive(m)) return;
+
+    // Use moment ID or canonical (dateKey + order) as unique identifier
+    const canonicalKey = m.id || `${m.dateKey || fallbackDateKey}_${m.order || 1}`;
+    if (seenMomentIds.has(canonicalKey)) {
+      return; // Already counted this moment
+    }
+    seenMomentIds.add(canonicalKey);
+
+    const dKey = m.dateKey || fallbackDateKey;
+    if (!momentsByDate[dKey]) {
+      momentsByDate[dKey] = [];
+    }
+    momentsByDate[dKey].push(m);
+  };
 
   // 1. Process today's moments
   const todayKey = formatDateKey(referenceDate);
-  const activeTodayMoments = todayMoments.filter(isMomentActive);
-  if (activeTodayMoments.length > 0) {
-    momentsByDate[todayKey] = activeTodayMoments;
+  for (const m of todayMoments) {
+    addMomentIfUnique(m, todayKey);
   }
 
   // 2. Process history moments
   for (const day of history) {
+    const dayKey = day.dateKey || todayKey;
     for (const moment of day.moments) {
-      if (isMomentActive(moment)) {
-        const key = moment.dateKey || formatDateKey(new Date(moment.createdAt || referenceDate));
-        if (!momentsByDate[key]) {
-          momentsByDate[key] = [];
-        }
-        momentsByDate[key].push(moment);
-      }
+      addMomentIfUnique(moment, dayKey);
     }
   }
 

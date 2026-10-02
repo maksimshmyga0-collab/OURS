@@ -258,37 +258,43 @@ async function startServer() {
   // --------------------------------------------------------------------------
   const dateInvitationsByPair = new Map<string, any>();
 
+  const getNormPairKey = (id: string) => String(id || '').trim().toLowerCase();
+
   // 1. Get active date invitation for a pair
   app.get('/api/dates/invitation/:pairId', (req, res) => {
-    const { pairId } = req.params;
-    if (!pairId) {
+    const rawPairId = req.params.pairId;
+    if (!rawPairId) {
       return res.status(400).json({ success: false, error: 'pairId is required' });
     }
-    const invitation = dateInvitationsByPair.get(pairId) || null;
+    const pairKey = getNormPairKey(rawPairId);
+    const invitation = dateInvitationsByPair.get(pairKey) || dateInvitationsByPair.get(rawPairId) || null;
     return res.json({ success: true, invitation });
   });
 
   // 2. Create or update date invitation for a pair
   app.post('/api/dates/invitation', (req, res) => {
     try {
-      const { pairId, id, senderUserId, senderName, recipientName, idea, status, readByRecipient } = req.body;
+      const { pairId, id, senderUserId, senderName, recipientUserId, recipientName, idea, status, readByRecipient } = req.body;
       if (!pairId || !idea) {
         return res.status(400).json({ success: false, error: 'pairId and idea are required' });
       }
 
+      const pairKey = getNormPairKey(pairId);
       const invitation = {
         id: id || `inv-${Date.now()}`,
-        pairId,
-        senderUserId: senderUserId || '',
-        senderName: senderName || 'Ты',
-        recipientName: recipientName || 'Партнёр',
+        pairId: String(pairId).trim(),
+        senderUserId: String(senderUserId || '').trim(),
+        senderName: String(senderName || 'Ты').trim(),
+        recipientUserId: String(recipientUserId || '').trim(),
+        recipientName: String(recipientName || 'Партнёр').trim(),
         idea,
         status: status || 'pending',
         readByRecipient: Boolean(readByRecipient),
         createdAt: new Date().toISOString(),
       };
 
-      dateInvitationsByPair.set(pairId, invitation);
+      dateInvitationsByPair.set(pairKey, invitation);
+      dateInvitationsByPair.set(String(pairId).trim(), invitation);
       return res.json({ success: true, invitation });
     } catch (err: any) {
       console.error('[Date Invitations API] Error saving invitation:', err);
@@ -298,14 +304,16 @@ async function startServer() {
 
   // 3. Mark date invitation as read by recipient
   app.patch('/api/dates/invitation/:pairId/read', (req, res) => {
-    const { pairId } = req.params;
-    if (!pairId) {
+    const rawPairId = req.params.pairId;
+    if (!rawPairId) {
       return res.status(400).json({ success: false, error: 'pairId is required' });
     }
-    const invitation = dateInvitationsByPair.get(pairId);
+    const pairKey = getNormPairKey(rawPairId);
+    const invitation = dateInvitationsByPair.get(pairKey) || dateInvitationsByPair.get(rawPairId);
     if (invitation) {
       invitation.readByRecipient = true;
-      dateInvitationsByPair.set(pairId, invitation);
+      dateInvitationsByPair.set(pairKey, invitation);
+      dateInvitationsByPair.set(rawPairId, invitation);
       return res.json({ success: true, invitation });
     }
     return res.json({ success: true, invitation: null });
@@ -313,17 +321,19 @@ async function startServer() {
 
   // 4. Accept or decline date invitation
   app.patch('/api/dates/invitation/:pairId/respond', (req, res) => {
-    const { pairId } = req.params;
+    const rawPairId = req.params.pairId;
     const { status } = req.body;
-    if (!pairId || !status) {
+    if (!rawPairId || !status) {
       return res.status(400).json({ success: false, error: 'pairId and status are required' });
     }
-    const invitation = dateInvitationsByPair.get(pairId);
+    const pairKey = getNormPairKey(rawPairId);
+    const invitation = dateInvitationsByPair.get(pairKey) || dateInvitationsByPair.get(rawPairId);
     if (invitation) {
       invitation.status = status; // 'accepted' | 'declined'
       invitation.readByRecipient = true;
       invitation.respondedAt = new Date().toISOString();
-      dateInvitationsByPair.set(pairId, invitation);
+      dateInvitationsByPair.set(pairKey, invitation);
+      dateInvitationsByPair.set(rawPairId, invitation);
       return res.json({ success: true, invitation });
     }
     return res.json({ success: true, invitation: null });
@@ -331,11 +341,13 @@ async function startServer() {
 
   // 5. Delete or clear date invitation
   app.delete('/api/dates/invitation/:pairId', (req, res) => {
-    const { pairId } = req.params;
-    if (!pairId) {
+    const rawPairId = req.params.pairId;
+    if (!rawPairId) {
       return res.status(400).json({ success: false, error: 'pairId is required' });
     }
-    dateInvitationsByPair.delete(pairId);
+    const pairKey = getNormPairKey(rawPairId);
+    dateInvitationsByPair.delete(pairKey);
+    dateInvitationsByPair.delete(rawPairId);
     return res.json({ success: true });
   });
 

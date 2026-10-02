@@ -15,11 +15,21 @@ import {
   dateInvitationService,
   DateInvitation,
 } from '../services/dates/dateInvitationService';
+import { apiClient } from '../services/api/apiClient';
 
 interface DateScreenProps {
   couple: CoupleState;
   soundEnabled?: boolean;
   hapticEnabled?: boolean;
+}
+
+function getRandomDateIdeaIndex(currentIndex = -1): number {
+  if (DATE_IDEAS.length <= 1) return 0;
+  let next = Math.floor(Math.random() * DATE_IDEAS.length);
+  while (next === currentIndex) {
+    next = Math.floor(Math.random() * DATE_IDEAS.length);
+  }
+  return next;
 }
 
 export const DateScreen: React.FC<DateScreenProps> = ({
@@ -30,7 +40,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isClosingModal, setIsClosingModal] = useState(false);
-  const [currentIdeaIndex, setCurrentIdeaIndex] = useState(0);
+  const [currentIdeaIndex, setCurrentIdeaIndex] = useState<number>(() => getRandomDateIdeaIndex());
   const [isShuffling, setIsShuffling] = useState(false);
 
   // Incoming / Active Date Invitation State
@@ -51,6 +61,25 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       timersRef.current.forEach(clearTimeout);
     };
   }, []);
+
+  // Sync latest invitation from server on mount / when couple changes
+  useEffect(() => {
+    if (couple?.id) {
+      apiClient.fetchDateInvitation(couple.id).then((srvInv) => {
+        if (srvInv) {
+          const synced = dateInvitationService.syncFromServer(
+            srvInv,
+            couple.user?.id || apiClient.getCurrentUserId(),
+            couple.user?.name,
+            couple.partner?.name
+          );
+          if (synced) {
+            setInvitation(synced);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [couple?.id, couple?.user?.id, couple?.user?.name, couple?.partner?.name]);
 
   const addTimer = (fn: () => void, ms: number) => {
     const t = setTimeout(fn, ms);
@@ -107,7 +136,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     }, 280);
   };
 
-  // Shuffle to next idea
+  // Shuffle to random idea
   const handleNextIdea = () => {
     if (isShuffling) return;
     setIsShuffling(true);
@@ -115,13 +144,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     triggerHaptic(hapticEnabled);
 
     addTimer(() => {
-      setCurrentIdeaIndex((prev) => {
-        let next = Math.floor(Math.random() * DATE_IDEAS.length);
-        if (next === prev) {
-          next = (prev + 1) % DATE_IDEAS.length;
-        }
-        return next;
-      });
+      setCurrentIdeaIndex((prev) => getRandomDateIdeaIndex(prev));
       setIsShuffling(false);
       playSoftChime('tap', soundEnabled);
       triggerHaptic(hapticEnabled);
@@ -142,7 +165,8 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       couple?.user?.name || 'Ты',
       couple?.partner?.name || 'Партнёр',
       couple?.id,
-      couple?.user?.id
+      couple?.user?.id || apiClient.getCurrentUserId() || undefined,
+      couple?.partner?.id || undefined
     );
     setInvitation(sent);
     handleCloseModal();
