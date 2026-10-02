@@ -197,7 +197,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     }, 260);
   };
 
-  // Accept incoming invitation: "Согласна"
+  // Accept incoming invitation: "Свидание принято"
   const handleAcceptIncomingInvitation = () => {
     if (!invitation) return;
     playSoftChime('tap', soundEnabled);
@@ -226,7 +226,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       case 'pending':
         return 'Ожидание';
       case 'accepted':
-        return 'Согласна';
+        return 'Свидание принято';
       case 'declined':
         return 'Отказ';
       default:
@@ -572,135 +572,150 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             ========================================================================= */}
         {invitation && (
           <>
-            {/* STATE A: Incoming Pending Invitation from Partner -> Entire card is clickable to expand, NO Accept/Decline buttons */}
+            {/* STATE A: Incoming Pending Invitation from Partner -> Larger, expressive compact card (10-20% bigger, spacious & elegant) with only «Открыть» button */}
             {invitation.status === 'pending' && invitation.senderId === 'partner' ? (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={handleOpenIncomingInvitation}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleOpenIncomingInvitation();
-                  }
-                }}
-                className="w-full max-w-[280px] xs:max-w-[305px] mx-auto mt-2.5 xs:mt-3 p-3.5 rounded-2xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.18)] dark:shadow-none hover:border-[#E98787]/60 dark:hover:border-[#E98787]/50 active:scale-[0.985] transition-all duration-200 cursor-pointer group text-left relative overflow-hidden select-none animate-[card-enter_280ms_cubic-bezier(0.22,1,0.36,1)]"
-              >
-                {/* Header row */}
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] truncate">
-                    <span>💌</span>
-                    <span className="truncate">Тебе предлагают свидание</span>
-                    {!invitation.read && (
-                      <span
-                        className="w-2 h-2 rounded-full bg-[#E98787] shrink-0 animate-pulse shadow-[0_0_6px_rgba(233,135,135,0.8)]"
-                        title="Новое приглашение"
-                      />
+              <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-4.5 relative group">
+                {/* Soft ambient cherry/burgundy mist UNDER the compact card */}
+                <div
+                  className="absolute -inset-3.5 rounded-[34px] bg-gradient-to-b from-[#FAD4DF]/35 via-[#F7CAD6]/20 to-transparent dark:from-[#3D222E]/40 dark:via-[#2F1A24]/20 dark:to-transparent blur-xl pointer-events-none -z-10"
+                  aria-hidden="true"
+                />
+
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={handleOpenIncomingInvitation}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleOpenIncomingInvitation();
+                    }
+                  }}
+                  className="w-full p-5.5 xs:p-6.5 sm:p-7 rounded-[28px] bg-gradient-to-b from-[#FFFDFB]/95 via-[#FFFFFF]/90 to-[#FAF6F3]/95 dark:from-[#211A1F]/95 dark:via-[#1D171C]/95 dark:to-[#171216]/95 backdrop-blur-md border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_10px_32px_-6px_rgba(233,135,135,0.24)] dark:shadow-[0_14px_36px_-8px_rgba(0,0,0,0.5)] hover:border-[#E98787]/60 dark:hover:border-[#E98787]/50 active:scale-[0.988] transition-all duration-200 cursor-pointer text-left relative overflow-hidden select-none animate-card-enter"
+                >
+                  {/* Subtle inner hairline border */}
+                  <div className="absolute inset-3 rounded-[22px] border border-[#F2E1E6]/60 dark:border-[#362A32]/60 pointer-events-none" />
+
+                  {/* Header row: Badge + Tag */}
+                  <div className="relative z-10 flex items-center justify-between gap-2 mb-4">
+                    <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold tracking-wide">
+                      <span>💌</span>
+                      <span>Входящее приглашение</span>
+                      {!invitation.read && (
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-[#E98787] shrink-0 animate-pulse shadow-[0_0_6px_rgba(233,135,135,0.8)] ml-0.5"
+                          title="Новое приглашение"
+                        />
+                      )}
+                    </div>
+
+                    {invitation.idea?.tag && (
+                      <span className="text-xs font-medium text-[#8C8488] dark:text-[#A8A1A4] px-3 py-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] shrink-0">
+                        {invitation.idea.tag}
+                      </span>
                     )}
                   </div>
-                  <ChevronRight
-                    size={15}
-                    className="text-[#E98787] dark:text-[#F0B9C6] shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
-                  />
-                </div>
 
-                {/* Sender info */}
-                <div className="text-[11px] text-[#8C8488] dark:text-[#B5ADB1] font-medium flex items-center gap-1 mb-1 truncate">
-                  <Heart size={10} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
-                  <span className="truncate">{invitation.senderName || partnerDisplayName} зовёт тебя</span>
-                </div>
+                  {/* Sender subtitle */}
+                  <div className="relative z-10 text-[13px] xs:text-[14px] text-[#777277] dark:text-[#B5ADB1] font-medium flex items-center gap-2 mb-2.5">
+                    <Heart size={14} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
+                    <span className="truncate">
+                      <strong className="font-semibold text-[#343033] dark:text-[#FAF5F7]">
+                        {invitation.senderName || partnerDisplayName}
+                      </strong>{' '}
+                      зовёт тебя на свидание
+                    </span>
+                  </div>
 
-                {/* Date idea title */}
-                <div className="text-xs xs:text-sm font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-2">
-                  «{invitation.idea.title}»
-                </div>
+                  {/* Date Title */}
+                  <h3 className="relative z-10 font-display font-bold text-[18px] xs:text-[20px] sm:text-[21.5px] leading-snug text-[#343033] dark:text-[#FAF5F7] tracking-tight mb-3">
+                    «{invitation.idea.title}»
+                  </h3>
 
-                {/* Gentle hint to open */}
-                <div className="flex items-center justify-between text-[11px] font-medium text-[#E98787] dark:text-[#F0B9C6] pt-1.5 border-t border-[#F2E1E6]/70 dark:border-[#33272F]">
-                  <span>Нажмите, чтобы открыть</span>
-                  <span className="text-[10px] opacity-75">Посмотреть детали →</span>
+                  {/* Brief 2-line snippet */}
+                  {invitation.idea.description && (
+                    <p className="relative z-10 text-[13px] xs:text-[14px] text-[#635D62] dark:text-[#C5BEC2] leading-relaxed line-clamp-2 mb-5 font-normal">
+                      {invitation.idea.description}
+                    </p>
+                  )}
+
+                  {/* Primary Action Button: «Открыть» ONLY */}
+                  <div className="relative z-10 pt-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenIncomingInvitation();
+                      }}
+                      className="w-full h-[50px] xs:h-[52px] sm:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/40 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_6px_20px_-4px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_6px_20px_-4px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[14.5px] xs:text-[15.5px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Mail size={17} strokeWidth={2.2} />
+                      <span>Открыть</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
-              /* STATE B: Sent invitation or resolved invitation (accepted/declined) */
-              <div className="w-full max-w-[280px] xs:max-w-[305px] mx-auto mt-2.5 xs:mt-3 px-3.5 py-2.5 rounded-2xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.18)] dark:shadow-none transition-all duration-300 animate-[card-enter_280ms_cubic-bezier(0.22,1,0.36,1)]">
-                {/* Row 1: Header / Title */}
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] truncate">
-                    <span>💌</span>
-                    <span className="truncate">Свидание</span>
+              /* STATE B: Sent invitation or resolved invitation (accepted/declined) -> 10-20% larger, spacious & elegant */
+              <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-4.5 relative group">
+                {/* Soft ambient cherry/burgundy mist UNDER the card */}
+                <div
+                  className="absolute -inset-3 rounded-[32px] bg-gradient-to-b from-[#FAD4DF]/25 via-[#F7CAD6]/15 to-transparent dark:from-[#3D222E]/30 dark:via-[#2F1A24]/15 dark:to-transparent blur-xl pointer-events-none -z-10"
+                  aria-hidden="true"
+                />
+
+                <div className="w-full px-5.5 py-4.5 xs:px-6.5 xs:py-5.5 sm:px-7 sm:py-6 rounded-[26px] bg-gradient-to-b from-[#FFFDFB]/95 via-[#FFFFFF]/90 to-[#FAF6F3]/95 dark:from-[#211A1F]/95 dark:via-[#1D171C]/95 dark:to-[#171216]/95 backdrop-blur-md border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_8px_26px_-6px_rgba(233,135,135,0.2)] dark:shadow-[0_12px_30px_-8px_rgba(0,0,0,0.5)] transition-all duration-300 animate-card-enter relative overflow-hidden">
+                  {/* Subtle inner hairline border */}
+                  <div className="absolute inset-2.5 rounded-[20px] border border-[#F2E1E6]/60 dark:border-[#362A32]/60 pointer-events-none" />
+
+                  {/* Row 1: Header / Title */}
+                  <div className="relative z-10 flex items-center justify-between gap-2 mb-2.5">
+                    <div className="inline-flex items-center gap-1.5 text-xs xs:text-[13px] font-semibold text-[#E98787] dark:text-[#F0B9C6] truncate">
+                      <span>💌</span>
+                      <span className="truncate">Свидание</span>
+                    </div>
+
+                    {invitation.status !== 'pending' && (
+                      <button
+                        type="button"
+                        onClick={() => dateInvitationService.clearInvitation(couple?.id)}
+                        title="Закрыть"
+                        className="text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer shrink-0 p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                      >
+                        <X size={15} />
+                      </button>
+                    )}
                   </div>
 
-                  {invitation.status !== 'pending' && (
-                    <button
-                      type="button"
-                      onClick={() => dateInvitationService.clearInvitation(couple?.id)}
-                      title="Закрыть"
-                      className="text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer shrink-0 p-0.5"
-                    >
-                      <X size={13} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Row 2: Date idea title */}
-                <div
-                  onClick={handleOpenIncomingInvitation}
-                  className="text-xs xs:text-sm font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-2 cursor-pointer hover:text-[#E98787] transition-colors"
-                >
-                  «{invitation.idea.title}»
-                </div>
-
-                {/* Row 3: Status line */}
-                <div className="flex flex-col gap-1 text-xs font-medium">
+                  {/* Row 2: Date idea title */}
                   <div
-                    className={`inline-flex items-center gap-1.5 font-semibold ${
-                      invitation.status === 'pending'
-                        ? 'text-amber-600 dark:text-amber-400'
-                        : invitation.status === 'accepted'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-stone-500 dark:text-stone-400'
-                    }`}
+                    onClick={handleOpenIncomingInvitation}
+                    className="relative z-10 text-[15.5px] xs:text-[16.5px] sm:text-[17px] font-semibold text-[#343033] dark:text-[#FAF5F7] truncate mb-3 cursor-pointer hover:text-[#E98787] dark:hover:text-[#F0B9C6] transition-colors"
                   >
+                    «{invitation.idea.title}»
+                  </div>
+
+                  {/* Row 3: Status line */}
+                  <div className="relative z-10 flex flex-col gap-1.5 text-xs xs:text-[13.5px] font-medium pt-2.5 border-t border-[#F2E1E6]/70 dark:border-[#33272F]">
                     {invitation.status === 'pending' && (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                      <div className="inline-flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
                         <span>{partnerDisplayName}: Ожидание</span>
-                      </>
+                      </div>
                     )}
                     {invitation.status === 'accepted' && (
-                      <>
-                        <Check size={13} strokeWidth={2.5} className="shrink-0" />
-                        <span>
-                          {invitation.senderId === 'user'
-                            ? `${partnerDisplayName}: Согласна`
-                            : 'Ты: Согласна'}
-                        </span>
-                      </>
+                      <div className="inline-flex items-center gap-2 font-semibold text-emerald-600 dark:text-emerald-400">
+                        <Check size={16} strokeWidth={2.5} className="shrink-0" />
+                        <span>Свидание принято</span>
+                      </div>
                     )}
                     {invitation.status === 'declined' && (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-stone-400 shrink-0" />
-                        <span>
-                          {invitation.senderId === 'user'
-                            ? `${partnerDisplayName}: Отказ`
-                            : 'Ты: Отказ'}
-                        </span>
-                      </>
+                      <div className="inline-flex items-center gap-2 font-semibold text-stone-500 dark:text-stone-400">
+                        <span className="w-2 h-2 rounded-full bg-stone-400 shrink-0" />
+                        <span>Приглашение отклонено</span>
+                      </div>
                     )}
                   </div>
-
-                  {/* Status confirmation label */}
-                  {invitation.status === 'accepted' && (
-                    <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
-                      Свидание согласовано ✨
-                    </span>
-                  )}
-                  {invitation.status === 'declined' && (
-                    <span className="text-[11px] text-[#777277] dark:text-[#A8A1A4]">
-                      Приглашение отклонено
-                    </span>
-                  )}
                 </div>
               </div>
             )}
@@ -716,7 +731,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 ${
+          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3.5 xs:p-4 sm:p-6 ${
             isClosingModal
               ? 'animate-[modal-backdrop-exit_260ms_cubic-bezier(0.25,1,0.5,1)_forwards]'
               : 'animate-[modal-backdrop-enter_460ms_cubic-bezier(0.22,1,0.36,1)]'
@@ -726,7 +741,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
           }}
         >
           <div
-            className={`w-full max-w-sm rounded-3xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#EBD6DC] dark:border-[#3E3039] p-6 xs:p-7 shadow-2xl relative overflow-hidden will-change-transform ${
+            className={`w-full max-w-[360px] xs:max-w-[390px] sm:max-w-[412px] rounded-3xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#EBD6DC] dark:border-[#3E3039] p-6.5 xs:p-7.5 sm:p-8 shadow-2xl relative overflow-hidden will-change-transform ${
               isClosingModal
                 ? 'animate-[letter-continuous-close_260ms_cubic-bezier(0.25,1,0.5,1)_forwards]'
                 : 'animate-[letter-continuous-bloom_520ms_cubic-bezier(0.22,1,0.36,1)]'
@@ -767,17 +782,17 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               </div>
 
               {/* Tag Badge */}
-              <div className="inline-block px-3 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#777277] dark:text-[#B8B0B4] text-xs font-medium mb-3.5">
+              <div className="inline-block px-3.5 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#777277] dark:text-[#B8B0B4] text-xs font-medium mb-3.5">
                 {currentIdea.tag}
               </div>
 
               {/* Date Title */}
-              <h2 className="text-xl xs:text-2xl font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-3 leading-snug px-1">
+              <h2 className="text-xl xs:text-2xl sm:text-[25px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-3 leading-snug px-1">
                 {currentIdea.title}
               </h2>
 
               {/* Description */}
-              <p className="text-sm text-[#554F54] dark:text-[#C5BEC2] leading-relaxed mb-6 max-w-[280px]">
+              <p className="text-sm xs:text-[14.5px] text-[#554F54] dark:text-[#C5BEC2] leading-relaxed mb-6 max-w-[300px]">
                 {currentIdea.description}
               </p>
 
@@ -820,7 +835,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         <div
           role="dialog"
           aria-modal="true"
-          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-hidden select-none ${
+          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 xs:p-4 sm:p-6 overflow-hidden select-none ${
             isIncomingClosing
               ? 'animate-[modal-backdrop-exit_260ms_cubic-bezier(0.25,1,0.5,1)_forwards]'
               : 'animate-[modal-backdrop-enter_460ms_cubic-bezier(0.22,1,0.36,1)]'
@@ -841,24 +856,24 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
           {/* 1. Atmospheric Soft Radiant Glow: static blur-2xl, hardware-accelerated transform + opacity only */}
           <div
-            className="absolute w-72 xs:w-80 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(254,205,211,0.5)_0%,_rgba(253,230,138,0.22)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
+            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(254,205,211,0.5)_0%,_rgba(253,230,138,0.22)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
           {/* 2. Soft Floating Mist Veil: single lightweight layer that gently expands and fades out */}
           <div
-            className="absolute w-80 xs:w-96 h-64 rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(circle,_rgba(255,255,255,0.7)_0%,_rgba(254,226,236,0.35)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-mist-veil_750ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
+            className="absolute w-96 xs:w-[440px] h-72 rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(circle,_rgba(255,255,255,0.7)_0%,_rgba(254,226,236,0.35)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-mist-veil_750ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
-          {/* Main Incoming Invitation Card — Emerges smoothly and seamlessly through the mist with transform + opacity */}
+          {/* Main Incoming Invitation Card — Sized 10-20% larger, emerging smoothly through the mist with transform + opacity */}
           <div
-            className={`w-full max-w-sm rounded-3xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#EBD6DC] dark:border-[#3E3039] p-6 xs:p-7 shadow-2xl relative overflow-hidden will-change-[transform,opacity] z-10 ${
+            className={`w-full max-w-[390px] xs:max-w-[420px] sm:max-w-[440px] rounded-[32px] bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#EBD6DC] dark:border-[#3E3039] p-6.5 xs:p-7.5 sm:p-8.5 shadow-2xl relative overflow-hidden will-change-[transform,opacity] z-10 ${
               isIncomingClosing
                 ? 'animate-[letter-continuous-close_260ms_cubic-bezier(0.25,1,0.5,1)_forwards]'
                 : 'animate-[incoming-card-reveal_650ms_cubic-bezier(0.22,1,0.36,1)]'
             }`}
           >
             {/* Delicate inner hairline border */}
-            <div className="absolute inset-3 rounded-2xl border border-[#F2E1E6]/80 dark:border-[#362A32] pointer-events-none" />
+            <div className="absolute inset-3.5 rounded-[26px] border border-[#F2E1E6]/80 dark:border-[#362A32] pointer-events-none" />
 
             {/* Corner accent flourishes */}
             <div className="absolute top-4 left-4 text-[#E98787]/40 text-xs pointer-events-none select-none">
@@ -881,14 +896,14 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             {/* Incoming Date Card Content */}
             <div className="relative z-10 flex flex-col items-center text-center">
               {/* Upper Ribbon */}
-              <div className="flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-[#E98787] dark:text-[#F0B9C6] mb-3">
+              <div className="flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-[#E98787] dark:text-[#F0B9C6] mb-3.5">
                 <span className="w-5 h-px bg-[#E98787]/40" />
                 <span>{invitation.senderId === 'partner' ? 'Входящее приглашение 💌' : 'Приглашение на свидание 💌'}</span>
                 <span className="w-5 h-px bg-[#E98787]/40" />
               </div>
 
               {/* Partner invite heading */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold mb-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold mb-2.5">
                 <Heart size={13} fill="currentColor" />
                 <span>
                   {invitation.senderId === 'partner'
@@ -898,17 +913,17 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               </div>
 
               {/* Tag Badge */}
-              <div className="inline-block px-3 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#777277] dark:text-[#B8B0B4] text-xs font-medium mb-3">
+              <div className="inline-block px-3.5 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#777277] dark:text-[#B8B0B4] text-xs font-medium mb-3.5">
                 {invitation.idea.tag}
               </div>
 
               {/* Date Title */}
-              <h2 className="text-xl xs:text-2xl font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-2 leading-snug px-1">
+              <h2 className="text-xl xs:text-2xl sm:text-[26px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-2.5 leading-snug px-1">
                 {invitation.idea.title}
               </h2>
 
               {/* Description */}
-              <p className="text-sm text-[#554F54] dark:text-[#C5BEC2] leading-relaxed mb-6 max-w-[280px]">
+              <p className="text-sm xs:text-[14.5px] text-[#554F54] dark:text-[#C5BEC2] leading-relaxed mb-6.5 max-w-[325px]">
                 {invitation.idea.description}
               </p>
 
@@ -918,7 +933,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleAcceptIncomingInvitation}
-                    className="w-full h-[52px] xs:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full h-[52px] xs:h-[56px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[15px] sm:text-[16px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check size={18} strokeWidth={2.4} />
                     <span>Принять</span>
@@ -927,18 +942,18 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleDeclineIncomingInvitation}
-                    className="w-full py-2.5 px-4 rounded-full text-[#8A8488] dark:text-[#9E969B] hover:text-[#343033] dark:hover:text-white font-medium text-xs active:scale-[0.985] transition-colors cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-full text-[#8A8488] dark:text-[#9E969B] hover:text-[#343033] dark:hover:text-white font-medium text-xs xs:text-sm active:scale-[0.985] transition-colors cursor-pointer"
                   >
                     Отклонить
                   </button>
                 </div>
               ) : (
-                <div className="w-full py-3 px-4 rounded-2xl bg-[#FAF0F2] dark:bg-[#2A2026] text-center border border-[#ECD4DC]/60 dark:border-[#3D3039]">
-                  <span className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center justify-center gap-1.5">
+                <div className="w-full py-3.5 px-4 rounded-2xl bg-[#FAF0F2] dark:bg-[#2A2026] text-center border border-[#ECD4DC]/60 dark:border-[#3D3039]">
+                  <span className="text-xs xs:text-sm font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center justify-center gap-1.5">
                     {invitation.status === 'accepted' ? (
                       <>
-                        <Check size={14} strokeWidth={2.4} />
-                        <span>Свидание согласовано ✨</span>
+                        <Check size={16} strokeWidth={2.4} />
+                        <span>Свидание принято</span>
                       </>
                     ) : invitation.status === 'declined' ? (
                       <span>Приглашение отклонено</span>
