@@ -596,7 +596,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   {/* Subtle inner hairline border */}
                   <div className="absolute inset-3 rounded-[22px] border border-[#F2E1E6]/60 dark:border-[#362A32]/60 pointer-events-none" />
 
-                  {/* Header row: Badge + Tag */}
+                  {/* Header row: Badge */}
                   <div className="relative z-10 flex items-center justify-between gap-2 mb-4">
                     <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold tracking-wide">
                       <span>💌</span>
@@ -608,12 +608,6 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                         />
                       )}
                     </div>
-
-                    {invitation.idea?.tag && (
-                      <span className="text-xs font-medium text-[#8C8488] dark:text-[#A8A1A4] px-3 py-1 rounded-full bg-black/[0.04] dark:bg-white/[0.06] shrink-0">
-                        {invitation.idea.tag}
-                      </span>
-                    )}
                   </div>
 
                   {/* Sender subtitle */}
@@ -781,10 +775,6 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 <span className="w-5 h-px bg-[#E98787]/40" />
               </div>
 
-              {/* Tag Badge */}
-              <div className="inline-block px-3.5 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#777277] dark:text-[#B8B0B4] text-xs font-medium mb-3.5">
-                {currentIdea.tag}
-              </div>
 
               {/* Date Title */}
               <h2 className="text-xl xs:text-2xl sm:text-[25px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-3 leading-snug px-1">
@@ -912,10 +902,6 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 </span>
               </div>
 
-              {/* Tag Badge */}
-              <div className="inline-block px-3.5 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#777277] dark:text-[#B8B0B4] text-xs font-medium mb-3.5">
-                {invitation.idea.tag}
-              </div>
 
               {/* Date Title */}
               <h2 className="text-xl xs:text-2xl sm:text-[26px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-2.5 leading-snug px-1">
