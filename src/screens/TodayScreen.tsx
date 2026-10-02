@@ -125,6 +125,28 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     });
   }, []);
 
+  // Unified moment reveal state (starts at Phase 4/5 of Match animation or if already revealed/reacted/completed)
+  const isMomentRevealed =
+    matchRevealedEarly ||
+    activeMoment.status === 'REVEALED' ||
+    activeMoment.status === 'REACTED' ||
+    activeMoment.status === 'COMPLETED';
+
+  // Auto-trigger Match animation when both photos are present and match hasn't been played yet for this moment
+  useEffect(() => {
+    if (
+      activeMoment &&
+      activeMoment.userPhoto &&
+      activeMoment.partnerPhoto &&
+      (activeMoment.status === 'BOTH_UPLOADED' || !isMomentRevealed) &&
+      !handledMatchMomentsRef.current.has(activeMoment.id) &&
+      !isMatching
+    ) {
+      handledMatchMomentsRef.current.add(activeMoment.id);
+      setIsMatching(true);
+    }
+  }, [activeMoment, isMatching, isMomentRevealed]);
+
   // Handle photo selection for the current user
   const handlePhotoSelected = (photoUrl: string) => {
     triggerHaptic(hapticEnabled);
@@ -148,6 +170,11 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
     const newPhotos = [userPhotoItem, ...partnerPhotoItem];
     const newStatus = activeMoment.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED';
+
+    if (activeMoment.partnerPhoto && !handledMatchMomentsRef.current.has(activeMoment.id)) {
+      handledMatchMomentsRef.current.add(activeMoment.id);
+      setIsMatching(true);
+    }
 
     onUpdateMoment({
       ...activeMoment,
@@ -183,6 +210,11 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     const newPhotos = [userPhotoItem, ...partnerPhotoItem];
     const newStatus = target.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED';
 
+    if (target.partnerPhoto && !handledMatchMomentsRef.current.has(target.id)) {
+      handledMatchMomentsRef.current.add(target.id);
+      setIsMatching(true);
+    }
+
     onUpdateMoment({
       ...target,
       userPhoto: photoUrl,
@@ -202,7 +234,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     setIsMatching(true);
   };
 
-  // Phase 4 trigger: when connecting elements meet in the center (720ms), initiate smooth reveal
+  // Phase 4 trigger: when connecting elements meet in the center, initiate smooth reveal
   const handleMatchConnection = useCallback(() => {
     setMatchRevealedEarly(true);
   }, []);
@@ -216,16 +248,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
       status: 'REVEALED',
     });
   }, [onUpdateMoment]);
-
-  // Unified moment reveal state (starts at Phase 4/5 of Match animation or if already revealed/reacted/completed)
-  const isMomentRevealed =
-    matchRevealedEarly ||
-    activeMoment.status === 'REVEALED' ||
-    activeMoment.status === 'REACTED' ||
-    activeMoment.status === 'COMPLETED';
-
-
-
 
   // Handle independent per-user reaction selection
   const handleSelectReaction = (emoji: ReactionEmoji) => {

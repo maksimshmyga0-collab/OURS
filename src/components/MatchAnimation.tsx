@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 
 interface MatchAnimationProps {
@@ -439,7 +440,7 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({
     };
   }, []);
 
-  return (
+  const content = (
     <div
       ref={containerRef}
       className="fixed inset-0 z-[9999] w-full h-full select-none pointer-events-auto bg-[#FFF9FA]/65 dark:bg-[#050406]/70 backdrop-blur-md overflow-hidden flex items-center justify-center"
@@ -453,4 +454,10 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({
       />
     </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(content, document.body);
+  }
+
+  return content;
 };

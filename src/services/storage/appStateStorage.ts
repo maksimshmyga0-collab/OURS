@@ -69,15 +69,18 @@ export function getInitialAppState(): AppState {
           parsed.history = [];
         }
 
-        // Clean out test mock partner photo in today's moment if it was the placeholder
-        if (
-          parsed.todayMoments[0] &&
-          parsed.todayMoments[0].partnerPhoto &&
-          parsed.todayMoments[0].partnerPhoto.includes('photo-1534528741775')
-        ) {
-          parsed.todayMoments[0].partnerPhoto = null;
-          if (parsed.todayMoments[0].status === 'USER_UPLOADED' && !parsed.todayMoments[0].userPhoto) {
+        // Clean out test photos from today's moments
+        if (parsed.todayMoments[0]) {
+          if (
+            (parsed.todayMoments[0].userPhoto && parsed.todayMoments[0].userPhoto.includes('photo-1517841905240')) ||
+            (parsed.todayMoments[0].partnerPhoto && (parsed.todayMoments[0].partnerPhoto.includes('photo-1539571696357') || parsed.todayMoments[0].partnerPhoto.includes('photo-1534528741775')))
+          ) {
+            parsed.todayMoments[0].userPhoto = null;
+            parsed.todayMoments[0].partnerPhoto = null;
+            parsed.todayMoments[0].photos = [];
             parsed.todayMoments[0].status = 'EMPTY';
+            parsed.todayMoments[0].userReaction = null;
+            parsed.todayMoments[0].partnerReaction = null;
           }
         }
 
