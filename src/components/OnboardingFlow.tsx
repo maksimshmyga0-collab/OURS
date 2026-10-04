@@ -10,6 +10,7 @@ import {
   Heart,
   Coffee,
   Copy,
+  KeyRound,
 } from 'lucide-react';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { OursLogo } from './OursLogo';
@@ -24,14 +25,19 @@ export interface OnboardingCompleteResult {
 interface OnboardingFlowProps {
   onComplete: (
     userName: string,
-    options?: { isJoin?: boolean; inviteCode?: string }
+    options?: {
+      isJoin?: boolean;
+      inviteCode?: string;
+      isRestore?: boolean;
+      personalCode?: string;
+    }
   ) => Promise<OnboardingCompleteResult | void> | void;
   onFinish?: () => void;
   onClose?: () => void;
   isPreview?: boolean;
 }
 
-type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join' | 'created-code';
+type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join' | 'restore' | 'created-code';
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onComplete,
@@ -43,10 +49,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [userName, setUserName] = useState<string>('');
   const [joinName, setJoinName] = useState<string>('');
   const [joinCode, setJoinCode] = useState<string>('');
+  const [restoreCode, setRestoreCode] = useState<string>('');
   const [createdInviteCode, setCreatedInviteCode] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [shakeField, setShakeField] = useState<'create-name' | 'join-name' | 'join-code' | null>(null);
+  const [shakeField, setShakeField] = useState<'create-name' | 'join-name' | 'join-code' | 'restore-code' | null>(null);
 
   // Helper for toasts with auto-dismiss
   const showToast = (message: string) => {
@@ -59,7 +66,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   };
 
   // Helper for shaking field
-  const triggerShake = (field: 'create-name' | 'join-name' | 'join-code') => {
+  const triggerShake = (field: 'create-name' | 'join-name' | 'join-code' | 'restore-code') => {
     setShakeField(field);
     setTimeout(() => setShakeField(null), 400);
   };
@@ -138,6 +145,36 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       }
     } catch (err: any) {
       showToast(err.message || 'Ошибка подключения к паре');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Restore personal code submission
+  const handleRestoreSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = restoreCode.trim();
+
+    if (!trimmed) {
+      triggerShake('restore-code');
+      showToast('Введи твой код OURS');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await onComplete('', {
+        isRestore: true,
+        personalCode: trimmed,
+      });
+
+      if (result && result.success === false) {
+        triggerShake('restore-code');
+        showToast(result.error || 'Не удалось восстановить пару');
+      }
+    } catch (err: any) {
+      triggerShake('restore-code');
+      showToast(err?.message || 'Не удалось восстановить пару');
     } finally {
       setIsSubmitting(false);
     }
@@ -492,8 +529,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 </p>
               </div>
 
-              {/* Two Big Action Cards */}
-              <div className="space-y-3.5">
+              {/* Three Action Cards */}
+              <div className="space-y-3">
                 {/* Card 1: Создать пару */}
                 <button
                   type="button"
@@ -502,7 +539,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     playSoftChime('tap', true);
                     setView('create');
                   }}
-                  className="w-full text-left p-5 rounded-[24px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#E98787]/60 cursor-pointer"
+                  className="w-full text-left p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#E98787]/60 cursor-pointer"
                 >
                   <div className="flex items-center gap-4">
                     {/* Pink Icon Area */}
@@ -529,7 +566,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     playSoftChime('tap', true);
                     setView('join');
                   }}
-                  className="w-full text-left p-5 rounded-[24px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#5B89AC]/60 cursor-pointer"
+                  className="w-full text-left p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#5B89AC]/60 cursor-pointer"
                 >
                   <div className="flex items-center gap-4">
                     {/* Blue Icon Area */}
@@ -542,6 +579,33 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                       </h3>
                       <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
                         У тебя уже есть код приглашения
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight size={18} className="text-[#CEC5C8] dark:text-[#6E676B] shrink-0" />
+                </button>
+
+                {/* Card 3: У меня уже есть пара */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(true);
+                    playSoftChime('tap', true);
+                    setView('restore');
+                  }}
+                  className="w-full text-left p-4 sm:p-5 rounded-[24px] bg-white dark:bg-[#141214] shadow-2xs border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-4 transition-all duration-150 active:scale-[0.98] hover:border-[#8B6299]/60 cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Violet/Lilac Icon Area */}
+                    <div className="w-12 h-12 rounded-[16px] bg-[#F7F2F9] dark:bg-[#1D1722] border border-[#EBDFEE] dark:border-[#34243D] flex items-center justify-center shrink-0 text-[#8B6299] dark:text-[#D1A8E2]">
+                      <KeyRound size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-bold text-base text-[#343033] dark:text-white">
+                        У меня уже есть пара
+                      </h3>
+                      <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
+                        Войти в свою пару с нового устройства
                       </p>
                     </div>
                   </div>
@@ -695,6 +759,78 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             <div className="pb-4 pt-8">
               <PrimaryButton variant="coral" type="submit" disabled={isSubmitting}>
                 {isSubmitting ? 'Подключение...' : 'Готово'}
+              </PrimaryButton>
+            </div>
+          </form>
+        )}
+
+        {/* ========================================================= */}
+        {/* SUB-SCREEN: ВЕРНУТЬСЯ В OURS (Restore / Personal Code)     */}
+        {/* ========================================================= */}
+        {view === 'restore' && (
+          <form
+            onSubmit={handleRestoreSubmit}
+            className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300"
+          >
+            <div className="pt-2">
+              {/* Top Back Button */}
+              <div className="flex items-center mb-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic(true);
+                    playSoftChime('tap', true);
+                    setView('hub');
+                  }}
+                  className="w-9 h-9 rounded-full bg-white dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#343033] dark:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                  title="Назад к выбору"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+              </div>
+
+              {/* Title & Subtitle */}
+              <h1 className="font-display text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white tracking-tight mb-2">
+                Вернуться в OURS
+              </h1>
+              <p className="text-sm text-[#777277] dark:text-[#B8B2B5] leading-relaxed mb-6">
+                Введи свой личный код, чтобы открыть свою пару на этом устройстве.
+              </p>
+
+              {/* Field: Твой код OURS */}
+              <div>
+                <label className="block text-xs font-semibold text-[#777277] dark:text-[#B8B2B5] mb-2 uppercase tracking-wider">
+                  Твой код OURS
+                </label>
+                <input
+                  type="text"
+                  value={restoreCode}
+                  onChange={(e) => setRestoreCode(e.target.value.toUpperCase())}
+                  placeholder="Твой код OURS"
+                  autoFocus
+                  className={`w-full h-[52px] px-4 rounded-[20px] bg-white dark:bg-[#141214] border ${
+                    shakeField === 'restore-code'
+                      ? 'border-[#E98787] animate-shake ring-2 ring-[#E98787]/25'
+                      : 'border-[#EBE3E5] dark:border-[#242024]'
+                  } text-sm font-mono tracking-wider text-[#343033] dark:text-white placeholder:text-[#A69FA3] dark:placeholder:text-[#6E676B] font-semibold focus:outline-none focus:border-[#E98787] focus:ring-2 focus:ring-[#E98787]/15 transition-all shadow-2xs`}
+                />
+              </div>
+
+              {/* Note / Additional explanation under the field */}
+              <div className="mt-4 p-4 rounded-[20px] bg-[#FAF0F2]/70 dark:bg-[#1A1417] border border-[#EED7DC]/80 dark:border-[#332227] flex items-start gap-3">
+                <div className="w-7 h-7 rounded-full bg-white dark:bg-[#221518] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] shadow-2xs shrink-0 mt-0.5">
+                  <Lock size={13} />
+                </div>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                  Этот код принадлежит только тебе. Не передавай его партнёру.
+                </p>
+              </div>
+            </div>
+
+            {/* Bottom Button */}
+            <div className="pb-4 pt-8">
+              <PrimaryButton variant="coral" type="submit" disabled={isSubmitting}>
+                Продолжить
               </PrimaryButton>
             </div>
           </form>

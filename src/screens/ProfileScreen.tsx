@@ -12,15 +12,22 @@ import {
   Shield,
   Heart,
   ChevronRight,
+  ChevronLeft,
   User,
   Sparkles,
   LogOut,
   UserMinus,
   FileText,
   Check,
+  KeyRound,
+  Copy,
+  Lock,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { getCoupleLevel, pluralizeWord } from '../services/gamification';
-import { triggerHaptic } from '../services/feedback';
+import { triggerHaptic, playSoftChime } from '../services/feedback';
+import { copyToClipboard } from '../services/device/clipboard';
+import { OursLogo } from '../components/OursLogo';
 
 export interface ProfileScreenProps {
   couple: CoupleState;
@@ -65,10 +72,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 }) => {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+  const [isCodesScreenOpen, setIsCodesScreenOpen] = useState(false);
+  const [hasCopiedPair, setHasCopiedPair] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
   const handleOpenLovely = onOpenLovely || onOpenPremium;
   const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
+
+  const pairCode = couple.inviteCode?.trim() || '';
+
+  const handleCopyPairCode = async () => {
+    if (!pairCode) return;
+    await copyToClipboard(pairCode);
+    setHasCopiedPair(true);
+    triggerHaptic(settings.haptic);
+    playSoftChime('tap', settings.sounds);
+    setTimeout(() => {
+      setHasCopiedPair(false);
+    }, 2000);
+  };
 
   const toggleNotification = () => {
     const nextState = !settings.notifications;
@@ -359,6 +381,40 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Codes Section: «Коды OURS» */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
+          Коды OURS
+        </h3>
+
+        <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] overflow-hidden shadow-2xs">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(settings.haptic);
+              playSoftChime('tap', settings.sounds);
+              setIsCodesScreenOpen(true);
+            }}
+            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] shrink-0">
+                <KeyRound size={16} />
+              </div>
+              <div className="min-w-0">
+                <span className="text-xs font-medium text-[#343033] dark:text-white block truncate">
+                  Коды OURS
+                </span>
+                <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5] block truncate">
+                  Коды для подключения и входа на новом устройстве
+                </span>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+          </button>
+        </div>
       </div>
 
       {/* Settings Section - iOS Grouped List */}
@@ -693,6 +749,150 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 </button>
               </div>
             </div>
+          </div>,
+          document.body
+        )}
+
+      {/* Dedicated Screen: «Коды OURS» */}
+      {isCodesScreenOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex flex-col bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] animate-sheet-enter overflow-hidden"
+            style={{
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Top Navigation Bar */}
+            <header className="sticky top-0 z-10 bg-[#FFF9FA]/92 dark:bg-[#000000]/92 backdrop-blur-xl border-b border-[#000000]/6 dark:border-[#242024] px-4 h-[56px] flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(settings.haptic);
+                  playSoftChime('tap', settings.sounds);
+                  setIsCodesScreenOpen(false);
+                }}
+                className="flex items-center gap-1.5 py-1.5 px-3 -ml-2 rounded-full bg-white/80 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] text-xs font-semibold text-[#343033] dark:text-white hover:bg-white dark:hover:bg-[#252225] active:scale-[0.97] transition-all cursor-pointer shadow-2xs"
+              >
+                <ChevronLeft size={16} className="text-[#E98787] dark:text-[#F0B9C6]" />
+                <span>Назад</span>
+              </button>
+
+              <div className="flex items-center gap-2 select-none">
+                <OursLogo size={32} className="shrink-0" />
+                <span className="font-display font-bold text-sm tracking-wide text-[#343033] dark:text-white">
+                  Коды OURS
+                </span>
+              </div>
+
+              <div className="w-16 flex justify-end">
+                <div className="w-8 h-8 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6]">
+                  <KeyRound size={16} />
+                </div>
+              </div>
+            </header>
+
+            {/* Scrollable Document/Cards Container */}
+            <main className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 max-w-md mx-auto w-full space-y-5">
+              {/* Header Title & Subtitle */}
+              <div className="space-y-1.5 text-left pt-1">
+                <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white tracking-tight">
+                  Коды пары
+                </h2>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                  Используйте эти коды для подключения партнёра и безопасного входа на новых устройствах.
+                </p>
+              </div>
+
+              {/* Card 1: Код пары */}
+              <div className="rounded-[24px] p-5 border border-[#EBE3E5] dark:border-[#242024] bg-white dark:bg-[#141214] shadow-2xs space-y-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-[14px] bg-[#EDF4FB] dark:bg-[#151D26] border border-[#D5E3F0] dark:border-[#203040] flex items-center justify-center text-[#4A6B82] dark:text-[#7BAEE8] shrink-0">
+                    <LinkIcon size={18} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-display font-bold text-base text-[#343033] dark:text-white">
+                      Код пары
+                    </h3>
+                    <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-relaxed">
+                      Поделись им с партнёром, чтобы подключить его к вашей паре.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Value row with Copy button */}
+                <div className="p-3 sm:p-3.5 rounded-[18px] bg-[#FAF5F7] dark:bg-[#1A1618] border border-[#EBE3E5] dark:border-[#282226] flex items-center justify-between gap-3">
+                  <span className="font-mono font-bold text-base sm:text-lg tracking-wider text-[#343033] dark:text-white select-all truncate">
+                    {pairCode || 'OURS'}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyPairCode}
+                    className="shrink-0 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#201518] text-xs font-semibold text-[#343033] dark:text-white border border-[#EBE3E5] dark:border-[#382329] shadow-2xs hover:bg-[#FAF0F2] dark:hover:bg-[#2A181E] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {hasCopiedPair ? (
+                      <>
+                        <Check size={13} className="text-[#2E7D46] dark:text-[#52B778]" strokeWidth={2.5} />
+                        <span className="text-[#2E7D46] dark:text-[#52B778]">Скопировано</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={13} className="text-[#777277] dark:text-[#B8B2B5]" />
+                        <span>Копировать</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Твой код */}
+              <div className="space-y-2.5">
+                <div className="rounded-[24px] p-5 border border-[#EBE3E5] dark:border-[#242024] bg-white dark:bg-[#141214] shadow-2xs space-y-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-[14px] bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] shrink-0">
+                      <KeyRound size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-display font-bold text-base text-[#343033] dark:text-white">
+                        Твой код
+                      </h3>
+                      <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-relaxed">
+                        Используй его, чтобы войти в свою пару на новом устройстве.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Value row with disabled/placeholder button */}
+                  <div className="p-3 sm:p-3.5 rounded-[18px] bg-[#FAF5F7]/80 dark:bg-[#1A1618]/60 border border-dashed border-[#E0D6D9] dark:border-[#2E282C] flex items-center justify-between gap-3">
+                    <span className="font-sans text-xs sm:text-sm font-medium text-[#A69FA3] dark:text-[#6E676B] select-none italic">
+                      Скоро будет доступен
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled
+                      className="shrink-0 px-3.5 py-1.5 rounded-full bg-white/40 dark:bg-[#201518]/30 text-xs font-semibold text-[#A69FA3] dark:text-[#5A5458] border border-[#EBE3E5]/60 dark:border-[#282226] opacity-40 cursor-not-allowed flex items-center gap-1.5"
+                      title="Код пока недоступен"
+                    >
+                      <Copy size={13} />
+                      <span>Копировать</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-note under Card 2 */}
+                <div className="px-3.5 py-2.5 rounded-[16px] bg-[#FAF0F2]/50 dark:bg-[#181416]/50 border border-[#EED7DC]/50 dark:border-[#2E2024] flex items-start gap-2.5">
+                  <Lock size={13} className="text-[#E98787] dark:text-[#F0B9C6] shrink-0 mt-0.5" />
+                  <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                    Твой код нужен только тебе. Не передавай его партнёру.
+                  </p>
+                </div>
+              </div>
+            </main>
           </div>,
           document.body
         )}

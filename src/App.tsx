@@ -404,14 +404,24 @@ export default function App() {
     return getCoupleMatchedDates(appState.couple, appState.todayMoments, appState.history);
   }, [appState.couple, appState.todayMoments, appState.history]);
 
-  // Handle Onboarding Completion (Create or Join Pair via Supabase)
+  // Handle Onboarding Completion (Create, Join, or Restore Pair via Supabase)
   const handleOnboardingComplete = async (
     userName: string,
-    options?: { isJoin?: boolean; inviteCode?: string }
+    options?: {
+      isJoin?: boolean;
+      inviteCode?: string;
+      isRestore?: boolean;
+      personalCode?: string;
+    }
   ) => {
     try {
       let res;
-      if (options?.isJoin && options.inviteCode) {
+      if (options?.isRestore) {
+        if (!options.personalCode) {
+          return { success: false, error: 'Личный код не указан' };
+        }
+        res = await apiClient.restoreUserByPersonalCode(options.personalCode);
+      } else if (options?.isJoin && options.inviteCode) {
         res = await apiClient.joinPair(userName, options.inviteCode);
       } else {
         res = await apiClient.createPair(userName);
@@ -422,7 +432,7 @@ export default function App() {
 
         setAppState((prev) => ({
           ...prev,
-          hasCompletedOnboarding: Boolean(options?.isJoin),
+          hasCompletedOnboarding: Boolean(options?.isJoin || options?.isRestore),
           couple: {
             ...res.pair!,
             pairSeed: pairSeedVal,

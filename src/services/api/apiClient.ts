@@ -643,11 +643,37 @@ export class ApiClient {
   }
 
   /**
+   * Временная диагностическая проверка RPC get_my_personal_code() для текущей сессии
+   */
+  async checkPersonalCodeDiagnostic(): Promise<void> {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentAuthUid = sessionData?.session?.user?.id || this.currentUserId;
+      console.log('[OURS Diagnostic] Текущий auth.uid():', currentAuthUid);
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_personal_code');
+
+      if (rpcError) {
+        console.error('[OURS Diagnostic] Ошибка RPC get_my_personal_code():', rpcError);
+      } else {
+        console.log('[OURS Diagnostic] Результат RPC get_my_personal_code():', rpcData);
+      }
+    } catch (diagError) {
+      console.error('[OURS Diagnostic] Исключение при выполнении get_my_personal_code():', diagError);
+    }
+  }
+
+  /**
    * Initializes or restores Supabase user session and pair state
    */
   async initSession(): Promise<SessionResponse> {
     syncServerClock().catch(() => {});
     const userId = await this.ensureAuthenticatedUser();
+
+    // Временная диагностика: вызов RPC get_my_personal_code() после успешной инициализации сессии
+    this.checkPersonalCodeDiagnostic().catch((err) => {
+      console.error('[OURS Diagnostic] Ошибка при запуске диагностики RPC:', err);
+    });
 
     if (!supabaseConfig.isConfigured) {
       const profile = await this.getOrCreateProfile(userId);
@@ -833,6 +859,51 @@ export class ApiClient {
 
     this.currentPairId = pairId;
     const assembled = await this.assemblePairData(pairId, userId);
+    return {
+      success: true,
+      pair: assembled.pair,
+      moments: assembled.moments,
+      history: assembled.history,
+    };
+  }
+
+  /**
+   * Restore existing user pair membership by personal code via Supabase RPC
+   */
+  async restoreUserByPersonalCode(personalCode: string): Promise<PairResponse> {
+    const userId = await this.ensureAuthenticatedUser();
+    const cleanCode = personalCode.trim().toUpperCase();
+
+    const { data: rpcData, error: rpcError } = await supabase.rpc(
+      'restore_user_by_personal_code',
+      {
+        p_personal_code: cleanCode,
+      }
+    );
+
+    if (rpcError) {
+      const errMsg = rpcError.message || '';
+      if (errMsg.includes('Personal code not found')) {
+        throw new Error('Личный код не найден. Проверьте правильность кода.');
+      }
+      if (errMsg.includes('User already belongs to a pair')) {
+        throw new Error('Вы уже состоите в паре');
+      }
+      throw new Error(rpcError.message || 'Ошибка восстановления доступа');
+    }
+
+    const pairId = Array.isArray(rpcData)
+      ? rpcData[0]?.pair_id
+      : rpcData?.pair_id;
+
+    if (!pairId) {
+      throw new Error('Не удалось получить идентификатор пары');
+    }
+
+    this.currentPairId = pairId;
+
+    const assembled = await this.assemblePairData(pairId, userId);
+
     return {
       success: true,
       pair: assembled.pair,
@@ -1582,3 +1653,7 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+if (typeof window !== 'undefined') {
+  (window as any).apiClient = apiClient;
+}
