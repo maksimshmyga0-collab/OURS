@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { CoupleState, CoupleStreakInfo, AppSettings, Moment, HistoryDay } from '../types';
 import { PastelCard } from '../components/PastelCard';
@@ -28,6 +28,7 @@ import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { copyToClipboard } from '../services/device/clipboard';
 import { OursLogo } from '../components/OursLogo';
+import { supabase } from '../services/api/supabaseClient';
 
 export interface ProfileScreenProps {
   couple: CoupleState;
@@ -74,10 +75,38 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isCodesScreenOpen, setIsCodesScreenOpen] = useState(false);
   const [hasCopiedPair, setHasCopiedPair] = useState(false);
+  const [personalCode, setPersonalCode] = useState<string | null>(null);
+  const [hasCopiedPersonal, setHasCopiedPersonal] = useState(false);
+  const [isLoadingPersonalCode, setIsLoadingPersonalCode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
   const handleOpenLovely = onOpenLovely || onOpenPremium;
   const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
+
+  // Lazy-fetch personal code when codes screen is opened
+  useEffect(() => {
+    let isMounted = true;
+    if (isCodesScreenOpen && !personalCode && !isLoadingPersonalCode) {
+      setIsLoadingPersonalCode(true);
+      (async () => {
+        try {
+          const { data, error } = await supabase.rpc('get_my_personal_code');
+          if (isMounted && data && !error) {
+            setPersonalCode(typeof data === 'string' ? data : (data as any)?.personal_code || null);
+          }
+        } catch {
+          // ignore network warning
+        } finally {
+          if (isMounted) {
+            setIsLoadingPersonalCode(false);
+          }
+        }
+      })();
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isCodesScreenOpen, personalCode, isLoadingPersonalCode]);
 
   const pairCode = couple.inviteCode?.trim() || '';
 
@@ -89,6 +118,17 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     playSoftChime('tap', settings.sounds);
     setTimeout(() => {
       setHasCopiedPair(false);
+    }, 2000);
+  };
+
+  const handleCopyPersonalCode = async () => {
+    if (!personalCode) return;
+    await copyToClipboard(personalCode);
+    setHasCopiedPersonal(true);
+    triggerHaptic(settings.haptic);
+    playSoftChime('tap', settings.sounds);
+    setTimeout(() => {
+      setHasCopiedPersonal(false);
     }, 2000);
   };
 
@@ -866,20 +906,29 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     </div>
                   </div>
 
-                  {/* Value row with disabled/placeholder button */}
-                  <div className="p-3 sm:p-3.5 rounded-[18px] bg-[#FAF5F7]/80 dark:bg-[#1A1618]/60 border border-dashed border-[#E0D6D9] dark:border-[#2E282C] flex items-center justify-between gap-3">
-                    <span className="font-sans text-xs sm:text-sm font-medium text-[#A69FA3] dark:text-[#6E676B] select-none italic">
-                      Скоро будет доступен
+                  {/* Value row with Copy button */}
+                  <div className="p-3 sm:p-3.5 rounded-[18px] bg-[#FAF5F7] dark:bg-[#1A1618] border border-[#EBE3E5] dark:border-[#282226] flex items-center justify-between gap-3">
+                    <span className="font-mono font-bold text-base sm:text-lg tracking-wider text-[#343033] dark:text-white select-all truncate">
+                      {personalCode || (isLoadingPersonalCode ? 'Загрузка...' : '—')}
                     </span>
 
                     <button
                       type="button"
-                      disabled
-                      className="shrink-0 px-3.5 py-1.5 rounded-full bg-white/40 dark:bg-[#201518]/30 text-xs font-semibold text-[#A69FA3] dark:text-[#5A5458] border border-[#EBE3E5]/60 dark:border-[#282226] opacity-40 cursor-not-allowed flex items-center gap-1.5"
-                      title="Код пока недоступен"
+                      onClick={handleCopyPersonalCode}
+                      disabled={!personalCode}
+                      className="shrink-0 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#201518] text-xs font-semibold text-[#343033] dark:text-white border border-[#EBE3E5] dark:border-[#382329] shadow-2xs hover:bg-[#FAF0F2] dark:hover:bg-[#2A181E] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-default"
                     >
-                      <Copy size={13} />
-                      <span>Копировать</span>
+                      {hasCopiedPersonal ? (
+                        <>
+                          <Check size={13} className="text-[#2E7D46] dark:text-[#52B778]" strokeWidth={2.5} />
+                          <span className="text-[#2E7D46] dark:text-[#52B778]">Скопировано</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={13} className="text-[#777277] dark:text-[#B8B2B5]" />
+                          <span>Копировать</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
