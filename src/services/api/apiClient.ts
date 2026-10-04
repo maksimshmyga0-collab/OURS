@@ -913,6 +913,63 @@ export class ApiClient {
   }
 
   /**
+   * Get current user's personal code from Supabase RPC get_my_personal_code
+   */
+  async getMyPersonalCode(): Promise<{ personalCode: string | null; error: string | null }> {
+    console.log('[OURS PersonalCode] load started');
+    try {
+      // Check current Supabase session and user ID
+      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      const sessionUser = sessionData?.session?.user;
+      const sessionUserId = sessionUser?.id || null;
+      const currentUserId = this.currentUserId;
+
+      console.log('[OURS PersonalCode] session check:', {
+        hasSession: Boolean(sessionData?.session),
+        sessionUserId,
+        apiClientUserId: currentUserId,
+        isMatch: Boolean(sessionUserId && sessionUserId === currentUserId),
+        sessionError: sessionErr?.message || null,
+      });
+
+      // Ensure user is authenticated if session is missing
+      if (!sessionUserId) {
+        await this.ensureAuthenticatedUser();
+      }
+
+      console.log('[OURS PersonalCode] before RPC');
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_personal_code');
+      console.log('[OURS PersonalCode] after RPC');
+      console.log('[OURS PersonalCode] data:', rpcData);
+      console.log('[OURS PersonalCode] error:', rpcError);
+
+      if (rpcError) {
+        return {
+          personalCode: null,
+          error: rpcError.message || 'Ошибка RPC get_my_personal_code',
+        };
+      }
+
+      const cleanCode = typeof rpcData === 'string'
+        ? rpcData
+        : (rpcData as any)?.personal_code || null;
+
+      return {
+        personalCode: cleanCode,
+        error: cleanCode ? null : 'Личный код не найден',
+      };
+    } catch (err: any) {
+      console.error('[OURS PersonalCode] error:', err);
+      return {
+        personalCode: null,
+        error: err?.message || 'Непредвиденная ошибка при получении кода',
+      };
+    } finally {
+      console.log('[OURS PersonalCode] load finished');
+    }
+  }
+
+  /**
    * Update Profile in public.profiles
    */
   async updateProfile(updates: { name?: string; avatarUrl?: string | null; avatarColor?: string }) {

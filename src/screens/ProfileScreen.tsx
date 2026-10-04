@@ -28,7 +28,7 @@ import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { copyToClipboard } from '../services/device/clipboard';
 import { OursLogo } from '../components/OursLogo';
-import { supabase } from '../services/api/supabaseClient';
+import { apiClient } from '../services/api/apiClient';
 
 export interface ProfileScreenProps {
   couple: CoupleState;
@@ -78,35 +78,42 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [personalCode, setPersonalCode] = useState<string | null>(null);
   const [hasCopiedPersonal, setHasCopiedPersonal] = useState(false);
   const [isLoadingPersonalCode, setIsLoadingPersonalCode] = useState(false);
+  const [personalCodeError, setPersonalCodeError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
   const handleOpenLovely = onOpenLovely || onOpenPremium;
   const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
 
+  const loadPersonalCode = async (isRetry = false) => {
+    if (isLoadingPersonalCode) return;
+    if (personalCode && !isRetry) return;
+
+    setIsLoadingPersonalCode(true);
+    setPersonalCodeError(null);
+
+    try {
+      const res = await apiClient.getMyPersonalCode();
+      if (res.personalCode) {
+        setPersonalCode(res.personalCode);
+        setPersonalCodeError(null);
+      } else {
+        setPersonalCodeError(res.error || 'Не удалось загрузить код');
+      }
+    } catch (err: any) {
+      console.error('[OURS PersonalCode] error in ProfileScreen:', err);
+      setPersonalCodeError(err?.message || 'Ошибка загрузки');
+    } finally {
+      console.log('[OURS PersonalCode] setting loading false');
+      setIsLoadingPersonalCode(false);
+    }
+  };
+
   // Lazy-fetch personal code when codes screen is opened
   useEffect(() => {
-    let isMounted = true;
-    if (isCodesScreenOpen && !personalCode && !isLoadingPersonalCode) {
-      setIsLoadingPersonalCode(true);
-      (async () => {
-        try {
-          const { data, error } = await supabase.rpc('get_my_personal_code');
-          if (isMounted && data && !error) {
-            setPersonalCode(typeof data === 'string' ? data : (data as any)?.personal_code || null);
-          }
-        } catch {
-          // ignore network warning
-        } finally {
-          if (isMounted) {
-            setIsLoadingPersonalCode(false);
-          }
-        }
-      })();
+    if (isCodesScreenOpen && !personalCode && !isLoadingPersonalCode && !personalCodeError) {
+      loadPersonalCode();
     }
-    return () => {
-      isMounted = false;
-    };
-  }, [isCodesScreenOpen, personalCode, isLoadingPersonalCode]);
+  }, [isCodesScreenOpen, personalCode, personalCodeError]);
 
   const pairCode = couple.inviteCode?.trim() || '';
 
@@ -906,30 +913,48 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     </div>
                   </div>
 
-                  {/* Value row with Copy button */}
+                  {/* Value row with Copy / Retry button */}
                   <div className="p-3 sm:p-3.5 rounded-[18px] bg-[#FAF5F7] dark:bg-[#1A1618] border border-[#EBE3E5] dark:border-[#282226] flex items-center justify-between gap-3">
                     <span className="font-mono font-bold text-base sm:text-lg tracking-wider text-[#343033] dark:text-white select-all truncate">
-                      {personalCode || (isLoadingPersonalCode ? 'Загрузка...' : '—')}
+                      {personalCode ? personalCode : (isLoadingPersonalCode ? 'Загрузка...' : (personalCodeError ? 'Не удалось загрузить' : '—'))}
                     </span>
 
-                    <button
-                      type="button"
-                      onClick={handleCopyPersonalCode}
-                      disabled={!personalCode}
-                      className="shrink-0 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#201518] text-xs font-semibold text-[#343033] dark:text-white border border-[#EBE3E5] dark:border-[#382329] shadow-2xs hover:bg-[#FAF0F2] dark:hover:bg-[#2A181E] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-default"
-                    >
-                      {hasCopiedPersonal ? (
-                        <>
-                          <Check size={13} className="text-[#2E7D46] dark:text-[#52B778]" strokeWidth={2.5} />
-                          <span className="text-[#2E7D46] dark:text-[#52B778]">Скопировано</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={13} className="text-[#777277] dark:text-[#B8B2B5]" />
-                          <span>Копировать</span>
-                        </>
-                      )}
-                    </button>
+                    {personalCode ? (
+                      <button
+                        type="button"
+                        onClick={handleCopyPersonalCode}
+                        className="shrink-0 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#201518] text-xs font-semibold text-[#343033] dark:text-white border border-[#EBE3E5] dark:border-[#382329] shadow-2xs hover:bg-[#FAF0F2] dark:hover:bg-[#2A181E] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {hasCopiedPersonal ? (
+                          <>
+                            <Check size={13} className="text-[#2E7D46] dark:text-[#52B778]" strokeWidth={2.5} />
+                            <span className="text-[#2E7D46] dark:text-[#52B778]">Скопировано</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={13} className="text-[#777277] dark:text-[#B8B2B5]" />
+                            <span>Копировать</span>
+                          </>
+                        )}
+                      </button>
+                    ) : personalCodeError ? (
+                      <button
+                        type="button"
+                        onClick={() => loadPersonalCode(true)}
+                        className="shrink-0 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#201518] text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC] dark:border-[#382329] shadow-2xs hover:bg-[#FAF0F2] dark:hover:bg-[#2A181E] active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Повторить</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="shrink-0 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#201518] text-xs font-semibold text-[#777277] border border-[#EBE3E5] dark:border-[#382329] shadow-2xs opacity-50 cursor-default flex items-center gap-1.5"
+                      >
+                        <Copy size={13} className="text-[#777277] dark:text-[#B8B2B5]" />
+                        <span>Копировать</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
