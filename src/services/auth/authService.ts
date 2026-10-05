@@ -79,9 +79,11 @@ export class AppAuthService implements IAuthService {
   }
 
   async signInAnonymously(displayName: string = ''): Promise<User> {
-    const { data } = await supabase.auth.signInAnonymously();
-    const authUser = data?.user;
-    const userId = authUser?.id || `user-${Date.now()}`;
+    const { data, error } = await supabase.auth.signInAnonymously();
+    if (error || !data?.user?.id) {
+      throw new Error(error?.message || 'Не удалось выполнить анонимный вход');
+    }
+    const userId = data.user.id;
 
     if (displayName && supabaseConfig.isConfigured) {
       await supabase.from('profiles').upsert(

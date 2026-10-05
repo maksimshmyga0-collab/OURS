@@ -61,6 +61,13 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
+    // Safety timeout: ensure splash/loading screen is never stuck forever on dead connection
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsLoadingSession(false);
+      }
+    }, 7000);
+
     async function init() {
       try {
         const session = await apiClient.initSession();
@@ -74,11 +81,26 @@ export default function App() {
               prev.couple.isLovely ||
               prev.couple.subscription === 'premium'
             );
-            return {
+
+            // Partner name preservation: avoid degrading known partner name to fallback 'Партнёр'
+            const partnerName = (session.pair!.partner.name && session.pair!.partner.name !== 'Партнёр')
+              ? session.pair!.partner.name
+              : (prev.couple.partner.name && prev.couple.partner.name !== 'Партнёр')
+                ? prev.couple.partner.name
+                : (session.pair!.partner.name || 'Партнёр');
+
+            const partnerAvatar = session.pair!.partner.avatarUrl || prev.couple.partner.avatarUrl || null;
+
+            const nextState: AppState = {
               ...prev,
               hasCompletedOnboarding: true,
               couple: {
                 ...session.pair!,
+                partner: {
+                  ...session.pair!.partner,
+                  name: partnerName,
+                  avatarUrl: partnerAvatar,
+                },
                 isLovely,
                 subscription: isLovely ? 'premium' : (session.pair!.subscription || 'free'),
                 lovelyPurchasedAt: session.pair!.lovelyPurchasedAt || prev.couple.lovelyPurchasedAt,
@@ -93,6 +115,8 @@ export default function App() {
                   ? session.history
                   : prev.history,
             };
+            saveAppState(nextState);
+            return nextState;
           });
         } else {
           setAppState((prev) => ({
@@ -119,6 +143,7 @@ export default function App() {
       } catch (err) {
         console.error('[OURS] Failed to initialize session:', err);
       } finally {
+        clearTimeout(safetyTimer);
         if (isMounted) {
           setIsLoadingSession(false);
         }
@@ -129,6 +154,7 @@ export default function App() {
 
     return () => {
       isMounted = false;
+      clearTimeout(safetyTimer);
     };
   }, []);
 
@@ -269,14 +295,22 @@ export default function App() {
                 );
               });
 
+            const resolvedPartnerName = (res.pair!.partner.name && res.pair!.partner.name !== 'Партнёр')
+              ? res.pair!.partner.name
+              : (prev.couple.partner.name && prev.couple.partner.name !== 'Партнёр')
+                ? prev.couple.partner.name
+                : (res.pair!.partner.name || 'Партнёр');
+
+            const resolvedPartnerAvatar = res.pair!.partner.avatarUrl || prev.couple.partner.avatarUrl || null;
+
             const coupleChanged =
               prev.couple.connected !== res.pair!.connected ||
               prev.couple.isLovely !== isLovelyActive ||
               prev.couple.subscription !== (isLovelyActive ? 'premium' : (res.pair!.subscription || 'free')) ||
               prev.couple.user.name !== res.pair!.user.name ||
               prev.couple.user.avatarUrl !== res.pair!.user.avatarUrl ||
-              prev.couple.partner.name !== res.pair!.partner.name ||
-              prev.couple.partner.avatarUrl !== res.pair!.partner.avatarUrl ||
+              prev.couple.partner.name !== resolvedPartnerName ||
+              prev.couple.partner.avatarUrl !== resolvedPartnerAvatar ||
               prev.couple.daysTogether !== res.pair!.daysTogether;
 
             const historyChanged =
@@ -286,10 +320,15 @@ export default function App() {
               return prev; // Identical state -> zero re-renders!
             }
 
-            return {
+            const nextState: AppState = {
               ...prev,
               couple: {
                 ...res.pair!,
+                partner: {
+                  ...res.pair!.partner,
+                  name: resolvedPartnerName,
+                  avatarUrl: resolvedPartnerAvatar,
+                },
                 isLovely: isLovelyActive,
                 subscription: isLovelyActive ? 'premium' : (res.pair!.subscription || 'free'),
                 lovelyPurchasedAt: res.pair!.lovelyPurchasedAt || (isLovelyActive ? prev.couple.lovelyPurchasedAt : undefined),
@@ -299,6 +338,8 @@ export default function App() {
               activeMomentId: validActiveId,
               history: res.history && res.history.length > 0 ? res.history : prev.history,
             };
+            saveAppState(nextState);
+            return nextState;
           });
         }
 
@@ -429,18 +470,36 @@ export default function App() {
 
       if (res.success && res.pair) {
         const pairSeedVal = `pair_${res.pair.id}`;
+        const partnerName = (res.pair.partner.name && res.pair.partner.name !== 'Партнёр')
+          ? res.pair.partner.name
+          : (appState.couple.partner.name && appState.couple.partner.name !== 'Партнёр')
+            ? appState.couple.partner.name
+            : (res.pair.partner.name || 'Партнёр');
 
-        setAppState((prev) => ({
-          ...prev,
-          hasCompletedOnboarding: Boolean(options?.isJoin || options?.isRestore),
-          couple: {
-            ...res.pair!,
-            pairSeed: pairSeedVal,
+        const partnerAvatar = res.pair.partner.avatarUrl || appState.couple.partner.avatarUrl || null;
+
+        const updatedCouple = {
+          ...res.pair,
+          partner: {
+            ...res.pair.partner,
+            name: partnerName,
+            avatarUrl: partnerAvatar,
           },
-          todayMoments: res.moments || prev.todayMoments,
-          activeMomentId: res.moments?.[0]?.id || prev.activeMomentId,
-          history: res.history || [],
-        }));
+          pairSeed: pairSeedVal,
+        };
+
+        setAppState((prev) => {
+          const nextState: AppState = {
+            ...prev,
+            hasCompletedOnboarding: Boolean(options?.isJoin || options?.isRestore),
+            couple: updatedCouple,
+            todayMoments: res.moments || prev.todayMoments,
+            activeMomentId: res.moments?.[0]?.id || prev.activeMomentId,
+            history: res.history || [],
+          };
+          saveAppState(nextState);
+          return nextState;
+        });
 
         return {
           success: true,
@@ -702,16 +761,20 @@ export default function App() {
 
   // Update Current User Profile (Name & Photo)
   const handleSaveProfile = useCallback(async (updated: Partial<UserProfile>) => {
-    setAppState((prev) => ({
-      ...prev,
-      couple: {
-        ...prev.couple,
-        user: {
-          ...prev.couple.user,
-          ...updated,
+    setAppState((prev) => {
+      const nextState: AppState = {
+        ...prev,
+        couple: {
+          ...prev.couple,
+          user: {
+            ...prev.couple.user,
+            ...updated,
+          },
         },
-      },
-    }));
+      };
+      saveAppState(nextState);
+      return nextState;
+    });
 
     try {
       await apiClient.updateProfile({

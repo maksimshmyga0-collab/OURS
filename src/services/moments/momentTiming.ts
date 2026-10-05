@@ -477,14 +477,14 @@ export function getPromptForPairMoment(pairId: string, dateKey: string, order: 1
   return DAILY_PROMPTS_POOL[promptIdx];
 }
 
-export function createFreshDayMoments(pairId: string, dateKey: string): Moment[] {
+export function createFreshDayMoments(pairId: string, dateKey: string, currentUserId: string = ''): Moment[] {
   const nowIso = new Date().toISOString();
   return ([1, 2, 3] as const).map((order) => {
     const promptData = getPromptForPairMoment(pairId, dateKey, order);
     return {
       id: `moment-${pairId}-${dateKey}-${order}`,
       pairId,
-      createdBy: 'user-a-default',
+      createdBy: currentUserId || '',
       createdAt: nowIso,
       dateKey,
       imageUrl: null,

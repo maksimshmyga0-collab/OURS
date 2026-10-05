@@ -142,14 +142,14 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     const partnerPhotoItem: MomentPhoto[] = activeMoment.partnerPhoto
       ? [
           {
-            userId: couple.partner.id || 'user-b-default',
+            userId: couple.partner.id || '',
             imageUrl: activeMoment.partnerPhoto,
             createdAt: nowIso,
           },
         ]
       : [];
     const userPhotoItem: MomentPhoto = {
-      userId: couple.user.id || 'user-a-default',
+      userId: couple.user.id || '',
       imageUrl: photoUrl,
       createdAt: nowIso,
     };
@@ -176,14 +176,14 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     const partnerPhotoItem: MomentPhoto[] = target.partnerPhoto
       ? [
           {
-            userId: couple.partner.id || 'user-b-default',
+            userId: couple.partner.id || '',
             imageUrl: target.partnerPhoto,
             createdAt: nowIso,
           },
         ]
       : [];
     const userPhotoItem: MomentPhoto = {
-      userId: couple.user.id || 'user-a-default',
+      userId: couple.user.id || '',
       imageUrl: photoUrl,
       createdAt: nowIso,
     };

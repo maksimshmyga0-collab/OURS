@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Moment, HistoryDay, ReactionEmoji } from '../../types/models';
 import { momentService } from './momentService';
 
-export function useMoments(pairId: string = 'pair-default-1', currentUserId: string = 'user-a-default') {
+export function useMoments(pairId: string = '', currentUserId: string = '') {
   const [moments, setMoments] = useState<Moment[]>([]);
   const [history, setHistory] = useState<HistoryDay[]>([]);
   const [activeMomentId, setActiveMomentId] = useState<string>('');
@@ -50,12 +50,12 @@ export function useMoments(pairId: string = 'pair-default-1', currentUserId: str
 
   // Simulate or receive partner photo
   const simulatePartnerPhoto = useCallback(
-    async (momentId: string, partnerPhotoUrl: string) => {
+    async (momentId: string, partnerPhotoUrl: string, partnerUserId: string = '') => {
       const updated = await momentService.submitPartnerPhoto(
         pairId,
         momentId,
         partnerPhotoUrl,
-        'user-b-default'
+        partnerUserId
       );
       return updated;
     },

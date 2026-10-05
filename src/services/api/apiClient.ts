@@ -4,6 +4,7 @@
  */
 
 import { supabase, supabaseConfig } from './supabaseClient';
+import { env } from '../config/env';
 import { photoStorageService } from '../storage/storageService';
 import {
   CoupleState,
@@ -75,6 +76,48 @@ export class ApiClient {
   private currentPairId: string | null = null;
   private activeChannels: Map<string, any> = new Map();
   private historyCache: Map<string, { data: HistoryDay[]; timestamp: number }> = new Map();
+  private authLockPromise: Promise<string> | null = null;
+  private cachedPartnerNames: Map<string, string> = new Map();
+
+  constructor() {
+    try {
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user?.id) {
+          this.currentUserId = session.user.id;
+        } else if (event === 'SIGNED_OUT') {
+          this.currentUserId = null;
+          this.currentPairId = null;
+          this.historyCache.clear();
+        }
+      });
+    } catch {
+      // Safe fallback if auth state change listener is unavailable
+    }
+  }
+
+  /**
+   * Helper: Resolves backend API base URL (supports absolute URL in native Capacitor APK or relative in web)
+   */
+  private getApiBaseUrl(): string {
+    const configured = env.apiUrl;
+    if (configured && typeof configured === 'string') {
+      return configured.replace(/\/+$/, '');
+    }
+    return '';
+  }
+
+  /**
+   * Cache or retrieve known partner name for this pair to prevent fallback degradation
+   */
+  getKnownPartnerName(pairId: string): string | null {
+    return this.cachedPartnerNames.get(pairId) || null;
+  }
+
+  setKnownPartnerName(pairId: string, name: string): void {
+    if (name && name.trim() && name.trim() !== 'Партнёр') {
+      this.cachedPartnerNames.set(pairId, name.trim());
+    }
+  }
 
   /**
    * Invalidate history cache on data mutations
@@ -84,6 +127,18 @@ export class ApiClient {
       this.historyCache.delete(pairId);
     } else {
       this.historyCache.clear();
+    }
+  }
+
+  /**
+   * Helper: Get current active Supabase access token for authenticated API requests
+   */
+  async getAuthToken(): Promise<string | null> {
+    try {
+      const { data } = await supabase.auth.getSession();
+      return data?.session?.access_token || null;
+    } catch {
+      return null;
     }
   }
 
@@ -106,40 +161,78 @@ export class ApiClient {
   }
 
   /**
-   * Helper: Ensures anonymous Supabase authentication and returns real auth user ID
+   * Helper: Ensures valid anonymous Supabase authentication and returns real auth user ID.
+   * Completely eliminates fake UUIDs, enforces single-flight locking, and handles token refresh.
    */
   async ensureAuthenticatedUser(): Promise<string> {
+    // 1. If we have a cached user ID, verify the Supabase session is still active
     if (this.currentUserId) {
-      return this.currentUserId;
+      try {
+        const { data: currentSession } = await supabase.auth.getSession();
+        if (currentSession?.session?.user?.id === this.currentUserId) {
+          const expiresAt = currentSession.session.expires_at;
+          // If token has at least 60 seconds of validity remaining, return cached ID
+          if (!expiresAt || (expiresAt * 1000) > (Date.now() + 60000)) {
+            return this.currentUserId;
+          }
+        }
+      } catch {
+        // Fall through to performEnsureAuth
+      }
     }
 
+    // 2. Single-flight lock: deduplicate concurrent authentication requests
+    if (this.authLockPromise) {
+      return this.authLockPromise;
+    }
+
+    this.authLockPromise = this.performEnsureAuth().finally(() => {
+      this.authLockPromise = null;
+    });
+
+    return this.authLockPromise;
+  }
+
+  private async performEnsureAuth(): Promise<string> {
     try {
       const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-      let user = sessionData?.session?.user;
+      let session = sessionData?.session;
+
+      // Check if session token needs refresh
+      if (session) {
+        const expiresAt = session.expires_at;
+        if (expiresAt && (expiresAt * 1000) <= (Date.now() + 60000)) {
+          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+          if (!refreshErr && refreshed.session) {
+            session = refreshed.session;
+          } else {
+            console.warn('[OURS Auth] Token refresh failed or session expired. Re-authenticating anonymously:', refreshErr?.message);
+            session = null;
+          }
+        }
+      }
+
+      let user: any = session?.user;
 
       if (!user || sessionErr) {
         const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
         if (signInError) {
-          console.warn('[OURS Auth] Anonymous sign in warning:', signInError.message);
+          console.error('[OURS Auth] Anonymous sign in failed:', signInError.message);
+          throw new Error(`Ошибка авторизации: ${signInError.message}`);
         }
-        if (signInData?.user) {
-          user = signInData.user;
-        }
+        user = signInData?.user;
       }
 
       if (user?.id) {
         this.currentUserId = user.id;
         return user.id;
       }
-    } catch (err) {
-      console.warn('[OURS Auth] Exception getting auth session:', err);
-    }
 
-    const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : '00000000-0000-4000-8000-' + Math.random().toString(16).substring(2, 14).padEnd(12, '0');
-    this.currentUserId = fallbackId;
-    return fallbackId;
+      throw new Error('[OURS Auth] Не удалось получить валидный идентификатор пользователя');
+    } catch (err: any) {
+      console.error('[OURS Auth] Exception in performEnsureAuth:', err);
+      throw err;
+    }
   }
 
   /**
@@ -337,18 +430,32 @@ export class ApiClient {
     const partnerUserId = partnerMember?.user_id || '';
     const partnerProfileRow = partnerUserId ? profileMap.get(partnerUserId) : null;
 
+    let partnerName = partnerProfileRow?.name?.trim() || '';
+    let partnerAvatar = partnerProfileRow?.avatar_url || null;
+
+    if (partnerUserId && !partnerName) {
+      const pData = await this.getOrCreateProfile(partnerUserId, '');
+      if (pData.displayName) {
+        partnerName = pData.displayName;
+        partnerAvatar = pData.avatarUrl;
+      }
+    }
+
+    // Preservation: if partnerName is still empty, check if we have a locally cached known partner name
+    if (!partnerName && this.cachedPartnerNames.has(pairId)) {
+      partnerName = this.cachedPartnerNames.get(pairId) || '';
+    }
+
+    if (partnerName && partnerName !== 'Партнёр') {
+      this.cachedPartnerNames.set(pairId, partnerName);
+    }
+
     const partnerProfile = {
       id: partnerUserId,
-      name: partnerProfileRow?.name || (partnerUserId ? 'Партнёр' : ''),
-      avatarUrl: partnerProfileRow?.avatar_url || null,
+      name: partnerName || (partnerUserId ? 'Партнёр' : ''),
+      avatarUrl: partnerAvatar,
       avatarColor: '#DDEAF7',
     };
-
-    if (partnerUserId && !partnerProfile.name) {
-      const pData = await this.getOrCreateProfile(partnerUserId, 'Партнёр');
-      partnerProfile.name = pData.displayName || 'Партнёр';
-      partnerProfile.avatarUrl = pData.avatarUrl;
-    }
 
     const isConnected = Boolean(partnerUserId);
     const pairSeedVal = `pair_${pairId}`;
@@ -901,8 +1008,13 @@ export class ApiClient {
     }
 
     this.currentPairId = pairId;
+    this.invalidateHistoryCache(pairId);
 
     const assembled = await this.assemblePairData(pairId, userId);
+
+    if (assembled.pair.partner.name && assembled.pair.partner.name !== 'Партнёр') {
+      this.cachedPartnerNames.set(pairId, assembled.pair.partner.name);
+    }
 
     return {
       success: true,
@@ -1406,9 +1518,15 @@ export class ApiClient {
     }
 
     try {
-      const res = await fetch('/api/yookassa/create-payment', {
+      const baseUrl = this.getApiBaseUrl();
+      const session = (await supabase.auth.getSession()).data?.session;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`${baseUrl}/api/yookassa/create-payment`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ pairId: targetPairId, returnUrl }),
       });
 
@@ -1434,7 +1552,8 @@ export class ApiClient {
     }
 
     try {
-      const res = await fetch(`/api/yookassa/check-status/${encodeURIComponent(paymentId)}`);
+      const baseUrl = this.getApiBaseUrl();
+      const res = await fetch(`${baseUrl}/api/yookassa/check-status/${encodeURIComponent(paymentId)}`);
       const data = await res.json();
       return data;
     } catch (err: any) {
@@ -1451,17 +1570,47 @@ export class ApiClient {
   }
 
   /**
-   * Fetch active date invitation for pair from Supabase (with backend fallback)
+   * Fetch active date invitation for pair from persistent Supabase database
    */
   async fetchDateInvitation(pairId: string): Promise<any> {
     if (!pairId) return null;
+    const cleanPairId = pairId.trim();
 
-    // 1. Primary source of truth: Supabase database
+    // 1. Primary: Direct query to Supabase date_invitations table with Pair Isolation RLS
+    try {
+      const { data, error } = await supabase
+        .from('date_invitations')
+        .select('*')
+        .eq('pair_id', cleanPairId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        return {
+          id: data.id,
+          pairId: data.pair_id,
+          senderUserId: data.creator_user_id,
+          senderName: data.sender_name,
+          recipientUserId: data.recipient_user_id,
+          recipientName: data.recipient_name,
+          idea: data.idea,
+          status: data.status,
+          readByRecipient: data.read_by_recipient,
+          createdAt: data.created_at,
+          respondedAt: data.responded_at,
+        };
+      }
+    } catch {
+      // Fall through to moments table fallback
+    }
+
+    // 2. Compatibility fallback: moments table in Supabase (moment_date = '1970-01-01')
     try {
       const { data: dbMoments, error } = await supabase
         .from('moments')
         .select('*')
-        .eq('pair_id', pairId)
+        .eq('pair_id', cleanPairId)
         .eq('moment_date', '1970-01-01')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -1473,7 +1622,7 @@ export class ApiClient {
             const rawJson = row.prompt.replace('DATE_INVITATION:', '');
             const parsed = JSON.parse(rawJson);
             if (parsed && parsed.id) {
-              return { ...parsed, pairId, dbMomentId: row.id };
+              return { ...parsed, pairId: cleanPairId, dbMomentId: row.id };
             }
           } catch (e) {
             console.warn('[OURS Date] JSON parse error from Supabase moment:', e);
@@ -1481,25 +1630,14 @@ export class ApiClient {
         }
       }
     } catch (dbErr) {
-      console.warn('[OURS Date] Supabase fetch exception:', dbErr);
-    }
-
-    // 2. Secondary fallback: Backend API
-    try {
-      const res = await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}`);
-      const data = await res.json();
-      if (data && data.success && data.invitation) {
-        return data.invitation;
-      }
-    } catch (err) {
-      console.warn('[OURS Date] Failed to fetch date invitation from backend API:', err);
+      // silent catch
     }
 
     return null;
   }
 
   /**
-   * Send a new date invitation, persist to Supabase + backend, and broadcast to partner
+   * Send a new date invitation, persist to Supabase database, and broadcast realtime to partner
    */
   async sendDateInvitation(payload: {
     pairId: string;
@@ -1512,52 +1650,72 @@ export class ApiClient {
   }): Promise<any> {
     if (!payload.pairId) return null;
 
+    const userId = await this.ensureAuthenticatedUser();
+    const cleanPairId = payload.pairId.trim();
     const invId = payload.id || `inv-${Date.now()}`;
+    const nowIso = new Date().toISOString();
+
     const invitationData = {
       id: invId,
-      pairId: payload.pairId,
-      senderUserId: payload.senderUserId || this.currentUserId || '',
+      pairId: cleanPairId,
+      senderUserId: userId,
       senderName: payload.senderName || 'Ты',
       recipientUserId: payload.recipientUserId || '',
       recipientName: payload.recipientName || 'Партнёр',
       idea: payload.idea,
       status: 'pending',
       readByRecipient: false,
-      createdAt: new Date().toISOString(),
+      createdAt: nowIso,
     };
 
-    // 1. Persist directly to Supabase
-    try {
-      // Clean up previous date invitation moments for this pair
-      await supabase
-        .from('moments')
-        .delete()
-        .eq('pair_id', payload.pairId)
-        .eq('moment_date', '1970-01-01');
+    let savedToTable = false;
 
-      // Insert new date invitation moment
-      await supabase.from('moments').insert({
-        pair_id: payload.pairId,
-        moment_date: '1970-01-01',
-        prompt: `DATE_INVITATION:${JSON.stringify(invitationData)}`,
-      });
-    } catch (dbErr) {
-      console.warn('[OURS Date] Supabase insert date invitation exception:', dbErr);
+    // 1. Persist directly to Supabase date_invitations table
+    try {
+      const { error } = await supabase
+        .from('date_invitations')
+        .insert({
+          id: invId,
+          pair_id: cleanPairId,
+          creator_user_id: userId,
+          sender_name: invitationData.senderName,
+          recipient_user_id: invitationData.recipientUserId || null,
+          recipient_name: invitationData.recipientName,
+          idea: invitationData.idea,
+          status: 'pending',
+          read_by_recipient: false,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+
+      if (!error) {
+        savedToTable = true;
+      }
+    } catch {
+      savedToTable = false;
     }
 
-    // 2. Persist to backend server API
-    try {
-      await fetch('/api/dates/invitation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(invitationData),
-      });
-    } catch (apiErr) {
-      console.warn('[OURS Date] Backend API insert date invitation exception:', apiErr);
+    // 2. Compatibility fallback: Supabase moments table
+    if (!savedToTable) {
+      try {
+        await supabase
+          .from('moments')
+          .delete()
+          .eq('pair_id', cleanPairId)
+          .eq('moment_date', '1970-01-01');
+
+        await supabase.from('moments').insert({
+          pair_id: cleanPairId,
+          moment_date: '1970-01-01',
+          prompt: `DATE_INVITATION:${JSON.stringify(invitationData)}`,
+        });
+      } catch (dbErr) {
+        console.warn('[OURS Date] Error saving invitation to Supabase fallback:', dbErr);
+      }
     }
 
     // 3. Broadcast instant Realtime notification to partner
-    this.broadcastPairUpdate(payload.pairId, {
+    this.broadcastPairUpdate(cleanPairId, {
       action: 'date_invitation_created',
       invitation: invitationData,
     });
@@ -1566,17 +1724,26 @@ export class ApiClient {
   }
 
   /**
-   * Mark date invitation as read by recipient in Supabase + backend
+   * Mark date invitation as read by recipient in Supabase
    */
   async markDateInvitationAsRead(pairId: string): Promise<any> {
     if (!pairId) return null;
+    const cleanPairId = pairId.trim();
 
-    // 1. Update in Supabase
+    // 1. Update in date_invitations table
+    try {
+      await supabase
+        .from('date_invitations')
+        .update({ read_by_recipient: true, updated_at: new Date().toISOString() })
+        .eq('pair_id', cleanPairId);
+    } catch {}
+
+    // 2. Update in moments table fallback
     try {
       const { data: rows } = await supabase
         .from('moments')
         .select('*')
-        .eq('pair_id', pairId)
+        .eq('pair_id', cleanPairId)
         .eq('moment_date', '1970-01-01')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -1595,38 +1762,60 @@ export class ApiClient {
         }
       }
     } catch (dbErr) {
-      console.warn('[OURS Date] Supabase mark read exception:', dbErr);
-    }
-
-    // 2. Update in Backend API
-    try {
-      await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}/read`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-      });
-    } catch (apiErr) {
-      console.warn('[OURS Date] Backend API mark read exception:', apiErr);
+      // Best-effort
     }
 
     // 3. Broadcast Realtime
-    this.broadcastPairUpdate(pairId, { action: 'date_invitation_read' });
+    this.broadcastPairUpdate(cleanPairId, { action: 'date_invitation_read' });
     return true;
   }
 
   /**
-   * Respond to date invitation (accepted / declined) in Supabase + backend
+   * Respond to date invitation (accepted / declined) in Supabase
    */
   async respondToDateInvitation(pairId: string, status: 'accepted' | 'declined'): Promise<any> {
-    if (!pairId) return null;
-
+    if (!pairId || (status !== 'accepted' && status !== 'declined')) return null;
+    const cleanPairId = pairId.trim();
+    const respondedAt = new Date().toISOString();
     let updatedInvitation: any = null;
 
-    // 1. Update in Supabase
+    // 1. Update in Supabase date_invitations table
+    try {
+      const { data, error } = await supabase
+        .from('date_invitations')
+        .update({
+          status,
+          read_by_recipient: true,
+          responded_at: respondedAt,
+          updated_at: respondedAt,
+        })
+        .eq('pair_id', cleanPairId)
+        .select('*')
+        .maybeSingle();
+
+      if (!error && data) {
+        updatedInvitation = {
+          id: data.id,
+          pairId: data.pair_id,
+          senderUserId: data.creator_user_id,
+          senderName: data.sender_name,
+          recipientUserId: data.recipient_user_id,
+          recipientName: data.recipient_name,
+          idea: data.idea,
+          status: data.status,
+          readByRecipient: data.read_by_recipient,
+          createdAt: data.created_at,
+          respondedAt: data.responded_at,
+        };
+      }
+    } catch {}
+
+    // 2. Update in moments table fallback
     try {
       const { data: rows } = await supabase
         .from('moments')
         .select('*')
-        .eq('pair_id', pairId)
+        .eq('pair_id', cleanPairId)
         .eq('moment_date', '1970-01-01')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -1637,8 +1826,10 @@ export class ApiClient {
           const parsed = JSON.parse(row.prompt.replace('DATE_INVITATION:', ''));
           parsed.status = status;
           parsed.readByRecipient = true;
-          parsed.respondedAt = new Date().toISOString();
-          updatedInvitation = parsed;
+          parsed.respondedAt = respondedAt;
+          if (!updatedInvitation) {
+            updatedInvitation = parsed;
+          }
 
           await supabase
             .from('moments')
@@ -1649,26 +1840,11 @@ export class ApiClient {
         }
       }
     } catch (dbErr) {
-      console.warn('[OURS Date] Supabase respond exception:', dbErr);
-    }
-
-    // 2. Update in Backend API
-    try {
-      const res = await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}/respond`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      const data = await res.json();
-      if (data && data.success && data.invitation) {
-        updatedInvitation = data.invitation;
-      }
-    } catch (apiErr) {
-      console.warn('[OURS Date] Backend API respond exception:', apiErr);
+      // Best-effort
     }
 
     // 3. Broadcast Realtime
-    this.broadcastPairUpdate(pairId, {
+    this.broadcastPairUpdate(cleanPairId, {
       action: 'date_invitation_responded',
       status,
       invitation: updatedInvitation,
@@ -1678,33 +1854,33 @@ export class ApiClient {
   }
 
   /**
-   * Clear date invitation for pair in Supabase + backend
+   * Clear date invitation for pair in Supabase
    */
   async clearDateInvitation(pairId: string): Promise<boolean> {
     if (!pairId) return false;
+    const cleanPairId = pairId.trim();
 
-    // 1. Delete in Supabase
+    // 1. Delete from date_invitations table
+    try {
+      await supabase
+        .from('date_invitations')
+        .delete()
+        .eq('pair_id', cleanPairId);
+    } catch {}
+
+    // 2. Delete from moments table fallback
     try {
       await supabase
         .from('moments')
         .delete()
-        .eq('pair_id', pairId)
+        .eq('pair_id', cleanPairId)
         .eq('moment_date', '1970-01-01');
     } catch (dbErr) {
-      console.warn('[OURS Date] Supabase clear exception:', dbErr);
-    }
-
-    // 2. Delete in Backend API
-    try {
-      await fetch(`/api/dates/invitation/${encodeURIComponent(pairId)}`, {
-        method: 'DELETE',
-      });
-    } catch (apiErr) {
-      console.warn('[OURS Date] Backend API clear exception:', apiErr);
+      // Best-effort
     }
 
     // 3. Broadcast Realtime
-    this.broadcastPairUpdate(pairId, { action: 'date_invitation_cleared' });
+    this.broadcastPairUpdate(cleanPairId, { action: 'date_invitation_cleared' });
     return true;
   }
 }

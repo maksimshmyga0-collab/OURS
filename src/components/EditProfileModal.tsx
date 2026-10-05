@@ -5,6 +5,7 @@ import { PrimaryButton } from './PrimaryButton';
 import { X, Camera, RotateCcw, Check, ChevronRight, Sparkles } from 'lucide-react';
 import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
+import { optimizePhotoForUpload } from '../services/storage/imageOptimizer';
 
 export interface EditProfileModalProps {
   isOpen: boolean;
@@ -48,15 +49,19 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (typeof URL !== 'undefined' && URL.createObjectURL) {
-        const objectUrl = URL.createObjectURL(file);
-        setAvatarPreview(objectUrl);
-        setIsPhotoChanged(true);
-        triggerHaptic(hapticEnabled);
-        return;
+      try {
+        const optimized = await optimizePhotoForUpload(file, 360, 0.82);
+        if (optimized) {
+          setAvatarPreview(optimized);
+          setIsPhotoChanged(true);
+          triggerHaptic(hapticEnabled);
+          return;
+        }
+      } catch (err) {
+        console.warn('[EditProfileModal] Photo optimization failed, using reader fallback:', err);
       }
 
       const reader = new FileReader();

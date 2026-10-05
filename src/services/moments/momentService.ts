@@ -168,7 +168,7 @@ export class AppMomentService implements IMomentService {
     const freshMoments: Moment[] = INITIAL_TODAY_PROMPTS.map((item, idx) => ({
       id: `moment-${pairId}-${dateKey}-${idx + 1}`,
       pairId,
-      createdBy: 'user-a-default',
+      createdBy: '',
       createdAt: new Date().toISOString(),
       dateKey,
       imageUrl: null,
@@ -307,7 +307,7 @@ export class AppMomentService implements IMomentService {
     const freshMoments: Moment[] = INITIAL_TODAY_PROMPTS.map((item, idx) => ({
       id: `moment-${pairId}-${dateKey}-${idx + 1}`,
       pairId,
-      createdBy: 'user-a-default',
+      createdBy: '',
       createdAt: new Date().toISOString(),
       dateKey,
       imageUrl: null,

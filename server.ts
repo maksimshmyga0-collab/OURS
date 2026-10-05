@@ -1,5 +1,6 @@
 import express from 'express';
 import https from 'https';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -31,11 +32,11 @@ async function startServer() {
     }
     headers['host'] = new URL(SUPABASE_TARGET).host;
 
-    // Use publishable anon key for client requests; fallback to secret key if no publishable key configured
+    // Use publishable anon key for client requests; NEVER leak or inject secret key to client proxy
     const clientKey = req.headers['apikey'];
     const effectiveKey = (typeof clientKey === 'string' && (clientKey.startsWith('sb_publishable_') || clientKey.startsWith('eyJ')))
       ? clientKey
-      : (SUPABASE_ANON_KEY || SUPABASE_SECRET_KEY);
+      : SUPABASE_ANON_KEY;
 
     if (effectiveKey) {
       headers['apikey'] = effectiveKey;
@@ -110,12 +111,90 @@ async function startServer() {
     }
   }
 
-  // 1. Create YooKassa Payment
+  // Helper to authenticate user from Bearer token and verify pair membership
+  async function verifyUserPairMembership(
+    authHeader: string | undefined,
+    pairId: string
+  ): Promise<{ authorized: boolean; userId?: string; error?: string; status?: number }> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return { authorized: false, error: 'Authorization header with Bearer token is required', status: 401 };
+    }
+
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (!token) {
+      return { authorized: false, error: 'Bearer token is missing', status: 401 };
+    }
+
+    const authKey = SUPABASE_SECRET_KEY || SUPABASE_ANON_KEY;
+    if (!authKey) {
+      return { authorized: false, error: 'Server authentication configuration error', status: 500 };
+    }
+
+    try {
+      // 1. Verify user session with Supabase Auth
+      const userRes = await fetch(`${SUPABASE_TARGET}/auth/v1/user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'apikey': SUPABASE_ANON_KEY || authKey,
+        },
+      });
+
+      if (!userRes.ok) {
+        return { authorized: false, error: 'Invalid or expired user session', status: 401 };
+      }
+
+      const userData: any = await userRes.json();
+      const userId = userData?.id;
+      if (!userId) {
+        return { authorized: false, error: 'User ID could not be identified', status: 401 };
+      }
+
+      // 2. Verify user is an active member of this pair in public.pair_members
+      const memberRes = await fetch(
+        `${SUPABASE_TARGET}/rest/v1/pair_members?pair_id=eq.${encodeURIComponent(pairId)}&user_id=eq.${encodeURIComponent(userId)}&select=pair_id`,
+        {
+          headers: {
+            'apikey': authKey,
+            'Authorization': `Bearer ${authKey}`,
+          },
+        }
+      );
+
+      if (!memberRes.ok) {
+        return { authorized: false, error: 'Failed to verify pair membership', status: 500 };
+      }
+
+      const memberRows: any = await memberRes.json();
+      if (!Array.isArray(memberRows) || memberRows.length === 0) {
+        return { authorized: false, error: 'Forbidden: You do not belong to this pair', status: 403 };
+      }
+
+      return { authorized: true, userId };
+    } catch (err: any) {
+      console.error('[OURS Server] Membership verification error:', err);
+      return { authorized: false, error: 'Membership verification exception', status: 500 };
+    }
+  }
+
+  const isValidPairId = (id: any): boolean => typeof id === 'string' && /^[0-9a-zA-Z_-]{8,64}$/.test(id.trim());
+
+  // 1. Create YooKassa Payment - Protected: Only authenticated members of the pair can initiate payment
   app.post('/api/yookassa/create-payment', async (req, res) => {
     try {
       const { pairId, returnUrl } = req.body;
-      if (!pairId) {
-        return res.status(400).json({ success: false, error: 'pairId is required' });
+      const cleanPairId = typeof pairId === 'string' ? pairId.trim() : '';
+      if (!cleanPairId || !isValidPairId(cleanPairId)) {
+        return res.status(400).json({ success: false, error: 'Valid pairId is required' });
+      }
+
+      // Verify caller is an authenticated member of this pair
+      const authHeader = req.headers['authorization'];
+      const membership = await verifyUserPairMembership(authHeader, cleanPairId);
+      if (!membership.authorized) {
+        return res.status(membership.status || 403).json({
+          success: false,
+          error: membership.error || 'Access denied: You do not belong to this pair',
+        });
       }
 
       if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
@@ -130,7 +209,7 @@ async function startServer() {
         ? crypto.randomUUID()
         : 'yk-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
 
-      const defaultReturnUrl = returnUrl || `${req.headers.origin || 'http://localhost:3000'}/?payment=return&pairId=${encodeURIComponent(pairId)}`;
+      const defaultReturnUrl = returnUrl || `${req.headers.origin || 'http://localhost:3000'}/?payment=return&pairId=${encodeURIComponent(cleanPairId)}`;
 
       const paymentPayload = {
         amount: {
@@ -144,17 +223,18 @@ async function startServer() {
         },
         description: 'OURS LOVELY — Доступ для пары (2 устройства)',
         metadata: {
-          pairId,
+          pairId: cleanPairId,
+          userId: membership.userId,
         },
       };
 
-      const authHeader = 'Basic ' + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
+      const authHeaderYk = 'Basic ' + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
 
       const ykRes = await fetch('https://api.yookassa.ru/v3/payments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': authHeader,
+          'Authorization': authHeaderYk,
           'Idempotence-Key': idempotenceKey,
         },
         body: JSON.stringify(paymentPayload),
@@ -183,29 +263,29 @@ async function startServer() {
     }
   });
 
-  // 2. YooKassa Webhook Endpoint
+  // 2. YooKassa Webhook Endpoint - Strictly verify with YooKassa API before activating Lovely
   app.post('/api/yookassa/webhook', async (req, res) => {
     try {
       const event = req.body;
       const paymentObj = event?.object;
 
       if (event?.event === 'payment.succeeded' && paymentObj?.id) {
-        if (YOOKASSA_SHOP_ID && YOOKASSA_SECRET_KEY) {
-          const authHeader = 'Basic ' + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
-          const verifyRes = await fetch(`https://api.yookassa.ru/v3/payments/${paymentObj.id}`, {
-            headers: { 'Authorization': authHeader },
-          });
-          const verifiedData: any = await verifyRes.json();
-          if (verifiedData?.status === 'succeeded') {
-            const pairId = verifiedData.metadata?.pairId || paymentObj.metadata?.pairId;
-            if (pairId) {
-              await markPairAsLovely(pairId);
-            }
-          }
-        } else {
-          const pairId = paymentObj.metadata?.pairId;
-          if (pairId) {
-            await markPairAsLovely(pairId);
+        if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
+          console.warn('[YooKassa Webhook] Received webhook but YooKassa keys not configured on server. Ignoring.');
+          return res.status(200).json({ success: false, reason: 'unconfigured' });
+        }
+
+        const authHeader = 'Basic ' + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
+        const verifyRes = await fetch(`https://api.yookassa.ru/v3/payments/${encodeURIComponent(paymentObj.id)}`, {
+          headers: { 'Authorization': authHeader },
+        });
+        const verifiedData: any = await verifyRes.json();
+        if (verifiedData?.status === 'succeeded') {
+          const rawPairId = verifiedData.metadata?.pairId || paymentObj.metadata?.pairId;
+          const cleanPairId = typeof rawPairId === 'string' ? rawPairId.trim() : '';
+          // Strictly validate UUID or pair identifier format
+          if (cleanPairId && isValidPairId(cleanPairId)) {
+            await markPairAsLovely(cleanPairId);
           }
         }
       }
@@ -221,8 +301,8 @@ async function startServer() {
   app.get('/api/yookassa/check-status/:paymentId', async (req, res) => {
     try {
       const { paymentId } = req.params;
-      if (!paymentId) {
-        return res.status(400).json({ success: false, error: 'paymentId is required' });
+      if (!paymentId || !/^[0-9a-zA-Z_-]{8,64}$/.test(paymentId)) {
+        return res.status(400).json({ success: false, error: 'Valid paymentId is required' });
       }
 
       if (!YOOKASSA_SHOP_ID || !YOOKASSA_SECRET_KEY) {
@@ -233,15 +313,16 @@ async function startServer() {
       }
 
       const authHeader = 'Basic ' + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
-      const ykRes = await fetch(`https://api.yookassa.ru/v3/payments/${paymentId}`, {
+      const ykRes = await fetch(`https://api.yookassa.ru/v3/payments/${encodeURIComponent(paymentId)}`, {
         headers: { 'Authorization': authHeader },
       });
       const ykData: any = await ykRes.json();
 
       if (ykData?.status === 'succeeded') {
-        const pairId = ykData.metadata?.pairId;
-        if (pairId) {
-          await markPairAsLovely(pairId);
+        const rawPairId = ykData.metadata?.pairId;
+        const cleanPairId = typeof rawPairId === 'string' ? rawPairId.trim() : '';
+        if (cleanPairId && isValidPairId(cleanPairId)) {
+          await markPairAsLovely(cleanPairId);
         }
         return res.json({ success: true, status: 'succeeded', isLovely: true });
       }
@@ -254,47 +335,188 @@ async function startServer() {
   });
 
   // --------------------------------------------------------------------------
-  // Date Invitations REST API Endpoints
+  // Persistent Date Invitations REST API Endpoints
+  // Backed directly by Supabase PostgreSQL (date_invitations table + moments fallback)
+  // No disk JSON dependency, survives redeployments and restarts
   // --------------------------------------------------------------------------
-  const dateInvitationsByPair = new Map<string, any>();
-
-  const getNormPairKey = (id: string) => String(id || '').trim().toLowerCase();
 
   // 1. Get active date invitation for a pair
-  app.get('/api/dates/invitation/:pairId', (req, res) => {
+  app.get('/api/dates/invitation/:pairId', async (req, res) => {
     const rawPairId = req.params.pairId;
-    if (!rawPairId) {
-      return res.status(400).json({ success: false, error: 'pairId is required' });
+    const cleanPairId = typeof rawPairId === 'string' ? rawPairId.trim() : '';
+    if (!cleanPairId || !isValidPairId(cleanPairId)) {
+      return res.status(400).json({ success: false, error: 'Valid pairId is required' });
     }
-    const pairKey = getNormPairKey(rawPairId);
-    const invitation = dateInvitationsByPair.get(pairKey) || dateInvitationsByPair.get(rawPairId) || null;
-    return res.json({ success: true, invitation });
+
+    const authKey = SUPABASE_SECRET_KEY || SUPABASE_ANON_KEY;
+    if (!authKey) {
+      return res.status(500).json({ success: false, error: 'Database unconfigured' });
+    }
+
+    try {
+      // 1. Try Supabase date_invitations table
+      const dbRes = await fetch(
+        `${SUPABASE_TARGET}/rest/v1/date_invitations?pair_id=eq.${encodeURIComponent(cleanPairId)}&order=created_at.desc&limit=1`,
+        {
+          headers: {
+            'apikey': authKey,
+            'Authorization': `Bearer ${authKey}`,
+          },
+        }
+      );
+
+      if (dbRes.ok) {
+        const rows: any = await dbRes.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const row = rows[0];
+          return res.json({
+            success: true,
+            invitation: {
+              id: row.id,
+              pairId: row.pair_id,
+              senderUserId: row.creator_user_id,
+              senderName: row.sender_name,
+              recipientUserId: row.recipient_user_id,
+              recipientName: row.recipient_name,
+              idea: row.idea,
+              status: row.status,
+              readByRecipient: row.read_by_recipient,
+              createdAt: row.created_at,
+              respondedAt: row.responded_at,
+            },
+          });
+        }
+      }
+
+      // 2. Fallback to Supabase moments table
+      const momentRes = await fetch(
+        `${SUPABASE_TARGET}/rest/v1/moments?pair_id=eq.${encodeURIComponent(cleanPairId)}&moment_date=eq.1970-01-01&order=created_at.desc&limit=1`,
+        {
+          headers: {
+            'apikey': authKey,
+            'Authorization': `Bearer ${authKey}`,
+          },
+        }
+      );
+
+      if (momentRes.ok) {
+        const momentRows: any = await momentRes.json();
+        if (Array.isArray(momentRows) && momentRows.length > 0) {
+          const m = momentRows[0];
+          if (m.prompt && m.prompt.startsWith('DATE_INVITATION:')) {
+            try {
+              const parsed = JSON.parse(m.prompt.replace('DATE_INVITATION:', ''));
+              return res.json({ success: true, invitation: parsed });
+            } catch {}
+          }
+        }
+      }
+
+      return res.json({ success: true, invitation: null });
+    } catch (err: any) {
+      console.error('[Date Invitations API] Error fetching invitation:', err);
+      return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+    }
   });
 
   // 2. Create or update date invitation for a pair
-  app.post('/api/dates/invitation', (req, res) => {
+  app.post('/api/dates/invitation', async (req, res) => {
     try {
       const { pairId, id, senderUserId, senderName, recipientUserId, recipientName, idea, status, readByRecipient } = req.body;
-      if (!pairId || !idea) {
-        return res.status(400).json({ success: false, error: 'pairId and idea are required' });
+      const cleanPairId = typeof pairId === 'string' ? pairId.trim() : '';
+      if (!cleanPairId || !isValidPairId(cleanPairId) || !idea || typeof idea !== 'object') {
+        return res.status(400).json({ success: false, error: 'Valid pairId and idea object are required' });
       }
 
-      const pairKey = getNormPairKey(pairId);
-      const invitation = {
-        id: id || `inv-${Date.now()}`,
-        pairId: String(pairId).trim(),
-        senderUserId: String(senderUserId || '').trim(),
-        senderName: String(senderName || 'Ты').trim(),
-        recipientUserId: String(recipientUserId || '').trim(),
-        recipientName: String(recipientName || 'Партнёр').trim(),
-        idea,
-        status: status || 'pending',
-        readByRecipient: Boolean(readByRecipient),
-        createdAt: new Date().toISOString(),
+      // Validate idea fields and enforce string bounds
+      const cleanIdea = {
+        id: String(idea.id || '').slice(0, 50),
+        title: String(idea.title || '').slice(0, 100),
+        description: String(idea.description || '').slice(0, 300),
+        tag: String(idea.tag || '').slice(0, 50),
       };
 
-      dateInvitationsByPair.set(pairKey, invitation);
-      dateInvitationsByPair.set(String(pairId).trim(), invitation);
+      if (!cleanIdea.title) {
+        return res.status(400).json({ success: false, error: 'Idea title is required' });
+      }
+
+      const invId = (typeof id === 'string' && id.trim()) ? id.trim().slice(0, 80) : `inv-${Date.now()}`;
+      const cleanStatus = (status === 'accepted' || status === 'declined') ? status : 'pending';
+      const nowIso = new Date().toISOString();
+
+      const invitation = {
+        id: invId,
+        pairId: cleanPairId,
+        senderUserId: String(senderUserId || '').trim().slice(0, 64),
+        senderName: String(senderName || 'Ты').trim().slice(0, 50),
+        recipientUserId: String(recipientUserId || '').trim().slice(0, 64),
+        recipientName: String(recipientName || 'Партнёр').trim().slice(0, 50),
+        idea: cleanIdea,
+        status: cleanStatus,
+        readByRecipient: Boolean(readByRecipient),
+        createdAt: nowIso,
+      };
+
+      const authKey = SUPABASE_SECRET_KEY || SUPABASE_ANON_KEY;
+      if (!authKey) {
+        return res.status(500).json({ success: false, error: 'Database unconfigured' });
+      }
+
+      // Try inserting into Supabase date_invitations table
+      let savedToTable = false;
+      try {
+        const insertRes = await fetch(`${SUPABASE_TARGET}/rest/v1/date_invitations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': authKey,
+            'Authorization': `Bearer ${authKey}`,
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({
+            id: invId,
+            pair_id: cleanPairId,
+            creator_user_id: invitation.senderUserId || null,
+            sender_name: invitation.senderName,
+            recipient_user_id: invitation.recipientUserId || null,
+            recipient_name: invitation.recipientName,
+            idea: cleanIdea,
+            status: cleanStatus,
+            read_by_recipient: Boolean(readByRecipient),
+            created_at: nowIso,
+            updated_at: nowIso,
+          }),
+        });
+        if (insertRes.ok) {
+          savedToTable = true;
+        }
+      } catch {}
+
+      // Fallback: Supabase moments table
+      if (!savedToTable) {
+        try {
+          await fetch(`${SUPABASE_TARGET}/rest/v1/moments?pair_id=eq.${encodeURIComponent(cleanPairId)}&moment_date=eq.1970-01-01`, {
+            method: 'DELETE',
+            headers: { 'apikey': authKey, 'Authorization': `Bearer ${authKey}` },
+          });
+
+          await fetch(`${SUPABASE_TARGET}/rest/v1/moments`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': authKey,
+              'Authorization': `Bearer ${authKey}`,
+              'Prefer': 'return=minimal',
+            },
+            body: JSON.stringify({
+              pair_id: cleanPairId,
+              moment_date: '1970-01-01',
+              prompt: `DATE_INVITATION:${JSON.stringify(invitation)}`,
+            }),
+          });
+        } catch {}
+      }
+
       return res.json({ success: true, invitation });
     } catch (err: any) {
       console.error('[Date Invitations API] Error saving invitation:', err);
@@ -303,52 +525,181 @@ async function startServer() {
   });
 
   // 3. Mark date invitation as read by recipient
-  app.patch('/api/dates/invitation/:pairId/read', (req, res) => {
+  app.patch('/api/dates/invitation/:pairId/read', async (req, res) => {
     const rawPairId = req.params.pairId;
-    if (!rawPairId) {
-      return res.status(400).json({ success: false, error: 'pairId is required' });
+    const cleanPairId = typeof rawPairId === 'string' ? rawPairId.trim() : '';
+    if (!cleanPairId || !isValidPairId(cleanPairId)) {
+      return res.status(400).json({ success: false, error: 'Valid pairId is required' });
     }
-    const pairKey = getNormPairKey(rawPairId);
-    const invitation = dateInvitationsByPair.get(pairKey) || dateInvitationsByPair.get(rawPairId);
-    if (invitation) {
-      invitation.readByRecipient = true;
-      dateInvitationsByPair.set(pairKey, invitation);
-      dateInvitationsByPair.set(rawPairId, invitation);
-      return res.json({ success: true, invitation });
+
+    const authKey = SUPABASE_SECRET_KEY || SUPABASE_ANON_KEY;
+    if (!authKey) {
+      return res.status(500).json({ success: false, error: 'Database unconfigured' });
     }
-    return res.json({ success: true, invitation: null });
+
+    try {
+      // 1. Update in date_invitations table
+      await fetch(
+        `${SUPABASE_TARGET}/rest/v1/date_invitations?pair_id=eq.${encodeURIComponent(cleanPairId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': authKey,
+            'Authorization': `Bearer ${authKey}`,
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ read_by_recipient: true, updated_at: new Date().toISOString() }),
+        }
+      );
+
+      // 2. Fallback update in moments table
+      const momentRes = await fetch(
+        `${SUPABASE_TARGET}/rest/v1/moments?pair_id=eq.${encodeURIComponent(cleanPairId)}&moment_date=eq.1970-01-01&order=created_at.desc&limit=1`,
+        {
+          headers: { 'apikey': authKey, 'Authorization': `Bearer ${authKey}` },
+        }
+      );
+      if (momentRes.ok) {
+        const rows: any = await momentRes.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const row = rows[0];
+          if (row.prompt && row.prompt.startsWith('DATE_INVITATION:')) {
+            try {
+              const parsed = JSON.parse(row.prompt.replace('DATE_INVITATION:', ''));
+              parsed.readByRecipient = true;
+              await fetch(`${SUPABASE_TARGET}/rest/v1/moments?id=eq.${encodeURIComponent(row.id)}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': authKey,
+                  'Authorization': `Bearer ${authKey}`,
+                  'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify({ prompt: `DATE_INVITATION:${JSON.stringify(parsed)}` }),
+              });
+            } catch {}
+          }
+        }
+      }
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+    }
   });
 
   // 4. Accept or decline date invitation
-  app.patch('/api/dates/invitation/:pairId/respond', (req, res) => {
+  app.patch('/api/dates/invitation/:pairId/respond', async (req, res) => {
     const rawPairId = req.params.pairId;
+    const cleanPairId = typeof rawPairId === 'string' ? rawPairId.trim() : '';
     const { status } = req.body;
-    if (!rawPairId || !status) {
-      return res.status(400).json({ success: false, error: 'pairId and status are required' });
+    if (!cleanPairId || !isValidPairId(cleanPairId) || (status !== 'accepted' && status !== 'declined')) {
+      return res.status(400).json({ success: false, error: 'Valid pairId and status (accepted|declined) are required' });
     }
-    const pairKey = getNormPairKey(rawPairId);
-    const invitation = dateInvitationsByPair.get(pairKey) || dateInvitationsByPair.get(rawPairId);
-    if (invitation) {
-      invitation.status = status; // 'accepted' | 'declined'
-      invitation.readByRecipient = true;
-      invitation.respondedAt = new Date().toISOString();
-      dateInvitationsByPair.set(pairKey, invitation);
-      dateInvitationsByPair.set(rawPairId, invitation);
-      return res.json({ success: true, invitation });
+
+    const authKey = SUPABASE_SECRET_KEY || SUPABASE_ANON_KEY;
+    if (!authKey) {
+      return res.status(500).json({ success: false, error: 'Database unconfigured' });
     }
-    return res.json({ success: true, invitation: null });
+
+    const respondedAt = new Date().toISOString();
+
+    try {
+      // 1. Update in date_invitations table
+      await fetch(
+        `${SUPABASE_TARGET}/rest/v1/date_invitations?pair_id=eq.${encodeURIComponent(cleanPairId)}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': authKey,
+            'Authorization': `Bearer ${authKey}`,
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({
+            status,
+            read_by_recipient: true,
+            responded_at: respondedAt,
+            updated_at: respondedAt,
+          }),
+        }
+      );
+
+      // 2. Fallback update in moments table
+      const momentRes = await fetch(
+        `${SUPABASE_TARGET}/rest/v1/moments?pair_id=eq.${encodeURIComponent(cleanPairId)}&moment_date=eq.1970-01-01&order=created_at.desc&limit=1`,
+        {
+          headers: { 'apikey': authKey, 'Authorization': `Bearer ${authKey}` },
+        }
+      );
+      if (momentRes.ok) {
+        const rows: any = await momentRes.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          const row = rows[0];
+          if (row.prompt && row.prompt.startsWith('DATE_INVITATION:')) {
+            try {
+              const parsed = JSON.parse(row.prompt.replace('DATE_INVITATION:', ''));
+              parsed.status = status;
+              parsed.readByRecipient = true;
+              parsed.respondedAt = respondedAt;
+              await fetch(`${SUPABASE_TARGET}/rest/v1/moments?id=eq.${encodeURIComponent(row.id)}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'apikey': authKey,
+                  'Authorization': `Bearer ${authKey}`,
+                  'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify({ prompt: `DATE_INVITATION:${JSON.stringify(parsed)}` }),
+              });
+            } catch {}
+          }
+        }
+      }
+
+      return res.json({ success: true, status, respondedAt });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+    }
   });
 
   // 5. Delete or clear date invitation
-  app.delete('/api/dates/invitation/:pairId', (req, res) => {
+  app.delete('/api/dates/invitation/:pairId', async (req, res) => {
     const rawPairId = req.params.pairId;
-    if (!rawPairId) {
-      return res.status(400).json({ success: false, error: 'pairId is required' });
+    const cleanPairId = typeof rawPairId === 'string' ? rawPairId.trim() : '';
+    if (!cleanPairId || !isValidPairId(cleanPairId)) {
+      return res.status(400).json({ success: false, error: 'Valid pairId is required' });
     }
-    const pairKey = getNormPairKey(rawPairId);
-    dateInvitationsByPair.delete(pairKey);
-    dateInvitationsByPair.delete(rawPairId);
-    return res.json({ success: true });
+
+    const authKey = SUPABASE_SECRET_KEY || SUPABASE_ANON_KEY;
+    if (!authKey) {
+      return res.status(500).json({ success: false, error: 'Database unconfigured' });
+    }
+
+    try {
+      // 1. Delete from date_invitations
+      await fetch(
+        `${SUPABASE_TARGET}/rest/v1/date_invitations?pair_id=eq.${encodeURIComponent(cleanPairId)}`,
+        {
+          method: 'DELETE',
+          headers: { 'apikey': authKey, 'Authorization': `Bearer ${authKey}` },
+        }
+      );
+
+      // 2. Delete from moments fallback
+      await fetch(
+        `${SUPABASE_TARGET}/rest/v1/moments?pair_id=eq.${encodeURIComponent(cleanPairId)}&moment_date=eq.1970-01-01`,
+        {
+          method: 'DELETE',
+          headers: { 'apikey': authKey, 'Authorization': `Bearer ${authKey}` },
+        }
+      );
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
+    }
   });
 
   // Health check
