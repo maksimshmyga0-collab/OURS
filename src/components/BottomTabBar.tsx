@@ -54,7 +54,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className="min-h-[48px] py-1 px-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-200 ease-out cursor-pointer active:scale-95 select-none"
+              className="min-h-[48px] py-1 px-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-100 ease-out cursor-pointer active:scale-95 select-none"
             >
               <div className="relative">
                 <Icon

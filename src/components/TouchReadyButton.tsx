@@ -84,7 +84,7 @@ export const TouchReadyButton: React.FC<TouchReadyButtonProps> = ({
         type="button"
         disabled={disabled}
         onClick={handleClick}
-        className="group relative w-full h-[58px] xs:h-[60px] sm:h-[62px] rounded-full select-none overflow-hidden cursor-pointer transition-all duration-300 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-left disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+        className="group relative w-full h-[58px] xs:h-[60px] sm:h-[62px] rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-left disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
         aria-label={text}
       >
         {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Купить Lovely») */}

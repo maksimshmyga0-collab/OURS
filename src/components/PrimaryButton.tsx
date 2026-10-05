@@ -27,7 +27,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
     <button
       {...props}
       disabled={disabled}
-      className={`h-[52px] xs:h-[54px] px-6 py-3 rounded-full font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight transition-all duration-200 ease-out cursor-pointer flex items-center justify-center gap-2 select-none hover:opacity-95 active:scale-[0.985] active:opacity-90 disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100 ${
+      className={`h-[52px] xs:h-[54px] px-6 py-3 rounded-full font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight transition-all duration-100 ease-out cursor-pointer flex items-center justify-center gap-2 select-none hover:opacity-95 active:scale-[0.985] active:opacity-90 disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100 ${
         fullWidth ? 'w-full' : ''
       } ${variantStyles} ${className}`}
     >

@@ -789,12 +789,14 @@ export default function App() {
 
   if (isLoadingSession) {
     return (
-      <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] flex items-center justify-center p-6 selection:bg-transparent">
-        <div className="flex flex-col items-center gap-5 sm:gap-6 animate-pulse select-none">
-          <OursLogo size={296} className="max-w-[76vw] max-h-[76vw]" />
-          <span className="font-display text-[28px] sm:text-[32px] font-semibold tracking-[0.2em] text-[#343033] dark:text-white leading-none">
-            OURS
-          </span>
+      <div className="min-h-screen bg-[#000000] flex items-center justify-center p-4 selection:bg-transparent">
+        <div className="w-full flex items-center justify-center select-none">
+          <img
+            src="https://files.catbox.moe/zbcwso.png"
+            alt="OURS"
+            className="h-[48vh] max-h-[48vh] w-auto max-w-[88vw] object-contain pointer-events-none select-none"
+            style={{ imageRendering: '-webkit-optimize-contrast' }}
+          />
         </div>
       </div>
     );

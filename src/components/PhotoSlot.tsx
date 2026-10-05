@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Camera, Lock, Check, Sparkles, Heart } from 'lucide-react';
+import { Camera, Check, Sparkles, Heart } from 'lucide-react';
 import { ReactionEmoji } from '../types';
 import { ReactionIcon } from './ReactionIcon';
 import { optimizePhotoForUpload } from '../services/storage/imageOptimizer';
@@ -115,7 +115,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
           {/* Photo Frame Container */}
           <div
             onClick={() => handleOpenViewer(photoUrl, 'Твоё фото')}
-            className="group relative w-full aspect-[4/5] rounded-[24px] sm:rounded-[26px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] cursor-pointer transition-all duration-200 ease-out active:scale-[0.98] hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)] select-none"
+            className="group relative w-full aspect-[4/5] rounded-[24px] sm:rounded-[26px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)] select-none"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -217,7 +217,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
             isPartnerUploaded
               ? 'border-[#E98787] shadow-[0_6px_22px_-2px_rgba(233,135,135,0.32)] animate-pulse'
               : 'border-[#F0D5DC] dark:border-[#3D252E] hover:border-[#E98787] dark:hover:border-[#E98787] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.12)] hover:shadow-[0_8px_24px_-4px_rgba(233,135,135,0.22)]'
-          } flex flex-col items-center justify-center p-3 text-center transition-all duration-200 ease-out active:scale-[0.98] cursor-pointer select-none`}
+          } flex flex-col items-center justify-center p-3 text-center transition-all duration-100 ease-out active:scale-[0.98] cursor-pointer select-none`}
         >
           {/* Subtle inner ambient glow */}
           <div className="absolute inset-0 rounded-[24px] sm:rounded-[26px] bg-radial from-[#FFF0F3]/50 to-transparent dark:from-[#2A161E]/30 pointer-events-none" />
@@ -262,7 +262,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
           onClick={!isBlurred ? () => handleOpenViewer(photoUrl, title) : undefined}
           className={`group relative w-full aspect-[4/5] rounded-[24px] sm:rounded-[26px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] select-none ${
             !isBlurred
-              ? 'cursor-pointer active:scale-[0.98] transition-all duration-200 ease-out hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)]'
+              ? 'cursor-pointer active:scale-[0.98] transition-all duration-100 ease-out hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)]'
               : 'pointer-events-none'
           }`}
           role={!isBlurred ? 'button' : undefined}
@@ -393,7 +393,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
           {isUserUploaded ? (
             <Heart size={20} className="animate-pulse fill-rose-100 dark:fill-rose-950/40 text-[#E17282] dark:text-[#F2967F]" />
           ) : (
-            <Lock size={19} strokeWidth={2} />
+            <Sparkles size={19} strokeWidth={1.8} className="opacity-70" />
           )}
         </div>
 

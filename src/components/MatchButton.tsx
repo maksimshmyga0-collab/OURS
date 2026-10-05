@@ -26,12 +26,12 @@ export const MatchButton: React.FC<MatchButtonProps> = ({
     triggerHaptic(hapticEnabled);
     playSoftChime('tap', soundEnabled);
 
-    // Enter State 5: Converging Connection Bloom (~320ms before launching full Match scene)
+    // Enter State 5: Converging Connection Bloom (~140ms before launching full Match scene)
     setIsActivating(true);
 
     setTimeout(() => {
       onClick();
-    }, 320);
+    }, 140);
   };
 
   return (

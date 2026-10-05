@@ -355,7 +355,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 handleOpenLovely();
               }
             }}
-            className="group relative w-full h-[82px] sm:h-[86px] rounded-[22px] select-none overflow-hidden cursor-pointer transition-all duration-300 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_8px_24px_-6px_rgba(10,8,18,0.06)] dark:shadow-[0_8px_24px_-6px_rgba(0,0,0,0.45)]"
+            className="group relative w-full h-[82px] sm:h-[86px] rounded-[22px] select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_8px_24px_-6px_rgba(10,8,18,0.06)] dark:shadow-[0_8px_24px_-6px_rgba(0,0,0,0.45)]"
             aria-label={`LOVELY: ${isLovely ? 'Подписка активна' : 'Открыть страницу подписки'}`}
           >
             {/* Ambient Background Heart Aura & Delicate Floating Gleam (SVG Layer) */}
@@ -484,12 +484,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <button
               type="button"
               onClick={toggleNotification}
-              className={`w-12 h-7 rounded-full transition-colors duration-300 ease-in-out relative cursor-pointer active:scale-[0.97] ${
+              className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
                 settings.notifications ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
               }`}
             >
               <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-300 cubic-bezier(0.25,1,0.5,1) ${
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
                   settings.notifications ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
@@ -509,12 +509,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <button
               type="button"
               onClick={toggleSounds}
-              className={`w-12 h-7 rounded-full transition-colors duration-300 ease-in-out relative cursor-pointer active:scale-[0.97] ${
+              className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
                 settings.sounds ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
               }`}
             >
               <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-300 cubic-bezier(0.25,1,0.5,1) ${
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
                   settings.sounds ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
@@ -534,12 +534,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <button
               type="button"
               onClick={toggleHaptic}
-              className={`w-12 h-7 rounded-full transition-colors duration-300 ease-in-out relative cursor-pointer active:scale-[0.97] ${
+              className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
                 settings.haptic ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
               }`}
             >
               <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-300 cubic-bezier(0.25,1,0.5,1) ${
+                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
                   settings.haptic ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />

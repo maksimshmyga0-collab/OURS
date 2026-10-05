@@ -70,7 +70,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       setIsAnimating(true);
       const timer = setTimeout(() => {
         setIsAnimating(false);
-      }, 360);
+      }, 240);
       return () => clearTimeout(timer);
     }
   }, [activeTab]);
@@ -239,7 +239,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
     setTimeout(() => {
       setIsAnimating(false);
-    }, 360);
+    }, 240);
   }, [onTabChange, soundEnabled, hapticEnabled]);
 
   // Attach non-passive touch listeners to container for responsive gesture control
@@ -363,7 +363,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         setTimeout(() => {
           setIsAnimating(false);
-        }, 360);
+        }, 240);
       }
     };
 
@@ -393,7 +393,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           transform: `translate3d(calc(-${currentIndex * 100}% + ${dragOffset}px), 0, 0)`,
           transition: isDragging
             ? 'none'
-            : 'transform 350ms cubic-bezier(0.25, 1, 0.4, 1)',
+            : 'transform 230ms cubic-bezier(0.22, 1, 0.36, 1)',
           alignItems: 'stretch',
         }}
       >

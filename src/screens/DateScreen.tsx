@@ -525,7 +525,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             type="button"
             disabled={!isClosed}
             onClick={handleOpenEnvelope}
-            className="group relative h-[50px] xs:h-[52px] sm:h-[54px] px-7 xs:px-8 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-300 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+            className="group relative h-[50px] xs:h-[52px] sm:h-[54px] px-7 xs:px-8 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
             aria-label="Открыть свидание"
           >
             {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Касание готово») */}
