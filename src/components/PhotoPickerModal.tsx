@@ -229,7 +229,6 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           }
         })
         .catch((err: any) => {
-          // User cancelled in gallery
           if (!err?.message?.includes('cancelled') && !err?.message?.includes('User cancelled')) {
             if (fileInputRef.current) {
               fileInputRef.current.click();
@@ -239,7 +238,37 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
       return;
     }
 
-    // 2. Direct synchronous click on dedicated photos input (preserves user activation, bypassing Android multi-source chooser)
+    // 2. Modern Chromium File System Access API (direct image picker bypasses multi-source chooser)
+    if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
+      (window as any).showOpenFilePicker({
+        types: [
+          {
+            description: 'Фотографии и изображения',
+            accept: {
+              'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif'],
+            },
+          },
+        ],
+        multiple: false,
+      })
+        .then(async ([handle]: any[]) => {
+          if (handle) {
+            const file = await handle.getFile();
+            if (file) {
+              handleProcessFile(file);
+            }
+          }
+        })
+        .catch((err: any) => {
+          // Fallback to standard input only if not cancelled by user
+          if (err?.name !== 'AbortError' && fileInputRef.current) {
+            fileInputRef.current.click();
+          }
+        });
+      return;
+    }
+
+    // 3. Clean direct file input for standard mobile Web/PWA
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -278,7 +307,7 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/jpg"
+          accept="image/*"
           onChange={handleFileChange}
           className="hidden"
         />
