@@ -9,7 +9,7 @@ import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode } from './ty
 import { apiClient } from './services/api/apiClient';
 import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
-import { OursLogo } from './components/OursLogo';
+import { OursLogo, OURS_LOGO_URL } from './components/OursLogo';
 import { BottomTabBar } from './components/BottomTabBar';
 import { LovelyModal } from './components/LovelyModal';
 import { OurSkyModal } from './components/OurSkyModal';
@@ -792,7 +792,7 @@ export default function App() {
       <div className="min-h-screen bg-[#000000] flex items-center justify-center p-4 selection:bg-transparent">
         <div className="w-full flex items-center justify-center select-none">
           <img
-            src="https://files.catbox.moe/zbcwso.png"
+            src={OURS_LOGO_URL}
             alt="OURS"
             className="h-[48vh] max-h-[48vh] w-auto max-w-[88vw] object-contain pointer-events-none select-none"
             style={{ imageRendering: '-webkit-optimize-contrast' }}
