@@ -199,72 +199,47 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     }
   };
 
-  // Dedicated direct Photo Gallery launcher (bypasses Android camera/camcorder/files chooser)
-  const handleOpenGallery = async () => {
+  // Dedicated direct Photo Gallery launcher (immediately opens Photos/Gallery without Android system chooser)
+  const handleOpenGallery = () => {
     triggerHaptic(true);
     playSoftChime('tap', true);
 
-    // 1. Native Capacitor Camera Plugin (directly opens Photos / Media Library without chooser)
     const win = window as any;
-    if (win.Capacitor?.Plugins?.Camera?.getPhoto) {
-      try {
-        const photo = await win.Capacitor.Plugins.Camera.getPhoto({
-          quality: 90,
-          allowEditing: false,
-          resultType: 'dataUrl',
-          source: 'PHOTOS',
-        });
-        if (photo?.dataUrl) {
-          stopCamera();
-          onClose();
-          onSelectPhoto(photo.dataUrl);
-          return;
-        } else if (photo?.webPath) {
-          const res = await fetch(photo.webPath);
-          const blob = await res.blob();
-          const file = new File([blob], 'gallery-photo.jpg', { type: 'image/jpeg' });
-          handleProcessFile(file);
-          return;
-        }
-      } catch (err: any) {
-        // User cancelled in system gallery -> do not trigger error or fallback
-        if (err?.message?.includes('cancelled') || err?.message?.includes('User cancelled')) {
-          return;
-        }
-      }
-    }
-
-    // 2. Modern Android Photo Picker API (Chromium showOpenFilePicker opens Photos directly)
-    if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
-      try {
-        const [handle] = await (window as any).showOpenFilePicker({
-          types: [
-            {
-              description: 'Изображения',
-              accept: {
-                'image/*': ['.png', '.jpg', '.jpeg', '.webp'],
-              },
-            },
-          ],
-          multiple: false,
-          excludeAcceptAllOption: true,
-        });
-        if (handle) {
-          const file = await handle.getFile();
-          if (file) {
-            handleProcessFile(file);
-            return;
+    // 1. Native Capacitor Camera Plugin with Photos source
+    if (win.Capacitor?.isPluginAvailable?.('Camera') || win.Capacitor?.Plugins?.Camera) {
+      win.Capacitor.Plugins.Camera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: 'dataUrl',
+        source: 'PHOTOS',
+      })
+        .then((photo: any) => {
+          if (photo?.dataUrl) {
+            stopCamera();
+            onClose();
+            onSelectPhoto(photo.dataUrl);
+          } else if (photo?.webPath) {
+            fetch(photo.webPath)
+              .then((res) => res.blob())
+              .then((blob) => {
+                const file = new File([blob], 'gallery-photo.jpg', { type: 'image/jpeg' });
+                handleProcessFile(file);
+              })
+              .catch(() => {});
           }
-        }
-      } catch (err: any) {
-        if (err?.name === 'AbortError') {
-          // User closed gallery without selecting
-          return;
-        }
-      }
+        })
+        .catch((err: any) => {
+          // User cancelled in gallery
+          if (!err?.message?.includes('cancelled') && !err?.message?.includes('User cancelled')) {
+            if (fileInputRef.current) {
+              fileInputRef.current.click();
+            }
+          }
+        });
+      return;
     }
 
-    // 3. Fallback: Clean standard image/* input
+    // 2. Direct synchronous click on dedicated photos input (preserves user activation, bypassing Android multi-source chooser)
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
@@ -291,11 +266,11 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
         className="w-full max-w-md bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] rounded-t-[32px] sm:rounded-[28px] p-6 pb-8 shadow-[0_-4px_32px_rgba(0,0,0,0.25)] max-h-[90vh] overflow-y-auto no-scrollbar animate-sheet-enter transition-colors"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Hidden Fallback Inputs: clean image/* without multi-mime chooser triggering */}
+        {/* Hidden Fallback Inputs: clean explicit image mime types without multi-mime chooser */}
         <input
           ref={fallbackCameraInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/jpg"
           capture="environment"
           onChange={handleFileChange}
           className="hidden"
@@ -303,7 +278,7 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/jpg"
           onChange={handleFileChange}
           className="hidden"
         />
@@ -369,7 +344,7 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
                 className="w-full min-h-[50px] rounded-[20px] bg-[#FAF0F2] dark:bg-[#1C1719] hover:bg-[#F6E6E9] dark:hover:bg-[#231C1F] text-[#343033] dark:text-white font-semibold text-sm flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] cursor-pointer border border-[#EED7DC] dark:border-[#35252A]"
               >
                 <ImageIcon size={18} className="text-[#E98787]" />
-                <span>Выбрать из галереи устройства</span>
+                <span>Открыть из галереи устройства</span>
               </button>
             </div>
           </div>

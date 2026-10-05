@@ -42,10 +42,6 @@ export default function App() {
   const [hasUnreadDateInvitation, setHasUnreadDateInvitation] = useState<boolean>(() =>
     dateInvitationService.hasUnreadIncomingInvitation()
   );
-  // Fast startup: if local state has completed onboarding, show TodayScreen instantly without waiting for network init
-  const [isLoadingSession, setIsLoadingSession] = useState<boolean>(
-    () => !getInitialAppState().hasCompletedOnboarding
-  );
 
   // Subscribe to date invitation updates for bottom tab badge
   useEffect(() => {
@@ -60,13 +56,6 @@ export default function App() {
   // 1. Initialize anonymous session and restore multi-device state in background
   useEffect(() => {
     let isMounted = true;
-
-    // Safety timeout: ensure splash/loading screen is never stuck forever on dead connection
-    const safetyTimer = setTimeout(() => {
-      if (isMounted) {
-        setIsLoadingSession(false);
-      }
-    }, 7000);
 
     async function init() {
       try {
@@ -142,11 +131,6 @@ export default function App() {
         }
       } catch (err) {
         console.error('[OURS] Failed to initialize session:', err);
-      } finally {
-        clearTimeout(safetyTimer);
-        if (isMounted) {
-          setIsLoadingSession(false);
-        }
       }
     }
 
@@ -154,7 +138,6 @@ export default function App() {
 
     return () => {
       isMounted = false;
-      clearTimeout(safetyTimer);
     };
   }, []);
 
@@ -786,21 +769,6 @@ export default function App() {
       console.error('[OURS] Failed to save profile:', err);
     }
   }, []);
-
-  if (isLoadingSession) {
-    return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center p-4 selection:bg-transparent">
-        <div className="w-full flex items-center justify-center select-none">
-          <img
-            src={OURS_LOGO_URL}
-            alt="OURS"
-            className="h-[48vh] max-h-[48vh] w-auto max-w-[88vw] object-contain pointer-events-none select-none"
-            style={{ imageRendering: '-webkit-optimize-contrast' }}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <ThemeProvider

@@ -107,7 +107,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/jpg"
             onChange={handleFileChange}
             className="hidden"
           />
@@ -204,7 +204,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/jpg"
           onChange={handleFileChange}
           className="hidden"
         />
