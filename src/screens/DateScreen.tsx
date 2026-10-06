@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Sparkles, Heart, RefreshCw, Send, Check, X, ChevronRight } from 'lucide-react';
+import { Mail, Sparkles, Heart, RefreshCw, Check, X, ChevronRight } from 'lucide-react';
 import { DATE_IDEAS, DateIdea } from '../data/dateIdeas';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { CoupleState } from '../types';
@@ -272,14 +272,15 @@ export const DateScreen: React.FC<DateScreenProps> = ({
           >
             {/* 1. BACK PLATE & INTERIOR POCKET CAVITY */}
             <div
-              className="absolute inset-0 rounded-[20px] bg-gradient-to-b from-[#FFF5F7] via-[#FDF3F6] to-[#F5E2E8] dark:from-[#2A2127] dark:via-[#21191F] dark:to-[#191317] border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_16px_36px_-8px_rgba(233,135,135,0.22),0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_16px_36px_-8px_rgba(0,0,0,0.7)] overflow-hidden"
+              className="absolute inset-0 rounded-[20px] bg-gradient-to-b from-[#F6E8EB] via-[#E5C9D3] to-[#D4ABBA] border border-[#B17A8E]/75 shadow-[0_12px_28px_-6px_rgba(110,28,48,0.16),0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden"
               style={{ zIndex: 1 }}
             >
               {/* Internal depth shading inside pocket cavity */}
-              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/12 via-black/3 to-transparent pointer-events-none" />
-              {/* Warm interior amber glow when open */}
+              <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/10 via-black/3 to-transparent pointer-events-none" />
+
+              {/* Warm interior intimate glow when open */}
               <div
-                className={`absolute inset-0 bg-gradient-to-t from-rose-300/35 via-amber-200/25 to-transparent transition-opacity duration-500 pointer-events-none ${
+                className={`absolute inset-0 bg-gradient-to-t from-rose-400/25 via-amber-300/15 to-transparent transition-opacity duration-500 pointer-events-none ${
                   isOpen ? 'opacity-100' : 'opacity-0'
                 }`}
               />
@@ -292,38 +293,38 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 style={{ zIndex: 8 }}
               >
                 {/* Core warm radiant glow aura */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-4 w-44 h-28 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(252,211,77,0.45)_0%,_rgba(244,114,182,0.35)_45%,_transparent_75%)] blur-xl animate-[aura-glow_0.75s_ease-out_forwards]" />
+                <div className="absolute left-1/2 -translate-x-1/2 top-4 w-44 h-28 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(252,211,77,0.35)_0%,_rgba(244,114,182,0.25)_45%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(240,185,198,0.25)_0%,_rgba(201,91,111,0.18)_45%,_transparent_75%)] blur-xl animate-[aura-glow_0.75s_ease-out_forwards]" />
 
                 {/* Secondary expansive soft warm light */}
-                <div className="absolute left-1/2 -translate-x-1/2 -top-2 w-60 h-36 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(254,205,211,0.5)_0%,_rgba(253,230,138,0.25)_50%,_transparent_75%)] blur-2xl animate-[aura-glow_0.9s_ease-out_forwards]" />
+                <div className="absolute left-1/2 -translate-x-1/2 -top-2 w-60 h-36 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(254,205,211,0.38)_0%,_rgba(253,230,138,0.18)_50%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(224,115,148,0.20)_0%,_rgba(188,62,95,0.10)_50%,_transparent_75%)] blur-2xl animate-[aura-glow_0.9s_ease-out_forwards]" />
 
                 {/* Left ethereal mist wisp */}
-                <div className="absolute left-[16%] top-6 w-24 h-24 rounded-full bg-[radial-gradient(circle,_rgba(255,228,235,0.7)_0%,_rgba(254,205,211,0.35)_40%,_transparent_70%)] blur-lg animate-[mist-rise-left_0.8s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
+                <div className="absolute left-[16%] top-6 w-24 h-24 rounded-full bg-[radial-gradient(circle,_rgba(255,228,235,0.5)_0%,_rgba(254,205,211,0.25)_40%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(240,185,198,0.18)_0%,_rgba(201,91,111,0.08)_40%,_transparent_70%)] blur-lg animate-[mist-rise-left_0.8s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
 
                 {/* Right ethereal mist wisp */}
-                <div className="absolute right-[16%] top-6 w-28 h-28 rounded-full bg-[radial-gradient(circle,_rgba(254,243,199,0.7)_0%,_rgba(254,205,211,0.35)_40%,_transparent_70%)] blur-lg animate-[mist-rise-right_0.85s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
+                <div className="absolute right-[16%] top-6 w-28 h-28 rounded-full bg-[radial-gradient(circle,_rgba(254,243,199,0.5)_0%,_rgba(254,205,211,0.25)_40%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(248,205,225,0.18)_0%,_rgba(201,91,111,0.08)_40%,_transparent_70%)] blur-lg animate-[mist-rise-right_0.85s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
 
                 {/* Center ethereal mist column */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-8 w-32 h-32 rounded-full bg-[radial-gradient(circle,_rgba(255,255,255,0.8)_0%,_rgba(254,226,236,0.45)_45%,_transparent_70%)] blur-xl animate-[mist-rise-center_0.9s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
+                <div className="absolute left-1/2 -translate-x-1/2 top-8 w-32 h-32 rounded-full bg-[radial-gradient(circle,_rgba(255,255,255,0.6)_0%,_rgba(254,226,236,0.3)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(255,255,255,0.15)_0%,_rgba(240,185,198,0.08)_45%,_transparent_70%)] blur-xl animate-[mist-rise-center_0.9s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
 
                 {/* Subtle soft sparkles escaping with the mist */}
                 <span
-                  className="absolute left-[28%] top-7 text-amber-300 text-xs animate-[sparkle-float_0.8s_ease-out_forwards] select-none pointer-events-none drop-shadow-[0_0_4px_rgba(251,191,36,0.6)]"
+                  className="absolute left-[28%] top-7 text-amber-300/80 dark:text-[#F0B9C6]/70 animate-[sparkle-float_0.8s_ease-out_forwards] select-none pointer-events-none drop-shadow-[0_0_4px_rgba(251,191,36,0.4)]"
                   style={{ animationDelay: '60ms' }}
                 >
-                  ✦
+                  <Sparkles size={11} />
                 </span>
                 <span
-                  className="absolute right-[26%] top-5 text-rose-300 text-[10px] animate-[sparkle-float_0.85s_ease-out_forwards] select-none pointer-events-none drop-shadow-[0_0_4px_rgba(244,114,182,0.6)]"
+                  className="absolute right-[26%] top-5 text-rose-300/80 dark:text-[#E98787]/70 animate-[sparkle-float_0.85s_ease-out_forwards] select-none pointer-events-none drop-shadow-[0_0_4px_rgba(244,114,182,0.4)]"
                   style={{ animationDelay: '120ms' }}
                 >
-                  ✦
+                  <Sparkles size={9} />
                 </span>
                 <span
-                  className="absolute left-[48%] top-3 text-amber-200 text-sm animate-[sparkle-float_0.85s_ease-out_forwards] select-none pointer-events-none drop-shadow-[0_0_5px_rgba(253,230,138,0.7)]"
+                  className="absolute left-[48%] top-3 text-amber-200/80 dark:text-[#F3AEBF]/70 animate-[sparkle-float_0.85s_ease-out_forwards] select-none pointer-events-none drop-shadow-[0_0_5px_rgba(253,230,138,0.5)]"
                   style={{ animationDelay: '90ms' }}
                 >
-                  ✦
+                  <Sparkles size={13} />
                 </span>
               </div>
             )}
@@ -331,8 +332,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             {/* 
               2. LETTER PREVIEW
               - Positioned lower and centered in the envelope frame
-              - Never sticks out awkwardly into empty space
-              - Perfectly proportioned (w-[82%], h-28) with centered content
+              - Matches the warm-dark cozy card palette of OURS
             */}
             <div
               className="absolute inset-x-0 mx-auto w-[82%] pointer-events-none"
@@ -348,9 +348,10 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 clipPath: 'polygon(-25% -400px, 125% -400px, 125% 100%, -25% 100%)',
               }}
             >
-              <div className="w-full h-28 xs:h-30 rounded-xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#EBD6DC] dark:border-[#3E3039] p-3 pt-3.5 pb-2 shadow-md flex flex-col items-center justify-start">
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest uppercase text-[#E98787] mb-1">
-                  <span>✦ ИДЕЯ ДЛЯ ВАС ✦</span>
+              <div className="w-full h-28 xs:h-30 rounded-2xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#1D161C] dark:via-[#181116] dark:to-[#130D11] border border-[#ECD4DC] dark:border-[#30222B] p-3 pt-3.5 pb-2 shadow-md flex flex-col items-center justify-start">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-[11px] font-semibold tracking-wide uppercase mb-1.5">
+                  <Sparkles size={11} className="text-[#E17282] dark:text-[#F3AEBF] shrink-0" />
+                  <span>Идея для вас</span>
                 </div>
                 <div className="text-xs xs:text-sm font-bold text-[#343033] dark:text-[#FAF5F7] text-center line-clamp-2 px-1">
                   {currentIdea.title}
@@ -358,82 +359,71 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               </div>
             </div>
 
-            {/* 3. FRONT POCKET (Clipped by rounded-[20px] container) */}
+            {/* 3. FRONT POCKET SVG (Bottom & Side Flaps) */}
             <div
               className="absolute inset-0 rounded-[20px] overflow-hidden pointer-events-none"
               style={{ zIndex: 15 }}
             >
-              <svg viewBox="0 0 320 200" className="w-full h-full" preserveAspectRatio="none">
+              <svg viewBox="0 0 320 200" className="w-full h-full block" preserveAspectRatio="none">
                 <defs>
-                  <linearGradient id="pocketGradLuxury" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFF9FB" />
-                    <stop offset="45%" stopColor="#FCECF1" />
-                    <stop offset="100%" stopColor="#F2DCE3" />
+                  {/* Pocket Side Flap Gradients */}
+                  <linearGradient id="pocketLeftGradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#F6E8EB" />
+                    <stop offset="100%" stopColor="#D9AEBD" />
                   </linearGradient>
-                  <linearGradient id="pocketFoldShadowL" x1="0" y1="1" x2="0.8" y2="0.3">
-                    <stop offset="0%" stopColor="rgba(0,0,0,0.035)" />
-                    <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+                  <linearGradient id="pocketRightGradient" x1="1" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#F6E8EB" />
+                    <stop offset="100%" stopColor="#D9AEBD" />
                   </linearGradient>
-                  <linearGradient id="pocketFoldShadowR" x1="1" y1="1" x2="0.2" y2="0.3">
-                    <stop offset="0%" stopColor="rgba(0,0,0,0.045)" />
-                    <stop offset="100%" stopColor="rgba(0,0,0,0)" />
+                  {/* Pocket Bottom Flap Gradient */}
+                  <linearGradient id="pocketBottomGradient" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%" stopColor="#CE9FB1" />
+                    <stop offset="100%" stopColor="#EACFD9" />
+                  </linearGradient>
+
+                  {/* Soft Fold Shadows */}
+                  <linearGradient id="foldShadowLeft" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="rgba(78,22,38,0.10)" />
+                    <stop offset="100%" stopColor="rgba(78,22,38,0)" />
+                  </linearGradient>
+                  <linearGradient id="foldShadowRight" x1="1" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="rgba(78,22,38,0.10)" />
+                    <stop offset="100%" stopColor="rgba(78,22,38,0)" />
                   </linearGradient>
                 </defs>
 
-                {/* Pocket Body: gentle curved V-dip at top, covers bottom & sides */}
+                {/* Left Side Triangle */}
                 <path
-                  d="
-                    M 0 20
-                    C 55 42, 110 96, 160 96
-                    C 210 96, 265 42, 320 20
-                    L 320 200
-                    L 0 200
-                    Z
-                  "
-                  fill="url(#pocketGradLuxury)"
-                  stroke="#ECD4DC"
-                  strokeWidth="1"
+                  d="M 0 0 L 160 115 L 0 200 Z"
+                  fill="url(#pocketLeftGradient)"
+                  stroke="#AF778B"
+                  strokeWidth="0.5"
                 />
 
-                {/* Left diagonal fold shadow */}
+                {/* Right Side Triangle */}
                 <path
-                  d="M 0 200 L 160 120 L 0 20 Z"
-                  fill="url(#pocketFoldShadowL)"
+                  d="M 320 0 L 160 115 L 320 200 Z"
+                  fill="url(#pocketRightGradient)"
+                  stroke="#AF778B"
+                  strokeWidth="0.5"
                 />
 
-                {/* Right diagonal fold shadow */}
-                <path
-                  d="M 320 200 L 160 120 L 320 20 Z"
-                  fill="url(#pocketFoldShadowR)"
-                />
+                {/* Left fold shadow */}
+                <path d="M 0 0 L 160 115 L 0 200 Z" fill="url(#foldShadowLeft)" />
+                {/* Right fold shadow */}
+                <path d="M 320 0 L 160 115 L 320 200 Z" fill="url(#foldShadowRight)" />
 
-                {/* Delicate fold crease lines */}
+                {/* Bottom Triangle Flap */}
                 <path
-                  d="M 0 200 L 160 120"
-                  stroke="rgba(235, 205, 215, 0.35)"
-                  strokeWidth="0.75"
-                />
-                <path
-                  d="M 320 200 L 160 120"
-                  stroke="rgba(235, 205, 215, 0.35)"
-                  strokeWidth="0.75"
-                />
-
-                {/* Crisp top rim paper highlight */}
-                <path
-                  d="
-                    M 0 20
-                    C 55 42, 110 96, 160 96
-                    C 210 96, 265 42, 320 20
-                  "
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.85)"
-                  strokeWidth="1.2"
+                  d="M 0 200 L 160 95 L 320 200 Z"
+                  fill="url(#pocketBottomGradient)"
+                  stroke="#AF778B"
+                  strokeWidth="0.5"
                 />
               </svg>
             </div>
 
-            {/* 4. TOP FLAP WITH WAX SEAL (Anchored to y=0 with zero gap!) */}
+            {/* 4. TOP FLAP WITH WAX SEAL */}
             <div
               className="absolute top-0 inset-x-0 h-[56%] pointer-events-none"
               style={{
@@ -448,60 +438,51 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               }}
             >
               <svg
-                viewBox="0 0 320 114"
-                className="w-full h-full drop-shadow-[0_4px_10px_rgba(233,135,135,0.18)] dark:drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]"
+                viewBox="0 0 320 112"
+                className="w-full h-full drop-shadow-[0_4px_12px_rgba(110,28,48,0.14)] block"
                 preserveAspectRatio="none"
               >
                 <defs>
-                  <linearGradient id="flapGradLuxury" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFDFE" />
-                    <stop offset="50%" stopColor="#FAF1F4" />
-                    <stop offset="100%" stopColor="#F2DCE3" />
+                  <linearGradient id="flapGradientOriginal" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#F7E8EB" />
+                    <stop offset="50%" stopColor="#E5C9D3" />
+                    <stop offset="100%" stopColor="#D4ABBA" />
                   </linearGradient>
                 </defs>
 
-                {/* Continuous top edge along y=0 with rounded corners */}
                 <path
                   d="
                     M 20 0
                     L 300 0
                     A 20 20 0 0 1 320 20
-                    L 172 107
-                    Q 160 113 148 107
+                    L 160 112
                     L 0 20
                     A 20 20 0 0 1 20 0
                     Z
                   "
-                  fill="url(#flapGradLuxury)"
-                  stroke="#ECD4DC"
-                  strokeWidth="1"
-                />
-
-                {/* Subtle paper fold highlight on flap */}
-                <path
-                  d="M 20 0 L 160 110 L 300 0"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.45)"
-                  strokeWidth="0.8"
+                  fill="url(#flapGradientOriginal)"
+                  stroke="#AF778B"
+                  strokeWidth="0.5"
                 />
               </svg>
 
-              {/* Handcrafted Wax Seal Medallion */}
+              {/* Wax Seal */}
               <div
-                className={`absolute left-1/2 -translate-x-1/2 bottom-[-18px] w-11 h-11 xs:w-12 xs:h-12 rounded-full flex items-center justify-center drop-shadow-[0_4px_12px_rgba(215,85,105,0.48)] pointer-events-auto transition-all ${
+                className={`absolute left-1/2 -translate-x-1/2 bottom-[-16px] w-10 h-10 xs:w-11 xs:h-11 rounded-full flex items-center justify-center drop-shadow-[0_3px_8px_rgba(110,28,48,0.28)] pointer-events-auto transition-all ${
                   isOpen
                     ? 'opacity-0 scale-95 duration-200 ease-out pointer-events-none'
                     : 'opacity-100 scale-100 duration-300 ease-out delay-160 hover:scale-105 active:scale-95'
                 }`}
               >
-                <div className="w-full h-full rounded-full bg-gradient-to-br from-[#F1939A] via-[#D85E6E] to-[#AB3547] p-0.5 shadow-[inset_0_1px_2px_rgba(255,255,255,0.45)] flex items-center justify-center relative border border-[#F8B6C3]/60">
-                  <div className="w-[74%] h-[74%] rounded-full border border-rose-200/55 flex items-center justify-center bg-gradient-to-br from-[#D95F70] to-[#A33345] shadow-inner">
+                {/* Wax Seal outer rim */}
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-[#D96B82] via-[#A8324E] to-[#751B32] p-[2px] shadow-inner flex items-center justify-center relative">
+                  {/* Inner disc */}
+                  <div className="w-full h-full rounded-full border border-white/40 flex items-center justify-center bg-gradient-to-br from-[#CC5872] via-[#9B2A44] to-[#6A162B] shadow-sm">
                     <Heart
                       size={14}
-                      className="text-white fill-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+                      className="text-white fill-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]"
                     />
                   </div>
-                  <div className="absolute top-1 left-2 w-2.5 h-1 bg-white/50 rounded-full blur-[0.4px] -rotate-30" />
                 </div>
               </div>
             </div>
@@ -509,10 +490,10 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
           {/* Ambient Ground Shadow with synchronized soft pulse */}
           <div
-            className={`absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-[85%] h-3 xs:h-3.5 rounded-full bg-black/10 dark:bg-black/40 blur-md pointer-events-none transition-all duration-700 will-change-[transform,opacity] ${
+            className={`absolute -bottom-3 left-1/2 -translate-x-1/2 w-[85%] h-3 xs:h-3.5 rounded-full bg-black/8 dark:bg-black/50 blur-md pointer-events-none transition-all duration-700 will-change-[transform,opacity] ${
               isClosed
                 ? 'scale-100 opacity-60 animate-[shadow-pulse_7.8s_ease-in-out_infinite]'
-                : 'scale-95 opacity-40'
+                : 'scale-95 opacity-35'
             }`}
           />
         </div>
@@ -567,15 +548,14 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         </div>
 
         {/* =========================================================================
-        {/* =========================================================================
             COMPACT STATUS / INVITATION PLATE (КОМПАКТНАЯ ПЛАШКА ПРИГЛАШЕНИЯ)
             ========================================================================= */}
         {invitation && (
           <>
-            {/* STATE A: Incoming Pending Invitation from Partner -> Larger, expressive compact card (10-20% bigger, spacious & elegant) with only «Открыть» button */}
+            {/* STATE A: Incoming Pending Invitation from Partner */}
             {invitation.status === 'pending' && invitation.senderId === 'partner' ? (
               <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-4.5 relative group">
-                {/* Soft ambient cherry/burgundy mist UNDER the compact card */}
+                {/* Soft ambient mist UNDER the compact card */}
                 <div
                   className="absolute -inset-3.5 rounded-[34px] bg-gradient-to-b from-[#FAD4DF]/35 via-[#F7CAD6]/20 to-transparent dark:from-[#3D222E]/40 dark:via-[#2F1A24]/20 dark:to-transparent blur-xl pointer-events-none -z-10"
                   aria-hidden="true"
@@ -591,15 +571,12 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                       handleOpenIncomingInvitation();
                     }
                   }}
-                  className="w-full p-5.5 xs:p-6.5 sm:p-7 rounded-[28px] bg-gradient-to-b from-[#FFFDFB]/95 via-[#FFFFFF]/90 to-[#FAF6F3]/95 dark:from-[#211A1F]/95 dark:via-[#1D171C]/95 dark:to-[#171216]/95 backdrop-blur-md border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_10px_32px_-6px_rgba(233,135,135,0.24)] dark:shadow-[0_14px_36px_-8px_rgba(0,0,0,0.5)] hover:border-[#E98787]/60 dark:hover:border-[#E98787]/50 active:scale-[0.988] transition-all duration-200 cursor-pointer text-left relative overflow-hidden select-none animate-card-enter"
+                  className="w-full p-5.5 xs:p-6.5 sm:p-7 rounded-[28px] bg-gradient-to-b from-[#FFFDFB]/95 via-[#FFFFFF]/90 to-[#FAF6F3]/95 dark:from-[#1D161C]/95 dark:via-[#181116]/95 dark:to-[#130D11]/95 backdrop-blur-md border border-[#ECD4DC] dark:border-[#30222B] shadow-[0_10px_32px_-6px_rgba(233,135,135,0.18)] dark:shadow-[0_14px_36px_-8px_rgba(0,0,0,0.6)] hover:border-[#E98787]/50 dark:hover:border-[#E98787]/40 active:scale-[0.988] transition-all duration-200 cursor-pointer text-left relative overflow-hidden select-none animate-card-enter"
                 >
-                  {/* Subtle inner hairline border */}
-                  <div className="absolute inset-3 rounded-[22px] border border-[#F2E1E6]/60 dark:border-[#362A32]/60 pointer-events-none" />
-
                   {/* Header row: Badge */}
-                  <div className="relative z-10 flex items-center justify-between gap-2 mb-4">
+                  <div className="relative z-10 flex items-center justify-between gap-2 mb-3.5">
                     <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold tracking-wide">
-                      <span>💌</span>
+                      <Mail size={13} className="text-[#E17282] dark:text-[#F3AEBF] shrink-0" />
                       <span>Входящее приглашение</span>
                       {!invitation.read && (
                         <span
@@ -611,8 +588,8 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   </div>
 
                   {/* Sender subtitle */}
-                  <div className="relative z-10 text-[13px] xs:text-[14px] text-[#777277] dark:text-[#B5ADB1] font-medium flex items-center gap-2 mb-2.5">
-                    <Heart size={14} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
+                  <div className="relative z-10 text-[13px] xs:text-[14px] text-[#777277] dark:text-[#B5ADB1] font-medium flex items-center gap-1.5 mb-2.5">
+                    <Heart size={13} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
                     <span className="truncate">
                       <strong className="font-semibold text-[#343033] dark:text-[#FAF5F7]">
                         {invitation.senderName || partnerDisplayName}
@@ -622,7 +599,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   </div>
 
                   {/* Date Title */}
-                  <h3 className="relative z-10 font-display font-bold text-[18px] xs:text-[20px] sm:text-[21.5px] leading-snug text-[#343033] dark:text-[#FAF5F7] tracking-tight mb-3">
+                  <h3 className="relative z-10 font-display font-bold text-[18px] xs:text-[20px] sm:text-[21.5px] leading-snug text-[#343033] dark:text-[#FAF5F7] tracking-tight mb-2.5">
                     «{invitation.idea.title}»
                   </h3>
 
@@ -633,7 +610,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                     </p>
                   )}
 
-                  {/* Primary Action Button: «Открыть» ONLY */}
+                  {/* Primary Action Button: «Открыть» */}
                   <div className="relative z-10 pt-1">
                     <button
                       type="button"
@@ -650,22 +627,19 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 </div>
               </div>
             ) : (
-              /* STATE B: Sent invitation or resolved invitation (accepted/declined) -> 10-20% larger, spacious & elegant */
+              /* STATE B: Sent invitation or resolved invitation (accepted/declined) */
               <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-4.5 relative group">
-                {/* Soft ambient cherry/burgundy mist UNDER the card */}
+                {/* Soft ambient mist UNDER the card */}
                 <div
                   className="absolute -inset-3 rounded-[32px] bg-gradient-to-b from-[#FAD4DF]/25 via-[#F7CAD6]/15 to-transparent dark:from-[#3D222E]/30 dark:via-[#2F1A24]/15 dark:to-transparent blur-xl pointer-events-none -z-10"
                   aria-hidden="true"
                 />
 
-                <div className="w-full px-5.5 py-4.5 xs:px-6.5 xs:py-5.5 sm:px-7 sm:py-6 rounded-[26px] bg-gradient-to-b from-[#FFFDFB]/95 via-[#FFFFFF]/90 to-[#FAF6F3]/95 dark:from-[#211A1F]/95 dark:via-[#1D171C]/95 dark:to-[#171216]/95 backdrop-blur-md border border-[#ECD4DC] dark:border-[#3D3039] shadow-[0_8px_26px_-6px_rgba(233,135,135,0.2)] dark:shadow-[0_12px_30px_-8px_rgba(0,0,0,0.5)] transition-all duration-300 animate-card-enter relative overflow-hidden">
-                  {/* Subtle inner hairline border */}
-                  <div className="absolute inset-2.5 rounded-[20px] border border-[#F2E1E6]/60 dark:border-[#362A32]/60 pointer-events-none" />
-
+                <div className="w-full px-5.5 py-4.5 xs:px-6.5 xs:py-5.5 sm:px-7 sm:py-6 rounded-[26px] bg-gradient-to-b from-[#FFFDFB]/95 via-[#FFFFFF]/90 to-[#FAF6F3]/95 dark:from-[#1D161C]/95 dark:via-[#181116]/95 dark:to-[#130D11]/95 backdrop-blur-md border border-[#ECD4DC] dark:border-[#30222B] shadow-[0_8px_26px_-6px_rgba(233,135,135,0.16)] dark:shadow-[0_12px_30px_-8px_rgba(0,0,0,0.6)] transition-all duration-300 animate-card-enter relative overflow-hidden">
                   {/* Row 1: Header / Title */}
                   <div className="relative z-10 flex items-center justify-between gap-2 mb-2.5">
                     <div className="inline-flex items-center gap-1.5 text-xs xs:text-[13px] font-semibold text-[#E98787] dark:text-[#F0B9C6] truncate">
-                      <span>💌</span>
+                      <Mail size={13} className="text-[#E98787] dark:text-[#F0B9C6] shrink-0" />
                       <span className="truncate">Свидание</span>
                     </div>
 
@@ -690,7 +664,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   </div>
 
                   {/* Row 3: Status line */}
-                  <div className="relative z-10 flex flex-col gap-1.5 text-xs xs:text-[13.5px] font-medium pt-2.5 border-t border-[#F2E1E6]/70 dark:border-[#33272F]">
+                  <div className="relative z-10 flex flex-col gap-1.5 text-xs xs:text-[13.5px] font-medium pt-2.5 border-t border-[#F2E1E6]/70 dark:border-[#261B23]">
                     {invitation.status === 'pending' && (
                       <div className="inline-flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
                         <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
@@ -719,7 +693,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
       {/* =========================================================================
           FULL-SCREEN DEDICATED WINDOW (ОТДЕЛЬНОЕ ОКНО С КАРТОЧКОЙ)
-          Luxurious, completely spacious, with smooth bloom & shrink-out exit
+          Clean OURS card system matching partner invitation card
           ========================================================================= */}
       {isModalOpen && (
         <div
@@ -734,30 +708,24 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             if (e.target === e.currentTarget) handleCloseModal();
           }}
         >
+          {/* Ambient soft card glow behind modal */}
           <div
-            className={`w-full max-w-[360px] xs:max-w-[390px] sm:max-w-[412px] rounded-3xl bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#EBD6DC] dark:border-[#3E3039] p-6.5 xs:p-7.5 sm:p-8 shadow-2xl relative overflow-hidden will-change-transform ${
+            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(254,205,211,0.35)_0%,_rgba(253,230,138,0.15)_45%,_transparent_70%)] blur-2xl"
+          />
+
+          <div
+            className={`w-full max-w-[360px] xs:max-w-[390px] sm:max-w-[412px] rounded-[28px] bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#1D161C] dark:via-[#181116] dark:to-[#130D11] border border-[#ECD4DC] dark:border-[#30222B] p-6.5 xs:p-7.5 sm:p-8 shadow-[0_16px_40px_-8px_rgba(233,135,135,0.22)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] relative overflow-hidden will-change-transform ${
               isClosingModal
                 ? 'animate-[letter-continuous-close_260ms_cubic-bezier(0.25,1,0.5,1)_forwards]'
                 : 'animate-[letter-continuous-bloom_520ms_cubic-bezier(0.22,1,0.36,1)]'
             }`}
           >
-            {/* Delicate inner hairline border */}
-            <div className="absolute inset-3 rounded-2xl border border-[#F2E1E6]/80 dark:border-[#362A32] pointer-events-none" />
-
-            {/* Corner accent flourishes */}
-            <div className="absolute top-4 left-4 text-[#E98787]/40 text-xs pointer-events-none select-none">
-              ✦
-            </div>
-            <div className="absolute top-4 right-12 text-[#E98787]/40 text-xs pointer-events-none select-none">
-              ✦
-            </div>
-
             {/* Close Button at top right */}
             <button
               type="button"
               onClick={handleCloseModal}
               title="Закрыть"
-              className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 flex items-center justify-center text-[#777277] dark:text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer z-20"
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 flex items-center justify-center text-[#777277] dark:text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer z-20"
             >
               <X size={16} />
             </button>
@@ -768,13 +736,11 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 isShuffling ? 'opacity-30 scale-98' : 'opacity-100 scale-100'
               }`}
             >
-              {/* Upper Ribbon */}
-              <div className="flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-[#E98787] dark:text-[#F0B9C6] mb-3">
-                <span className="w-5 h-px bg-[#E98787]/40" />
+              {/* Upper Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-[13.5px] xs:text-[14px] font-semibold tracking-wide mb-3.5">
+                <Sparkles size={14} className="text-[#E17282] dark:text-[#F3AEBF] shrink-0" />
                 <span>Идея для вас</span>
-                <span className="w-5 h-px bg-[#E98787]/40" />
               </div>
-
 
               {/* Date Title */}
               <h2 className="text-xl xs:text-2xl sm:text-[25px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-3 leading-snug px-1">
@@ -786,15 +752,45 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 {currentIdea.description}
               </p>
 
-              {/* Action Buttons: 'Пригласить на свидание' + refresh button */}
+              {/* Action Buttons: 'Пригласить' + refresh button */}
               <div className="flex items-center gap-2.5 w-full">
                 <button
                   type="button"
                   onClick={handleInvitePartner}
-                  className="flex-1 h-[52px] xs:h-[54px] px-5 rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[14px] xs:text-[15px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
+                  className="group relative flex-1 h-[50px] xs:h-[52px] sm:h-[54px] px-6 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+                  aria-label="Пригласить"
                 >
-                  <Send size={16} className="shrink-0" />
-                  <span>Пригласить на свидание</span>
+                  {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Открыть свидание») */}
+                  <svg
+                    viewBox="0 0 360 65"
+                    preserveAspectRatio="xMidYMid slice"
+                    className="absolute inset-0 w-full h-full pointer-events-none block"
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <radialGradient id="dateInvitePillGlow" cx="45%" cy="40%" r="65%">
+                        <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
+                        <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
+                        <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
+                      </radialGradient>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#dateInvitePillGlow)" />
+
+                    {/* Faint Romantic Gleam Particles */}
+                    <g opacity="0.25">
+                      <circle cx="42" cy="42" r="1.1" fill="#E98787" />
+                      <circle cx="135" cy="18" r="0.8" fill="#E98787" />
+                      <circle cx="235" cy="45" r="0.9" fill="#E98787" />
+                      <circle cx="315" cy="20" r="1.0" fill="#E98787" />
+                    </g>
+                  </svg>
+
+                  {/* Content Overlay */}
+                  <div className="relative z-10 flex items-center justify-center pointer-events-none">
+                    <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
+                      Пригласить
+                    </span>
+                  </div>
                 </button>
 
                 <button
@@ -803,7 +799,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   disabled={isShuffling}
                   title="Сменить свидание"
                   aria-label="Сменить свидание"
-                  className="w-[52px] h-[52px] xs:w-[54px] xs:h-[54px] shrink-0 rounded-full border border-[#F2D1D8] dark:border-white/14 bg-white/80 dark:bg-white/10 backdrop-blur-md hover:bg-white dark:hover:bg-white/15 text-[#6E676D] dark:text-[#C5BEC2] hover:text-[#E98787] dark:hover:text-[#F0B9C6] hover:border-[#E98787]/40 active:scale-[0.985] transition-all duration-200 flex items-center justify-center cursor-pointer disabled:opacity-40 shadow-2xs"
+                  className="w-[50px] h-[50px] xs:w-[52px] xs:h-[52px] sm:w-[54px] sm:h-[54px] shrink-0 rounded-full border border-[#E98787]/20 dark:border-[#E8BFC7]/15 bg-[#FAF0F2] dark:bg-[#150F13] shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-[#6E676D] dark:text-[#C5BEC2] hover:text-[#E98787] dark:hover:text-[#F0B9C6] active:scale-[0.985] transition-all duration-200 flex items-center justify-center cursor-pointer disabled:opacity-40"
                 >
                   <RefreshCw
                     size={18}
@@ -820,12 +816,13 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
       {/* =========================================================================
           2. INCOMING INVITATION DEDICATED SCENE (АТМОСФЕРНАЯ ДЫМКА И СВЕЧЕНИЕ)
+          Exact visual unity with Sender's Open Card
           ========================================================================= */}
       {isIncomingModalOpen && invitation && (
         <div
           role="dialog"
           aria-modal="true"
-          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3 xs:p-4 sm:p-6 overflow-hidden select-none ${
+          className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-3.5 xs:p-4 sm:p-6 overflow-hidden select-none ${
             isIncomingClosing
               ? 'animate-[modal-backdrop-exit_260ms_cubic-bezier(0.25,1,0.5,1)_forwards]'
               : 'animate-[modal-backdrop-enter_460ms_cubic-bezier(0.22,1,0.36,1)]'
@@ -844,72 +841,59 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             <X size={18} />
           </button>
 
-          {/* 1. Atmospheric Soft Radiant Glow: static blur-2xl, hardware-accelerated transform + opacity only */}
+          {/* 1. Atmospheric Soft Radiant Glow */}
           <div
-            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(254,205,211,0.5)_0%,_rgba(253,230,138,0.22)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
+            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(254,205,211,0.35)_0%,_rgba(253,230,138,0.15)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
-          {/* 2. Soft Floating Mist Veil: single lightweight layer that gently expands and fades out */}
+          {/* 2. Soft Floating Mist Veil */}
           <div
             className="absolute w-96 xs:w-[440px] h-72 rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(circle,_rgba(255,255,255,0.7)_0%,_rgba(254,226,236,0.35)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-mist-veil_750ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
-          {/* Main Incoming Invitation Card — Sized 10-20% larger, emerging smoothly through the mist with transform + opacity */}
+          {/* Main Incoming Invitation Card — Exact same styling, radius, border, and depth */}
           <div
-            className={`w-full max-w-[390px] xs:max-w-[420px] sm:max-w-[440px] rounded-[32px] bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#211A1F] dark:via-[#1D171C] dark:to-[#171216] border border-[#EBD6DC] dark:border-[#3E3039] p-6.5 xs:p-7.5 sm:p-8.5 shadow-2xl relative overflow-hidden will-change-[transform,opacity] z-10 ${
+            className={`w-full max-w-[360px] xs:max-w-[390px] sm:max-w-[412px] rounded-[28px] bg-gradient-to-b from-[#FFFDFB] via-[#FFFFFF] to-[#FAF6F3] dark:from-[#1D161C] dark:via-[#181116] dark:to-[#130D11] border border-[#ECD4DC] dark:border-[#30222B] p-6.5 xs:p-7.5 sm:p-8 shadow-[0_16px_40px_-8px_rgba(233,135,135,0.22)] dark:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)] relative overflow-hidden will-change-[transform,opacity] z-10 ${
               isIncomingClosing
                 ? 'animate-[letter-continuous-close_260ms_cubic-bezier(0.25,1,0.5,1)_forwards]'
                 : 'animate-[incoming-card-reveal_650ms_cubic-bezier(0.22,1,0.36,1)]'
             }`}
           >
-            {/* Delicate inner hairline border */}
-            <div className="absolute inset-3.5 rounded-[26px] border border-[#F2E1E6]/80 dark:border-[#362A32] pointer-events-none" />
-
-            {/* Corner accent flourishes */}
-            <div className="absolute top-4 left-4 text-[#E98787]/40 text-xs pointer-events-none select-none">
-              ✦
-            </div>
-            <div className="absolute top-4 right-12 text-[#E98787]/40 text-xs pointer-events-none select-none">
-              ✦
-            </div>
-
             {/* Close Button at top right of the card */}
             <button
               type="button"
               onClick={handleCloseIncomingModal}
               title="Закрыть"
-              className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 flex items-center justify-center text-[#777277] dark:text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer z-20"
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 flex items-center justify-center text-[#777277] dark:text-[#A8A1A4] hover:text-[#343033] dark:hover:text-white transition-colors cursor-pointer z-20"
             >
               <X size={16} />
             </button>
 
             {/* Incoming Date Card Content */}
             <div className="relative z-10 flex flex-col items-center text-center">
-              {/* Upper Ribbon */}
-              <div className="flex items-center gap-2 text-xs font-semibold tracking-widest uppercase text-[#E98787] dark:text-[#F0B9C6] mb-3.5">
-                <span className="w-5 h-px bg-[#E98787]/40" />
-                <span>{invitation.senderId === 'partner' ? 'Входящее приглашение 💌' : 'Приглашение на свидание 💌'}</span>
-                <span className="w-5 h-px bg-[#E98787]/40" />
+              {/* Upper Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-[13.5px] xs:text-[14px] font-semibold tracking-wide mb-3">
+                <Mail size={14} className="text-[#E17282] dark:text-[#F3AEBF] shrink-0" />
+                <span>{invitation.senderId === 'partner' ? 'Входящее приглашение' : 'Приглашение на свидание'}</span>
               </div>
 
               {/* Partner invite heading */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-xs font-semibold mb-2.5">
-                <Heart size={13} fill="currentColor" />
+              <div className="text-[13px] xs:text-[14px] text-[#777277] dark:text-[#B5ADB1] font-medium flex items-center gap-1.5 mb-2.5">
+                <Heart size={13} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
                 <span>
                   {invitation.senderId === 'partner'
-                    ? `${invitation.senderName || partnerDisplayName} предлагает свидание`
+                    ? `${invitation.senderName || partnerDisplayName} зовёт на свидание`
                     : `Ты зовёшь ${partnerDisplayName} на свидание`}
                 </span>
               </div>
 
-
               {/* Date Title */}
-              <h2 className="text-xl xs:text-2xl sm:text-[26px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-2.5 leading-snug px-1">
+              <h2 className="text-xl xs:text-2xl sm:text-[25px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-3 leading-snug px-1">
                 {invitation.idea.title}
               </h2>
 
               {/* Description */}
-              <p className="text-sm xs:text-[14.5px] text-[#554F54] dark:text-[#C5BEC2] leading-relaxed mb-6.5 max-w-[325px]">
+              <p className="text-sm xs:text-[14.5px] text-[#554F54] dark:text-[#C5BEC2] leading-relaxed mb-6 max-w-[300px]">
                 {invitation.idea.description}
               </p>
 
@@ -919,7 +903,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   <button
                     type="button"
                     onClick={handleAcceptIncomingInvitation}
-                    className="w-full h-[52px] xs:h-[56px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[15px] sm:text-[16px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full h-[52px] xs:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] dark:shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.2),0_8px_24px_-6px_rgba(0,0,0,0.5)] text-white font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight hover:opacity-95 active:scale-[0.985] active:opacity-90 transition-all duration-200 ease-out flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Check size={18} strokeWidth={2.4} />
                     <span>Принять</span>

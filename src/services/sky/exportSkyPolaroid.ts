@@ -68,11 +68,11 @@ export async function exportSkyPolaroid(sky: SkyState): Promise<boolean> {
     ctx.fillStyle = skyGrad;
     ctx.fillRect(padX, padTop, skySize, skySize);
 
-    // 4. Draw Lit Constellation Lines
+    // 4. Draw Lit Constellation Lines (Ultra-thin delicate gossamer threads)
     const litLines = (sky?.lines || []).filter((l) => l && l.isLit);
-    ctx.lineWidth = 3.2;
+    ctx.lineWidth = 1.1;
     ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(252, 228, 236, 0.62)';
+    ctx.strokeStyle = 'rgba(255, 244, 232, 0.28)';
 
     for (const line of litLines) {
       const x1 = padX + (line.from.x / 100) * skySize;
@@ -86,56 +86,95 @@ export async function exportSkyPolaroid(sky: SkyState): Promise<boolean> {
       ctx.stroke();
     }
 
-    // 5. Draw Lit Stars
+    // 5. Draw Lit Stars (Small Stars ⭐ for moments, Big 5-Point Stars ✨ for dates)
     const litPoints = (sky?.points || []).filter((p) => p && p.isLit);
 
     for (const point of litPoints) {
       const px = padX + (point.x / 100) * skySize;
       const py = padTop + (point.y / 100) * skySize;
+      const isDate = point.starType === 'date';
 
-      // 5.1 Soft outer atmospheric halo
-      const haloGrad = ctx.createRadialGradient(px, py, 0, px, py, 28);
-      haloGrad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-      haloGrad.addColorStop(0.35, 'rgba(250, 212, 223, 0.65)');
-      haloGrad.addColorStop(0.7, 'rgba(233, 135, 135, 0.22)');
-      haloGrad.addColorStop(1, 'rgba(233, 135, 135, 0)');
+      if (isDate) {
+        // BIG STAR: Classic 5-pointed star
+        const outerR = 22;
+        const innerR = 10.5;
+        const haloR = 42;
 
-      ctx.fillStyle = haloGrad;
-      ctx.beginPath();
-      ctx.arc(px, py, 28, 0, Math.PI * 2);
-      ctx.fill();
+        // Soft aura
+        const auraGrad = ctx.createRadialGradient(px, py, 0, px, py, haloR);
+        auraGrad.addColorStop(0, 'rgba(255, 253, 248, 0.92)');
+        auraGrad.addColorStop(0.35, 'rgba(255, 238, 216, 0.50)');
+        auraGrad.addColorStop(0.70, 'rgba(236, 170, 185, 0.14)');
+        auraGrad.addColorStop(1, 'rgba(233, 135, 135, 0)');
 
-      // 5.2 Mid-glow layer
-      ctx.fillStyle = 'rgba(250, 210, 220, 0.55)';
-      ctx.beginPath();
-      ctx.arc(px, py, 12, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 5.3 Core (Diamond star sparkle for anchor, or smooth circle for body)
-      if (point.role === 'anchor') {
-        const size = 13;
-        ctx.fillStyle = '#FFFFFF';
+        ctx.fillStyle = auraGrad;
         ctx.beginPath();
-        // 4-point diamond star
-        ctx.moveTo(px, py - size);
-        ctx.quadraticCurveTo(px, py, px + size, py);
-        ctx.quadraticCurveTo(px, py, px, py + size);
-        ctx.quadraticCurveTo(px, py, px - size, py);
-        ctx.quadraticCurveTo(px, py, px, py - size);
+        ctx.arc(px, py, haloR, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 5-pointed star body
+        ctx.fillStyle = '#FFFDF8';
+        ctx.strokeStyle = '#FFEED8';
+        ctx.lineWidth = 1.8;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const outerAngle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+          const x1 = px + outerR * Math.cos(outerAngle);
+          const y1 = py + outerR * Math.sin(outerAngle);
+          if (i === 0) ctx.moveTo(x1, y1);
+          else ctx.lineTo(x1, y1);
+
+          const innerAngle = outerAngle + Math.PI / 5;
+          const x2 = px + innerR * Math.cos(innerAngle);
+          const y2 = py + innerR * Math.sin(innerAngle);
+          ctx.lineTo(x2, y2);
+        }
         ctx.closePath();
         ctx.fill();
-      } else {
+        ctx.stroke();
+
+        // Center tiny nucleus
         ctx.fillStyle = '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(px, py, 7.5, 0, Math.PI * 2);
+        ctx.arc(px, py, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // SMALL STAR: Minimal glowing dot
+        const haloRadius = 26;
+        const midRadius = 9.5;
+        const centerRadius = 3.8;
+
+        // Soft outer atmospheric halo
+        const haloGrad = ctx.createRadialGradient(px, py, 0, px, py, haloRadius);
+        haloGrad.addColorStop(0, 'rgba(255, 253, 248, 0.95)');
+        haloGrad.addColorStop(0.28, 'rgba(255, 238, 216, 0.60)');
+        haloGrad.addColorStop(0.65, 'rgba(236, 170, 185, 0.16)');
+        haloGrad.addColorStop(1, 'rgba(233, 135, 135, 0)');
+
+        ctx.fillStyle = haloGrad;
+        ctx.beginPath();
+        ctx.arc(px, py, haloRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mid light body
+        ctx.fillStyle = 'rgba(255, 248, 238, 0.65)';
+        ctx.beginPath();
+        ctx.arc(px, py, midRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Soft pearl ellipse
+        ctx.fillStyle = 'rgba(255, 253, 248, 0.92)';
+        ctx.beginPath();
+        ctx.ellipse(px, py, 7.5, 6.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Central core
+        ctx.fillStyle = '#FFFDF7';
+        ctx.beginPath();
+        ctx.arc(px, py, centerRadius, 0, Math.PI * 2);
         ctx.fill();
       }
-
-      // 5.4 Bright pinpoint glint center
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
-      ctx.fill();
     }
 
     // 6. Empty Sky Text if 0 stars
