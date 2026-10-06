@@ -37,6 +37,7 @@ interface TodayScreenProps {
   streakInfo?: CoupleStreakInfo;
   onOpenStreak?: () => void;
   onOpenSky?: () => void;
+  isActive?: boolean;
 }
 
 export const TodayScreen: React.FC<TodayScreenProps> = ({
@@ -52,6 +53,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   streakInfo,
   onOpenStreak,
   onOpenSky,
+  isActive = true,
 }) => {
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
@@ -63,11 +65,32 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   const [now, setNow] = useState<number>(() => getSynchronizedNow());
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(getSynchronizedNow());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    // Suspend timer when TodayScreen is not the active tab
+    if (!isActive) return;
+
+    // Immediately sync to fresh time on tab activation
+    setNow(getSynchronizedNow());
+
+    const updateTimer = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        setNow(getSynchronizedNow());
+      }
+    };
+
+    const timer = setInterval(updateTimer, 1000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setNow(getSynchronizedNow());
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [isActive]);
 
   // Calculate moment availability & interval constraints from authoritative timestamps
   const availability = useMemo(() => {

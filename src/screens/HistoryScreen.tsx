@@ -153,9 +153,11 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           <button
             type="button"
             onClick={handleOpenLovely}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#E98787] text-white text-xs font-semibold hover:bg-[#DE7676] active:scale-95 transition-all shadow-xs cursor-pointer"
+            className="group relative h-[38px] px-4 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-xs hover:border-[#E98787]/35 text-center flex items-center justify-center shrink-0"
           >
-            <span>Открыть воспоминания</span>
+            <span className="font-display font-semibold text-xs tracking-tight text-[#343033] dark:text-white whitespace-nowrap">
+              Открыть воспоминания
+            </span>
           </button>
         </div>
       );
@@ -540,9 +542,40 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 <button
                   type="button"
                   onClick={handleOpenLovely}
-                  className="inline-flex items-center justify-center px-5 py-2.5 rounded-full bg-[#E98787] text-white text-xs font-semibold hover:bg-[#DE7676] active:scale-98 transition-all shadow-xs cursor-pointer"
+                  className="group relative w-full max-w-xs mx-auto h-[50px] xs:h-[52px] sm:h-[54px] px-6 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center"
+                  aria-label="Открыть LOVELY"
                 >
-                  Открыть LOVELY
+                  {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Свидание») */}
+                  <svg
+                    viewBox="0 0 360 65"
+                    preserveAspectRatio="xMidYMid slice"
+                    className="absolute inset-0 w-full h-full pointer-events-none block"
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <radialGradient id="historyLovelyPillGlow" cx="45%" cy="40%" r="65%">
+                        <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
+                        <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
+                        <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
+                      </radialGradient>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#historyLovelyPillGlow)" />
+
+                    {/* Faint Romantic Gleam Particles */}
+                    <g opacity="0.25">
+                      <circle cx="42" cy="42" r="1.1" fill="#E98787" />
+                      <circle cx="135" cy="18" r="0.8" fill="#E98787" />
+                      <circle cx="235" cy="45" r="0.9" fill="#E98787" />
+                      <circle cx="315" cy="20" r="1.0" fill="#E98787" />
+                    </g>
+                  </svg>
+
+                  {/* Content Overlay */}
+                  <div className="relative z-10 flex items-center justify-center pointer-events-none">
+                    <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
+                      Открыть LOVELY
+                    </span>
+                  </div>
                 </button>
               </div>
             </div>

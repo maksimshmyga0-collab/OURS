@@ -52,9 +52,8 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
 
-  const [dragOffset, setDragOffset] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
   const dragOffsetRef = useRef(0);
-  dragOffsetRef.current = dragOffset;
 
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -68,12 +67,16 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     if (prevTabRef.current !== activeTab) {
       prevTabRef.current = activeTab;
       setIsAnimating(true);
+      if (trackRef.current) {
+        trackRef.current.style.transition = 'transform 230ms cubic-bezier(0.22, 1, 0.36, 1)';
+        trackRef.current.style.transform = `translate3d(-${currentIndex * 100}%, 0, 0)`;
+      }
       const timer = setTimeout(() => {
         setIsAnimating(false);
       }, 240);
       return () => clearTimeout(timer);
     }
-  }, [activeTab]);
+  }, [activeTab, currentIndex]);
 
   // Touch tracking state
   const touchState = useRef({
@@ -168,7 +171,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
       // Horizontal swipe navigation confirmed
       touchState.current.isSwiping = true;
-      setIsDragging(true);
+      if (!isDraggingRef.current) {
+        isDraggingRef.current = true;
+        setIsDragging(true);
+      }
       setIsAnimating(false);
     }
 
@@ -188,7 +194,11 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         clampedDx = 0;
       }
 
-      setDragOffset(clampedDx);
+      dragOffsetRef.current = clampedDx;
+      if (trackRef.current) {
+        trackRef.current.style.transition = 'none';
+        trackRef.current.style.transform = `translate3d(calc(-${currentIndexRef.current * 100}% + ${clampedDx}px), 0, 0)`;
+      }
     }
   }, [isBlocked]);
 
@@ -226,9 +236,15 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       isScrolling: false,
     };
 
+    dragOffsetRef.current = 0;
+    isDraggingRef.current = false;
     setIsDragging(false);
     setIsAnimating(true);
-    setDragOffset(0);
+
+    if (trackRef.current) {
+      trackRef.current.style.transition = 'transform 230ms cubic-bezier(0.22, 1, 0.36, 1)';
+      trackRef.current.style.transform = `translate3d(-${targetIndex * 100}%, 0, 0)`;
+    }
 
     if (targetIndex !== currentIndexRef.current) {
       const nextTab = TABS[targetIndex];
@@ -311,7 +327,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
             return;
           }
           mouseState.current.isSwiping = true;
-          setIsDragging(true);
+          if (!isDraggingRef.current) {
+            isDraggingRef.current = true;
+            setIsDragging(true);
+          }
           setIsAnimating(false);
         }
       }
@@ -323,7 +342,11 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         } else if (currentIndexRef.current === 3 && dx < 0) {
           clampedDx = 0;
         }
-        setDragOffset(clampedDx);
+        dragOffsetRef.current = clampedDx;
+        if (trackRef.current) {
+          trackRef.current.style.transition = 'none';
+          trackRef.current.style.transform = `translate3d(calc(-${currentIndexRef.current * 100}% + ${clampedDx}px), 0, 0)`;
+        }
       }
     };
 
@@ -350,9 +373,15 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           targetIndex = currentIndexRef.current - 1;
         }
 
+        dragOffsetRef.current = 0;
+        isDraggingRef.current = false;
         setIsDragging(false);
         setIsAnimating(true);
-        setDragOffset(0);
+
+        if (trackRef.current) {
+          trackRef.current.style.transition = 'transform 230ms cubic-bezier(0.22, 1, 0.36, 1)';
+          trackRef.current.style.transform = `translate3d(-${targetIndex * 100}%, 0, 0)`;
+        }
 
         if (targetIndex !== currentIndexRef.current) {
           const nextTab = TABS[targetIndex];
@@ -388,9 +417,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       style={{ touchAction: 'pan-y' }}
     >
       <div
+        ref={trackRef}
         className="flex w-full flex-1 min-h-full"
         style={{
-          transform: `translate3d(calc(-${currentIndex * 100}% + ${dragOffset}px), 0, 0)`,
+          transform: `translate3d(-${currentIndex * 100}%, 0, 0)`,
           transition: isDragging
             ? 'none'
             : 'transform 230ms cubic-bezier(0.22, 1, 0.36, 1)',

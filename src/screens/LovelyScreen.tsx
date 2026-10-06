@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { PrimaryButton } from '../components/PrimaryButton';
 import { OursLogo } from '../components/OursLogo';
 import { X, Heart, Clock, Sparkles, Shield, Check, Loader2 } from 'lucide-react';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
@@ -159,9 +158,44 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
 
             {/* Actions: Continue button only */}
             <div className="w-full space-y-3 pt-2">
-              <PrimaryButton variant="coral" onClick={onClose}>
-                Продолжить
-              </PrimaryButton>
+              <button
+                type="button"
+                onClick={onClose}
+                className="group relative w-full h-[50px] xs:h-[52px] sm:h-[54px] px-6 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center"
+                aria-label="Продолжить"
+              >
+                {/* Ambient Background Aura & Delicate Floating Gleam */}
+                <svg
+                  viewBox="0 0 360 65"
+                  preserveAspectRatio="xMidYMid slice"
+                  className="absolute inset-0 w-full h-full pointer-events-none block"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <radialGradient id="lovelyContinueBtnGlow" cx="45%" cy="40%" r="65%">
+                      <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
+                      <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
+                      <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
+                    </radialGradient>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#lovelyContinueBtnGlow)" />
+
+                  {/* Faint Romantic Gleam Particles */}
+                  <g opacity="0.25">
+                    <circle cx="42" cy="42" r="1.1" fill="#E98787" />
+                    <circle cx="135" cy="18" r="0.8" fill="#E98787" />
+                    <circle cx="235" cy="45" r="0.9" fill="#E98787" />
+                    <circle cx="315" cy="20" r="1.0" fill="#E98787" />
+                  </g>
+                </svg>
+
+                {/* Content Overlay */}
+                <div className="relative z-10 flex items-center justify-center pointer-events-none">
+                  <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
+                    Продолжить
+                  </span>
+                </div>
+              </button>
 
               {(onResetLovely || onResetSubscription) && (
                 <button
@@ -278,20 +312,52 @@ export const LovelyScreen: React.FC<LovelyScreenProps> = ({
 
             {/* Bottom Actions */}
             <div className="space-y-2 pt-2">
-              <PrimaryButton
-                variant="coral"
+              <button
+                type="button"
                 onClick={handleBuy}
                 disabled={isProcessingPayment}
+                className="group relative w-full h-[50px] xs:h-[52px] sm:h-[54px] px-6 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+                aria-label="Стать Lovely"
               >
-                {isProcessingPayment ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Подключение к оплате...</span>
-                  </span>
-                ) : (
-                  'Купить LOVELY'
-                )}
-              </PrimaryButton>
+                {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from Date tab buttons) */}
+                <svg
+                  viewBox="0 0 360 65"
+                  preserveAspectRatio="xMidYMid slice"
+                  className="absolute inset-0 w-full h-full pointer-events-none block"
+                  aria-hidden="true"
+                >
+                  <defs>
+                    <radialGradient id="lovelyPurchaseBtnGlow" cx="45%" cy="40%" r="65%">
+                      <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
+                      <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
+                      <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
+                    </radialGradient>
+                  </defs>
+                  <rect width="100%" height="100%" fill="url(#lovelyPurchaseBtnGlow)" />
+
+                  {/* Faint Romantic Gleam Particles */}
+                  <g opacity="0.25">
+                    <circle cx="42" cy="42" r="1.1" fill="#E98787" />
+                    <circle cx="135" cy="18" r="0.8" fill="#E98787" />
+                    <circle cx="235" cy="45" r="0.9" fill="#E98787" />
+                    <circle cx="315" cy="20" r="1.0" fill="#E98787" />
+                  </g>
+                </svg>
+
+                {/* Content Overlay */}
+                <div className="relative z-10 flex items-center justify-center pointer-events-none">
+                  {isProcessingPayment ? (
+                    <span className="inline-flex items-center gap-2 font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs">
+                      <Loader2 size={16} className="animate-spin text-[#E98787]" />
+                      <span>Подключение к оплате...</span>
+                    </span>
+                  ) : (
+                    <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
+                      Стать Lovely
+                    </span>
+                  )}
+                </div>
+              </button>
 
               <button
                 type="button"

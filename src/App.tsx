@@ -261,23 +261,6 @@ export default function App() {
               (prev.couple.isLovely && !res.pair!.isLovely && prev.couple.lovelyPurchasedAt ? true : res.pair!.isLovely)
             );
 
-            // Fast delta check: if nothing changed in moments, couple, or active moment, avoid re-rendering entire app
-            const momentsChanged =
-              moments.length !== prev.todayMoments.length ||
-              moments.some((m, i) => {
-                const pm = prev.todayMoments[i];
-                return (
-                  !pm ||
-                  pm.id !== m.id ||
-                  pm.status !== m.status ||
-                  pm.userPhoto !== m.userPhoto ||
-                  pm.partnerPhoto !== m.partnerPhoto ||
-                  pm.userReaction !== m.userReaction ||
-                  pm.partnerReaction !== m.partnerReaction ||
-                  pm.completedAt !== m.completedAt
-                );
-              });
-
             const resolvedPartnerName = (res.pair!.partner.name && res.pair!.partner.name !== 'Партнёр')
               ? res.pair!.partner.name
               : (prev.couple.partner.name && prev.couple.partner.name !== 'Партнёр')
@@ -285,16 +268,35 @@ export default function App() {
                 : (res.pair!.partner.name || 'Партнёр');
 
             const resolvedPartnerAvatar = res.pair!.partner.avatarUrl || prev.couple.partner.avatarUrl || null;
+            const resolvedUserAvatar = res.pair!.user.avatarUrl || prev.couple.user.avatarUrl || null;
+            const prevUserAvatar = prev.couple.user.avatarUrl || null;
+            const prevPartnerAvatar = prev.couple.partner.avatarUrl || null;
 
             const coupleChanged =
               prev.couple.connected !== res.pair!.connected ||
               prev.couple.isLovely !== isLovelyActive ||
               prev.couple.subscription !== (isLovelyActive ? 'premium' : (res.pair!.subscription || 'free')) ||
-              prev.couple.user.name !== res.pair!.user.name ||
-              prev.couple.user.avatarUrl !== res.pair!.user.avatarUrl ||
+              (prev.couple.user.name || '') !== (res.pair!.user.name || '') ||
+              prevUserAvatar !== resolvedUserAvatar ||
               prev.couple.partner.name !== resolvedPartnerName ||
-              prev.couple.partner.avatarUrl !== resolvedPartnerAvatar ||
+              prevPartnerAvatar !== resolvedPartnerAvatar ||
               prev.couple.daysTogether !== res.pair!.daysTogether;
+
+            const momentsChanged =
+              moments.length !== prev.todayMoments.length ||
+              moments.some((m, i) => {
+                const pm = prev.todayMoments[i];
+                if (!pm) return true;
+                return (
+                  pm.id !== m.id ||
+                  pm.status !== m.status ||
+                  (pm.userPhoto || null) !== (m.userPhoto || null) ||
+                  (pm.partnerPhoto || null) !== (m.partnerPhoto || null) ||
+                  (pm.userReaction || null) !== (m.userReaction || null) ||
+                  (pm.partnerReaction || null) !== (m.partnerReaction || null) ||
+                  (pm.completedAt || null) !== (m.completedAt || null)
+                );
+              });
 
             const historyChanged =
               Boolean(res.history && res.history.length > 0 && res.history.length !== prev.history.length);
@@ -377,10 +379,19 @@ export default function App() {
     if ((activeTab === 'history' || isStreakModalOpen) && appState.couple.id) {
       apiClient.fetchHistory(appState.couple.id).then((history) => {
         if (history && history.length > 0) {
-          setAppState((prev) => ({
-            ...prev,
-            history,
-          }));
+          setAppState((prev) => {
+            if (
+              prev.history.length === history.length &&
+              prev.history[0]?.id === history[0]?.id &&
+              prev.history[prev.history.length - 1]?.id === history[history.length - 1]?.id
+            ) {
+              return prev; // History identical -> avoid full app re-render
+            }
+            return {
+              ...prev,
+              history,
+            };
+          });
         }
       }).catch((err) => {
         console.warn('[OURS] Failed to lazy-load history:', err);
@@ -832,6 +843,7 @@ export default function App() {
                       hapticEnabled={appState.settings.haptic}
                       streakInfo={streakInfo}
                       onOpenStreak={() => setIsStreakModalOpen(true)}
+                      isActive={activeTab === 'today'}
                     />
                   ),
                   history: (

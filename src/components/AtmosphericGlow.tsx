@@ -52,25 +52,22 @@ export const AtmosphericGlow: React.FC<AtmosphericGlowProps> = React.memo(({
   }
 
   if (variant === 'prominent') {
+    const defaultInsets = insetClassName || '-inset-2.5 xs:-inset-3 sm:-inset-3.5';
+    const defaultRounded = roundedClassName || 'rounded-[26px] xs:rounded-[28px] sm:rounded-[30px]';
     return (
       <div
-        className={`absolute inset-0 pointer-events-none -z-10 overflow-visible select-none ${className}`}
-        style={style}
+        className={`absolute ${defaultInsets} ${defaultRounded} pointer-events-none select-none overflow-visible will-change-[transform,opacity] ${className}`}
+        style={{ zIndex: 0, ...style }}
         aria-hidden="true"
       >
-        {/* 1. Base rounded elliptical aura - Soft, round, radiant halo with zero flat edges */}
+        {/* Layer 1: Wide ambient soft halo slightly peeking around all envelope edges */}
         <div
-          className="absolute -inset-x-2 -inset-y-6 xs:-inset-x-3 xs:-inset-y-7 rounded-full blur-2xl origin-center animate-diptych-halo bg-[radial-gradient(ellipse_at_center,_rgba(252,205,218,0.70)_0%,_rgba(246,172,194,0.38)_36%,_rgba(236,145,172,0.10)_56%,_transparent_74%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(224,115,148,0.35)_0%,_rgba(188,62,95,0.18)_36%,_rgba(128,28,52,0.05)_56%,_transparent_74%)]"
+          className="absolute -inset-1 rounded-[28px] xs:rounded-[30px] sm:rounded-[32px] blur-2xl opacity-75 dark:opacity-70 animate-diptych-halo bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.48)_0%,_rgba(246,172,194,0.30)_55%,_rgba(253,225,232,0.12)_75%,_transparent_95%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.36)_0%,_rgba(168,42,68,0.22)_55%,_rgba(128,28,52,0.08)_75%,_transparent_95%)]"
         />
 
-        {/* 2. Organic fluid rounded wave - Living breathing rounded ellipse */}
+        {/* Layer 2: Delicate contour halo gently illuminating envelope rim */}
         <div
-          className="absolute -inset-x-1 -inset-y-5 xs:-inset-x-2 xs:-inset-y-6 rounded-full blur-xl origin-center animate-fluid-blob-1 bg-[radial-gradient(ellipse_at_center,_rgba(253,220,232,0.60)_0%,_rgba(248,178,200,0.28)_38%,_transparent_68%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(224,122,154,0.28)_0%,_rgba(188,62,95,0.14)_38%,_transparent_68%)]"
-        />
-
-        {/* 3. Luminous warm core heart of light - Round centered floating depth */}
-        <div
-          className="absolute inset-x-6 inset-y-2 rounded-full blur-lg origin-center animate-fluid-pulse bg-[radial-gradient(circle,_rgba(254,235,242,0.65)_0%,_rgba(246,188,210,0.25)_40%,_transparent_66%)] dark:bg-[radial-gradient(circle,_rgba(228,142,170,0.25)_0%,_rgba(188,62,95,0.10)_40%,_transparent_66%)]"
+          className="absolute inset-0 rounded-[26px] xs:rounded-[28px] sm:rounded-[30px] blur-xl opacity-80 dark:opacity-75 animate-fluid-blob-1 bg-[radial-gradient(ellipse_at_center,_rgba(252,205,218,0.52)_0%,_rgba(244,172,194,0.28)_50%,_rgba(235,168,184,0.12)_75%,_transparent_92%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(224,115,148,0.30)_0%,_rgba(198,58,86,0.18)_50%,_rgba(128,28,52,0.06)_75%,_transparent_92%)]"
         />
       </div>
     );

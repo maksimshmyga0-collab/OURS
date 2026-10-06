@@ -258,9 +258,6 @@ export const DateScreen: React.FC<DateScreenProps> = ({
           className="relative w-full max-w-[270px] xs:max-w-[295px] sm:max-w-[315px] aspect-[16/10] mx-auto translate-y-1 xs:translate-y-1.5 sm:translate-y-2 overflow-visible"
           style={{ perspective: '1200px' }}
         >
-          {/* Organic chaotic luminous Atmospheric Glow centered on the envelope */}
-          <AtmosphericGlow variant="prominent" />
-
           {/* Main Envelope Body — Organic floating in air when closed, stable when opening */}
           <div
             onClick={isClosed ? handleOpenEnvelope : undefined}
@@ -270,6 +267,9 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 : ''
             }`}
           >
+            {/* Signature OURS Atmospheric Glow aura behind envelope contours */}
+            <AtmosphericGlow variant="prominent" />
+
             {/* 1. BACK PLATE & INTERIOR POCKET CAVITY */}
             <div
               className="absolute inset-0 rounded-[20px] bg-gradient-to-b from-[#F6E8EB] via-[#E5C9D3] to-[#D4ABBA] border border-[#B17A8E]/75 shadow-[0_12px_28px_-6px_rgba(110,28,48,0.16),0_4px_12px_rgba(0,0,0,0.06)] overflow-hidden"

@@ -163,18 +163,36 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({
       };
     });
 
+    let width = 0;
+    let height = 0;
+    let cx = 0;
+    let cy = 0;
+
     const updateSize = () => {
       const rect = container.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 3);
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      width = rect.width || window.innerWidth || 360;
+      height = rect.height || window.innerHeight || 640;
+      cx = width / 2;
+      cy = height / 2 - VERTICAL_OFFSET;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
 
     updateSize();
-    window.addEventListener('resize', updateSize);
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updateSize();
+      });
+      resizeObserver.observe(container);
+    } else {
+      window.addEventListener('resize', updateSize);
+    }
 
     // Continuous easing: gentle start, silky-smooth glide into the center without stops
     const easeFlight = (p: number) => {
@@ -182,28 +200,25 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({
       return 1 - Math.pow(1 - t, 2.6);
     };
 
+    let lastOpacity = -1;
+
     const renderFrame = (timestamp: number) => {
       if (startTime === null) {
         startTime = timestamp;
       }
       const elapsed = timestamp - startTime;
 
-      const rect = container.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-      const cx = width / 2;
-      const cy = height / 2 - VERTICAL_OFFSET; // Unified elevated center for all elements
-
       ctx.clearRect(0, 0, width, height);
 
       // --- 1. Overlay Fade In & Dissolve ---
       let overlayAlpha = 1.0;
       if (elapsed < 320) {
-        overlayAlpha = elapsed / 320;
+        overlayAlpha = Math.round((elapsed / 320) * 100) / 100;
       } else if (elapsed > 2450) {
-        overlayAlpha = Math.max(0, 1 - (elapsed - 2450) / 500);
+        overlayAlpha = Math.max(0, Math.round((1 - (elapsed - 2450) / 500) * 100) / 100);
       }
-      if (container) {
+      if (container && overlayAlpha !== lastOpacity) {
+        lastOpacity = overlayAlpha;
         container.style.opacity = `${overlayAlpha}`;
       }
 
@@ -435,7 +450,11 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({
     animId = requestAnimationFrame(renderFrame);
 
     return () => {
-      window.removeEventListener('resize', updateSize);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      } else {
+        window.removeEventListener('resize', updateSize);
+      }
       cancelAnimationFrame(animId);
     };
   }, []);
