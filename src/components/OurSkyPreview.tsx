@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Moment, HistoryDay, CoupleState, CoupleStreakInfo } from '../types';
 import {
   getCoupleMatchedDates,
+  getCoupleSkyDates,
   getMatchedDatesForMonth,
   getSkyForMonth,
 } from '../services/sky/skyService';
@@ -50,15 +51,21 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
     );
   }, [couple.id, couple.pairSeed, couple.inviteCode, pairSeed]);
 
-  const allMatchedDates = useMemo(() => {
-    return getCoupleMatchedDates(couple, todayMoments, history, now);
-  }, [couple, todayMoments, history, now]);
+  // Retrieve calendar days with completed/conducted dates (real, confirmed dates only)
+  const completedDateDays = useMemo(() => {
+    return dateInvitationService.getCompletedDateDays();
+  }, []);
 
-  const monthMatchedDates = useMemo(() => {
-    return getMatchedDatesForMonth(allMatchedDates, currentYear, currentMonth);
-  }, [allMatchedDates, currentYear, currentMonth]);
+  // All deduplicated sky dates (1 day = max 1 star: either authentic match or confirmed date)
+  const allSkyDates = useMemo(() => {
+    return getCoupleSkyDates(couple, todayMoments, history, completedDateDays, now);
+  }, [couple, todayMoments, history, completedDateDays, now]);
 
-  const starsCount = monthMatchedDates.length;
+  const monthSkyDates = useMemo(() => {
+    return getMatchedDatesForMonth(allSkyDates, currentYear, currentMonth);
+  }, [allSkyDates, currentYear, currentMonth]);
+
+  const starsCount = monthSkyDates.length;
 
   const sky = useMemo(() => {
     return getSkyForMonth(
@@ -67,10 +74,10 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
       currentMonth,
       starsCount,
       true,
-      monthMatchedDates,
-      dateInvitationService.getCompletedDateDays()
+      monthSkyDates,
+      completedDateDays
     );
-  }, [stablePairSeed, currentYear, currentMonth, starsCount, monthMatchedDates]);
+  }, [stablePairSeed, currentYear, currentMonth, starsCount, monthSkyDates, completedDateDays]);
 
   const handleClick = () => {
     triggerHaptic(hapticEnabled);

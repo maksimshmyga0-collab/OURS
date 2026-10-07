@@ -200,12 +200,39 @@ export function getCoupleMatchedDates(
     }
   }
 
-  // If no authentic matches recorded yet, provide the 7 test stars (4 matches + 3 dates in random order)
-  if (matchedDatesSet.size === 0) {
-    return getTestMatchedDates(referenceDate);
+  // Never return fake test dates for couples; return strictly authentic matched dates
+  return Array.from(matchedDatesSet).sort();
+}
+
+/**
+ * Combines authentic matches and confirmed completed dates for a couple into the unified sky calendar.
+ * Rule: Exactly 1 star per unique calendar day with an event (match or date).
+ */
+export function getCoupleSkyDates(
+  couple: CoupleState,
+  todayMoments: Moment[] = [],
+  history: HistoryDay[] = [],
+  completedDateDays: string[] = [],
+  referenceDate: Date = new Date()
+): string[] {
+  const datesSet = new Set<string>();
+
+  // 1. All authentic match days
+  const matchDays = getCoupleMatchedDates(couple, todayMoments, history, referenceDate);
+  for (const d of matchDays) {
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      datesSet.add(d);
+    }
   }
 
-  return Array.from(matchedDatesSet).sort();
+  // 2. All confirmed date days (ONLY if actually confirmed/accepted!)
+  for (const d of completedDateDays) {
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      datesSet.add(d);
+    }
+  }
+
+  return Array.from(datesSet).sort();
 }
 
 /**
@@ -546,10 +573,12 @@ export function getSkyForMonth(
       : 'Первая звезда зажглась от вашего общего касания';
   } else if (effectiveStarsCount >= maxStarsInMonth) {
     statusText = 'Завершённое созвездие месяца.';
-  } else if (dateStarsCount > 0) {
+  } else if (dateStarsCount > 0 && momentStarsCount > 0) {
     statusText = `${momentStarsCount} ${pluralizeWord(momentStarsCount, 'касание', 'касания', 'касаний')} и ${dateStarsCount} ${pluralizeWord(dateStarsCount, 'свидание', 'свидания', 'свиданий')}`;
+  } else if (dateStarsCount > 0) {
+    statusText = `${dateStarsCount} ${pluralizeWord(dateStarsCount, 'свидание', 'свидания', 'свиданий')} зажгли большие звёзды`;
   } else {
-    statusText = 'Ваш уникальный узор звёзд продолжает расти.';
+    statusText = `${momentStarsCount} ${pluralizeWord(momentStarsCount, 'касание', 'касания', 'касаний')} зажгли звёзды в небе`;
   }
 
   const monthName = getMonthNameRu(month);

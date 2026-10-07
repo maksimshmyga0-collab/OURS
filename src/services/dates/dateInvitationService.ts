@@ -61,18 +61,10 @@ export function getRecordedDateDays(): string[] {
         }
       }
     }
-    if (list.length === 0) {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, '0');
-      return [`${y}-${m}-02`, `${y}-${m}-05`, `${y}-${m}-07`, `${y}-${m}-09`];
-    }
-    return list;
+    // Strictly return only real, confirmed date days (never inject fake dates)
+    return list.filter((k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k));
   } catch {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    return [`${y}-${m}-02`, `${y}-${m}-05`, `${y}-${m}-07`, `${y}-${m}-09`];
+    return [];
   }
 }
 
@@ -196,6 +188,22 @@ export const dateInvitationService = {
 
     try {
       appStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
+
+      if (formatted.status === 'accepted') {
+        const dateStr = formatted.respondedAt || formatted.createdAt;
+        if (dateStr) {
+          const d = new Date(dateStr);
+          if (!isNaN(d.getTime())) {
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
+            const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
+            if (!list.includes(key)) {
+              list.push(key);
+              appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
+            }
+          }
+        }
+      }
     } catch {
       // ignore
     }

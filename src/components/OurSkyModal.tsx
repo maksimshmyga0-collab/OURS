@@ -4,6 +4,7 @@ import { OursLogo } from './OursLogo';
 import { CoupleSkyView } from './CoupleSkyView';
 import {
   getCoupleMatchedDates,
+  getCoupleSkyDates,
   getMatchedDatesForMonth,
   getSkyForMonth,
 } from '../services/sky/skyService';
@@ -101,23 +102,28 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
-  // All deduplicated matched dates (1 day = max 1 star)
-  const allMatchedDates = useMemo(() => {
-    return getCoupleMatchedDates(couple, todayMoments, history, now);
-  }, [couple, todayMoments, history, now, passedMatchedDates]);
+  // Retrieve calendar days with completed/conducted dates (real, confirmed dates only)
+  const completedDateDays = useMemo(() => {
+    return dateInvitationService.getCompletedDateDays();
+  }, [isOpen]);
 
-  // Determine available historical months + current month (strictly from real history)
+  // All deduplicated sky dates (1 day = max 1 star: authentic match or confirmed date)
+  const allSkyDates = useMemo(() => {
+    return getCoupleSkyDates(couple, todayMoments, history, completedDateDays, now);
+  }, [couple, todayMoments, history, completedDateDays, now]);
+
+  // Determine available historical months + current month (strictly from real history & events)
   const availableMonths = useMemo(() => {
     const set = new Set<string>();
     // Always include current month
     set.add(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
-    for (const d of allMatchedDates) {
+    for (const d of allSkyDates) {
       if (d && d.length >= 7) {
         set.add(d.substring(0, 7));
       }
     }
     return Array.from(set).sort();
-  }, [allMatchedDates, currentYear, currentMonth]);
+  }, [allSkyDates, currentYear, currentMonth]);
 
   const currentSelectedKey = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
   const currentIdx = availableMonths.indexOf(currentSelectedKey);
@@ -157,18 +163,13 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   // Determine if viewing the active current month
   const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
 
-  // Matched dates in the currently selected month
-  const monthMatchedDates = useMemo(() => {
-    return getMatchedDatesForMonth(allMatchedDates, selectedYear, selectedMonth);
-  }, [allMatchedDates, selectedYear, selectedMonth]);
+  // Sky dates in the currently selected month
+  const monthSkyDates = useMemo(() => {
+    return getMatchedDatesForMonth(allSkyDates, selectedYear, selectedMonth);
+  }, [allSkyDates, selectedYear, selectedMonth]);
 
-  const starsCount = monthMatchedDates.length;
+  const starsCount = monthSkyDates.length;
   const effectiveStarsCount = starsCount;
-
-  // Retrieve calendar days with completed/conducted dates
-  const completedDateDays = useMemo(() => {
-    return dateInvitationService.getCompletedDateDays();
-  }, [isOpen]);
 
   const stablePairSeed = useMemo(() => {
     return couple.id ? `pair_${couple.id}` : (couple.pairSeed || pairSeed || couple.inviteCode || 'ours_pair');
@@ -182,7 +183,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
       selectedMonth,
       effectiveStarsCount,
       isCurrentMonth,
-      monthMatchedDates,
+      monthSkyDates,
       completedDateDays
     );
   }, [
@@ -191,7 +192,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     selectedMonth,
     effectiveStarsCount,
     isCurrentMonth,
-    monthMatchedDates,
+    monthSkyDates,
     completedDateDays,
   ]);
 
@@ -328,7 +329,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
               <span>{starsCount > 0 ? 'Ваше созвездие' : 'Ваше небо'}</span>
             </h4>
             <p className="text-xs text-[#777277] dark:text-[#A9A1B8] max-w-xs mx-auto leading-relaxed">
-              Каждый день с MATCH зажигает ровно одну новую звезду.
+              Касания зажигают звёзды-точки, а проведённые свидания — большие звёзды.
             </p>
           </div>
         </div>
@@ -339,7 +340,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
             <p className="font-display text-xs sm:text-sm font-semibold text-[#777277] dark:text-[#B8B2C8] leading-snug">
               Пустое небо ждёт вашего первого общего момента.
             </p>
-          ) : sky.dateStarsCount > 0 ? (
+          ) : sky.dateStarsCount > 0 && sky.momentStarsCount > 0 ? (
             <div className="flex items-center justify-center gap-2 sm:gap-2.5 flex-wrap font-display text-sm sm:text-[15px] font-bold text-[#343033] dark:text-white leading-snug tracking-tight">
               <span className="inline-flex items-center gap-1.5">
                 <span>
@@ -354,6 +355,13 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
                 </span>
                 <BigDateStarIcon size={15} className="mb-0.5" />
               </span>
+            </div>
+          ) : sky.dateStarsCount > 0 ? (
+            <div className="flex items-center justify-center gap-1.5 font-display text-sm sm:text-[15px] font-bold text-[#343033] dark:text-white leading-snug tracking-tight">
+              <span>
+                {sky.dateStarsCount} {pluralizeWord(sky.dateStarsCount, 'свидание', 'свидания', 'свиданий')}
+              </span>
+              <BigDateStarIcon size={15} className="mb-0.5" />
             </div>
           ) : (
             <div className="flex items-center justify-center gap-1.5 font-display text-sm sm:text-[15px] font-bold text-[#343033] dark:text-white leading-snug tracking-tight">
