@@ -272,12 +272,26 @@ export function calculateMomentAvailability(
 
   const sharedPhotoMatchTs = photoTimes.length >= 2 ? Math.max(...photoTimes) : 0;
 
-  const lastCompletedTs =
-    lastCompletedMoment.completedTimestamp ||
-    sharedPhotoMatchTs ||
-    (lastCompletedMoment.createdAt
-      ? new Date(lastCompletedMoment.createdAt).getTime()
-      : now);
+  let lastCompletedTs = 0;
+  if (typeof lastCompletedMoment.completedTimestamp === 'number' && !isNaN(lastCompletedMoment.completedTimestamp)) {
+    lastCompletedTs = lastCompletedMoment.completedTimestamp;
+  } else if (typeof lastCompletedMoment.completedTimestamp === 'string') {
+    const parsed = new Date(lastCompletedMoment.completedTimestamp).getTime();
+    if (!isNaN(parsed)) lastCompletedTs = parsed;
+  }
+
+  if (!lastCompletedTs && sharedPhotoMatchTs > 0) {
+    lastCompletedTs = sharedPhotoMatchTs;
+  }
+
+  if (!lastCompletedTs && lastCompletedMoment.createdAt) {
+    const parsed = new Date(lastCompletedMoment.createdAt).getTime();
+    if (!isNaN(parsed)) lastCompletedTs = parsed;
+  }
+
+  if (!lastCompletedTs) {
+    lastCompletedTs = now;
+  }
 
   const nextUnlockTimestamp = lastCompletedTs + MOMENT_INTERVAL_MS;
   const remainingCooldownMs = Math.max(0, nextUnlockTimestamp - now);
@@ -299,6 +313,69 @@ export function calculateMomentAvailability(
     isNextMomentReady,
     unlockedOrderLimit,
   };
+}
+
+/**
+ * Authoritatively determines which moment should be active on TodayScreen based on:
+ * - Current completion state of moments
+ * - Real-time countdown / availability status (calculateMomentAvailability)
+ *
+ * Rules:
+ * 1. If all 3 moments completed -> returns Moment 3 (peaceful completion screen).
+ * 2. If a moment was completed AND its cooldown has EXPIRED (isNextMomentReady === true) ->
+ *    the old completed moment is NEVER kept active! Returns the next unlocked moment (order === nextOrder).
+ * 3. If a moment was completed AND cooldown is actively running (isWaitingForNext === true) ->
+ *    returns the completed moment (order === completedCount) showing countdown timer.
+ * 4. If preferred moment exists and is still uncompleted, returns it if it matches the current active stage.
+ * 5. Otherwise returns the current uncompleted moment (order 1, 2, or 3).
+ */
+export function resolveAuthoritativeActiveMomentId(
+  moments: Moment[],
+  now: number = getSynchronizedNow(),
+  preferredActiveId?: string
+): string {
+  if (!moments || moments.length === 0) return preferredActiveId || '';
+
+  const availability = calculateMomentAvailability(moments, now);
+
+  // 1. All 3 completed for today -> show moment 3
+  if (availability.isAllCompleted) {
+    const m3 = moments.find((m) => m.order === 3);
+    return m3?.id || moments[moments.length - 1]?.id || preferredActiveId || '';
+  }
+
+  // 2. Next moment is READY (cooldown finished or 0 completed)
+  if (availability.isNextMomentReady && availability.nextOrder) {
+    const targetOrder = availability.nextOrder;
+    const targetMoment = moments.find((m) => m.order === targetOrder);
+    if (targetMoment) {
+      return targetMoment.id;
+    }
+  }
+
+  // 3. Actively waiting during cooldown: show the completed moment that is on cooldown
+  if (availability.isWaitingForNext && availability.completedCount > 0) {
+    const waitingMoment = moments.find((m) => m.order === availability.completedCount);
+    if (waitingMoment) {
+      return waitingMoment.id;
+    }
+  }
+
+  // 4. If preferred moment exists and is NOT a past completed moment whose cooldown expired:
+  if (preferredActiveId) {
+    const preferred = moments.find((m) => m.id === preferredActiveId);
+    if (preferred && !isMomentMatchCompleted(preferred)) {
+      return preferred.id;
+    }
+  }
+
+  // 5. Default: pick the first uncompleted moment
+  const firstUncompleted = moments.find((m) => !isMomentMatchCompleted(m));
+  if (firstUncompleted) {
+    return firstUncompleted.id;
+  }
+
+  return moments[0]?.id || preferredActiveId || '';
 }
 
 /**
@@ -513,8 +590,19 @@ export function syncAppStateForDate(state: AppState): AppState {
   const currentTodayKey = getLocalDateKey();
   const currentMomentsDateKey = state.todayMoments?.[0]?.dateKey;
 
-  // If already on today's calendar date, return state as is
+  // If already on today's calendar date, ensure activeMomentId reflects authoritative availability
   if (currentMomentsDateKey === currentTodayKey) {
+    const authoritativeActiveId = resolveAuthoritativeActiveMomentId(
+      state.todayMoments,
+      getSynchronizedNow(),
+      state.activeMomentId
+    );
+    if (authoritativeActiveId && authoritativeActiveId !== state.activeMomentId) {
+      return {
+        ...state,
+        activeMomentId: authoritativeActiveId,
+      };
+    }
     return state;
   }
 

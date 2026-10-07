@@ -26,6 +26,8 @@ import {
   syncAppStateForDate,
   createFreshDayMoments,
   getLocalDateKey,
+  resolveAuthoritativeActiveMomentId,
+  getSynchronizedNow,
 } from './services/moments/momentTiming';
 import { getCoupleMatchedDates } from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
@@ -98,7 +100,11 @@ export default function App() {
                 session.moments && session.moments.length > 0
                   ? session.moments
                   : prev.todayMoments,
-              activeMomentId: session.moments?.[0]?.id || prev.activeMomentId,
+              activeMomentId: resolveAuthoritativeActiveMomentId(
+                session.moments && session.moments.length > 0 ? session.moments : prev.todayMoments,
+                getSynchronizedNow(),
+                prev.activeMomentId
+              ),
               history:
                 session.history && session.history.length > 0
                   ? session.history
@@ -246,14 +252,11 @@ export default function App() {
               };
             });
 
-            const validActiveId =
-              moments.find((m) => m.id === prev.activeMomentId)?.id ||
-              moments.find((m) => {
-                const prevActive = prev.todayMoments.find((pm) => pm.id === prev.activeMomentId);
-                return prevActive && m.order === prevActive.order;
-              })?.id ||
-              moments[0]?.id ||
-              prev.activeMomentId;
+            const validActiveId = resolveAuthoritativeActiveMomentId(
+              moments,
+              getSynchronizedNow(),
+              prev.activeMomentId
+            );
 
             const isLovelyActive = Boolean(
               res.pair!.isLovely ||
@@ -488,7 +491,11 @@ export default function App() {
             hasCompletedOnboarding: Boolean(options?.isJoin || options?.isRestore),
             couple: updatedCouple,
             todayMoments: res.moments || prev.todayMoments,
-            activeMomentId: res.moments?.[0]?.id || prev.activeMomentId,
+            activeMomentId: resolveAuthoritativeActiveMomentId(
+              res.moments || prev.todayMoments,
+              getSynchronizedNow(),
+              prev.activeMomentId
+            ),
             history: res.history || [],
           };
           saveAppState(nextState);
@@ -666,10 +673,15 @@ export default function App() {
 
   // Switch active moment
   const handleSelectActiveMoment = useCallback((momentId: string) => {
-    setAppState((prev) => ({
-      ...prev,
-      activeMomentId: momentId,
-    }));
+    setAppState((prev) => {
+      if (prev.activeMomentId === momentId) return prev;
+      const nextState: AppState = {
+        ...prev,
+        activeMomentId: momentId,
+      };
+      saveAppState(nextState);
+      return nextState;
+    });
   }, []);
 
   // Update App Settings

@@ -21,6 +21,7 @@ import {
   formatRemainingTime,
   getSynchronizedNow,
   isMomentMatchCompleted,
+  resolveAuthoritativeActiveMomentId,
 } from '../services/moments/momentTiming';
 
 
@@ -97,20 +98,25 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     return calculateMomentAvailability(moments, now);
   }, [moments, now]);
 
-  // Determine active moment - ALWAYS only one single current touch
+  // Determine active moment authoritatively: automatically advances when cooldown ends
+  const authoritativeActiveId = useMemo(() => {
+    return resolveAuthoritativeActiveMomentId(moments, now, activeMomentId);
+  }, [moments, now, activeMomentId]);
+
   const activeMoment = useMemo(() => {
-    // If user has a selected moment
-    const current = moments.find((m) => m.id === activeMomentId);
-    if (current) return current;
-
-    // Otherwise pick the current unlocked moment
-    if (availability.nextOrder) {
-      const nextM = moments.find((m) => m.order === availability.nextOrder);
-      if (nextM) return nextM;
-    }
-
+    const target = moments.find((m) => m.id === authoritativeActiveId);
+    if (target) return target;
+    const fallback = moments.find((m) => m.id === activeMomentId);
+    if (fallback) return fallback;
     return moments[0];
-  }, [moments, activeMomentId, availability.nextOrder]);
+  }, [moments, authoritativeActiveId, activeMomentId]);
+
+  // Synchronize state with App.tsx and localStorage whenever authoritative active moment advances
+  useEffect(() => {
+    if (activeMoment && activeMoment.id && activeMoment.id !== activeMomentId) {
+      onSelectActiveMoment(activeMoment.id);
+    }
+  }, [activeMoment?.id, activeMomentId, onSelectActiveMoment]);
 
   if (!activeMoment) {
     return null;
@@ -549,30 +555,13 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                     <span>{activeMoment.order} из 3</span>
                   </div>
 
-                  {availability.isWaitingForNext ? (
+                  {availability.isWaitingForNext && (
                     <div className="rounded-[18px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] p-3 text-center shadow-2xs">
                       <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
                         Следующее касание через {formatRemainingTime(availability.remainingCooldownMs)}
                       </p>
                     </div>
-                  ) : availability.isNextMomentReady && availability.nextOrder ? (
-                    <div className="pt-1.5 animate-in fade-in duration-300 ease-out">
-                      <TouchReadyButton
-                        onClick={() => {
-                          const next = moments.find((m) => m.order === availability.nextOrder);
-                          if (next) onSelectActiveMoment(next.id);
-                          setIsPhotoPickerOpen(true);
-                        }}
-                        onPhotoSelected={(photoUrl) => {
-                          const next = moments.find((m) => m.order === availability.nextOrder);
-                          handleTouchReadyPhotoSelected(photoUrl, next?.id);
-                        }}
-                        text="Касание готово"
-                        soundEnabled={soundEnabled}
-                        hapticEnabled={hapticEnabled}
-                      />
-                    </div>
-                  ) : null}
+                  )}
                 </div>
               )}
             </div>
