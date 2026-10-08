@@ -26,11 +26,15 @@ async function syncServerClock(): Promise<void> {
   if (Date.now() - lastClockSync < 180000) return;
   lastClockSync = Date.now();
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
     const start = Date.now();
     const res = await fetch(`${supabaseConfig.url}/rest/v1/`, {
       method: 'HEAD',
       headers: { apikey: supabaseConfig.anonKey },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     const dateHeader = res.headers.get('date');
     if (dateHeader) {
       const sTime = new Date(dateHeader).getTime();
@@ -215,7 +219,16 @@ export class ApiClient {
       let user: any = session?.user;
 
       if (!user || sessionErr) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInAnonymously();
+        const signInPromise = supabase.auth.signInAnonymously();
+        let timeoutId: any;
+        const timeoutPromise = new Promise<{ data: any; error: any }>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('Auth request timeout')), 6000);
+        });
+
+        const { data: signInData, error: signInError } = await Promise.race([signInPromise, timeoutPromise]).finally(() => {
+          clearTimeout(timeoutId);
+        });
+
         if (signInError) {
           console.error('[OURS Auth] Anonymous sign in failed:', signInError.message);
           throw new Error(`Ошибка авторизации: ${signInError.message}`);
@@ -750,37 +763,35 @@ export class ApiClient {
   }
 
   /**
-   * Временная диагностическая проверка RPC get_my_personal_code() для текущей сессии
-   */
-  async checkPersonalCodeDiagnostic(): Promise<void> {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentAuthUid = sessionData?.session?.user?.id || this.currentUserId;
-      console.log('[OURS Diagnostic] Текущий auth.uid():', currentAuthUid);
-
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_personal_code');
-
-      if (rpcError) {
-        console.error('[OURS Diagnostic] Ошибка RPC get_my_personal_code():', rpcError);
-      } else {
-        console.log('[OURS Diagnostic] Результат RPC get_my_personal_code():', rpcData);
-      }
-    } catch (diagError) {
-      console.error('[OURS Diagnostic] Исключение при выполнении get_my_personal_code():', diagError);
-    }
-  }
-
-  /**
-   * Initializes or restores Supabase user session and pair state
+   * Initializes or restores Supabase user session and pair state (non-blocking offline-safe)
    */
   async initSession(): Promise<SessionResponse> {
     syncServerClock().catch(() => {});
-    const userId = await this.ensureAuthenticatedUser();
 
-    // Временная диагностика: вызов RPC get_my_personal_code() после успешной инициализации сессии
-    this.checkPersonalCodeDiagnostic().catch((err) => {
-      console.error('[OURS Diagnostic] Ошибка при запуске диагностики RPC:', err);
-    });
+    let userId: string;
+    try {
+      userId = await this.ensureAuthenticatedUser();
+    } catch (authErr: any) {
+      console.warn('[OURS Session] Auth unavailable (offline or network timeout):', authErr?.message || authErr);
+      return {
+        success: false,
+        user: {
+          id: this.currentUserId || '',
+          displayName: '',
+          avatarUrl: null,
+          avatarColor: '#F6DCE1',
+          currentPairId: this.currentPairId || null,
+          createdAt: new Date().toISOString(),
+        },
+        token: this.currentUserId || '',
+        isNewUser: false,
+        hasCompletedOnboarding: false,
+        pair: null,
+        moments: [],
+        history: [],
+        error: 'Network unavailable',
+      };
+    }
 
     if (!supabaseConfig.isConfigured) {
       const profile = await this.getOrCreateProfile(userId);

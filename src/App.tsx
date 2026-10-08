@@ -11,14 +11,7 @@ import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
 import { OursLogo, OURS_LOGO_URL } from './components/OursLogo';
 import { BottomTabBar } from './components/BottomTabBar';
-import { LovelyModal } from './components/LovelyModal';
-import { OurSkyModal } from './components/OurSkyModal';
-import { EditProfileModal } from './components/EditProfileModal';
-import { OnboardingFlow } from './components/OnboardingFlow';
 import { TodayScreen } from './screens/TodayScreen';
-import { HistoryScreen } from './screens/HistoryScreen';
-import { ProfileScreen } from './screens/ProfileScreen';
-import { DateScreen } from './screens/DateScreen';
 import { SwipeableTabViews } from './components/SwipeableTabViews';
 import { playSoftChime, triggerHaptic } from './services/feedback';
 import { calculateCoupleStreak } from './services/streak/streakService';
@@ -31,8 +24,22 @@ import {
 } from './services/moments/momentTiming';
 import { getCoupleMatchedDates } from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
-import { LegalScreen, LegalDocumentType } from './screens/LegalScreen';
+import { LegalDocumentType } from './screens/LegalScreen';
 import { dateInvitationService } from './services/dates/dateInvitationService';
+
+// Code-split non-critical screens and modals for fast budget-device startup
+const HistoryScreen = React.lazy(() => import('./screens/HistoryScreen').then(m => ({ default: m.HistoryScreen })));
+const ProfileScreen = React.lazy(() => import('./screens/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
+const DateScreen = React.lazy(() => import('./screens/DateScreen').then(m => ({ default: m.DateScreen })));
+const LegalScreen = React.lazy(() => import('./screens/LegalScreen').then(m => ({ default: m.LegalScreen })));
+const LovelyModal = React.lazy(() => import('./components/LovelyModal').then(m => ({ default: m.LovelyModal })));
+const OurSkyModal = React.lazy(() => import('./components/OurSkyModal').then(m => ({ default: m.OurSkyModal })));
+const EditProfileModal = React.lazy(() => import('./components/EditProfileModal').then(m => ({ default: m.EditProfileModal })));
+const OnboardingFlow = React.lazy(() => import('./components/OnboardingFlow').then(m => ({ default: m.OnboardingFlow })));
+
+const TabLoadingFallback = () => (
+  <div className="w-full flex-1 min-h-[300px] flex items-center justify-center bg-transparent" />
+);
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
@@ -44,6 +51,7 @@ export default function App() {
   const [hasUnreadDateInvitation, setHasUnreadDateInvitation] = useState<boolean>(() =>
     dateInvitationService.hasUnreadIncomingInvitation()
   );
+  const [isInitialSessionReady, setIsInitialSessionReady] = useState(false);
 
   // Subscribe to date invitation updates for bottom tab badge
   useEffect(() => {
@@ -64,7 +72,7 @@ export default function App() {
         const session = await apiClient.initSession();
         if (!isMounted) return;
 
-        if (session.hasCompletedOnboarding && session.pair) {
+        if (session.success && session.hasCompletedOnboarding && session.pair) {
           setAppState((prev) => {
             const isLovely = Boolean(
               session.pair!.isLovely ||
@@ -113,7 +121,8 @@ export default function App() {
             saveAppState(nextState);
             return nextState;
           });
-        } else {
+        } else if (session.success && !session.hasCompletedOnboarding) {
+          // Explicit server confirmation: user does not have a pair
           setAppState((prev) => ({
             ...prev,
             hasCompletedOnboarding: false,
@@ -134,9 +143,16 @@ export default function App() {
               connected: false,
             },
           }));
+        } else {
+          // Offline, timeout, or cached mode: preserve local appState intact!
+          console.log('[OURS] Session initialization running with local/cached state');
         }
       } catch (err) {
         console.error('[OURS] Failed to initialize session:', err);
+      } finally {
+        if (isMounted) {
+          setIsInitialSessionReady(true);
+        }
       }
     }
 
@@ -200,6 +216,11 @@ export default function App() {
 
   // 2. Multi-device live polling & Realtime subscription to synchronize pair status, partner photos, and reactions
   useEffect(() => {
+    // Sequential startup: activate background polling & realtime ONLY after initial session sync finishes
+    if (!isInitialSessionReady) {
+      return;
+    }
+
     const pairId = appState.couple.id;
     if (!pairId) {
       return;
@@ -347,9 +368,6 @@ export default function App() {
       }
     };
 
-    // Immediate initial sync
-    pollState();
-
     // Background safety heartbeat (8s; Realtime handles instant sync)
     const interval = setInterval(() => {
       if (!document.hidden) {
@@ -375,7 +393,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibilityOrFocus);
       unsubscribeRealtime();
     };
-  }, [appState.couple.id]);
+  }, [isInitialSessionReady, appState.couple.id]);
 
   // 3. Lazy-load history when History tab or Our Sky modal is opened
   useEffect(() => {
@@ -799,10 +817,12 @@ export default function App() {
       onThemePersist={handleUpdateTheme}
     >
       {!appState.hasCompletedOnboarding ? (
-        <OnboardingFlow
-          onComplete={handleOnboardingComplete}
-          onFinish={handleFinishOnboarding}
-        />
+        <React.Suspense fallback={<div className="min-h-screen bg-[#000000]" />}>
+          <OnboardingFlow
+            onComplete={handleOnboardingComplete}
+            onFinish={handleFinishOnboarding}
+          />
+        </React.Suspense>
       ) : (
         <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] flex flex-col justify-between selection:bg-[#F6DCE1]">
           {/* Mobile-first centered frame container with soft depth */}
@@ -835,12 +855,14 @@ export default function App() {
                 disabled={isLovelyModalOpen || isStreakModalOpen || isEditProfileOpen || Boolean(activeLegalDoc)}
               >
                 {{
-                  date: (
-                    <DateScreen
-                      couple={appState.couple}
-                      soundEnabled={appState.settings.sounds}
-                      hapticEnabled={appState.settings.haptic}
-                    />
+                  date: () => (
+                    <React.Suspense fallback={<TabLoadingFallback />}>
+                      <DateScreen
+                        couple={appState.couple}
+                        soundEnabled={appState.settings.sounds}
+                        hapticEnabled={appState.settings.haptic}
+                      />
+                    </React.Suspense>
                   ),
                   today: (
                     <TodayScreen
@@ -858,36 +880,40 @@ export default function App() {
                       isActive={activeTab === 'today'}
                     />
                   ),
-                  history: (
-                    <HistoryScreen
-                      history={appState.history}
-                      todayMoments={appState.todayMoments}
-                      couple={appState.couple}
-                      onOpenLovely={() => setIsLovelyModalOpen(true)}
-                      onOpenPremium={() => setIsLovelyModalOpen(true)}
-                      onNavigateToToday={() => setActiveTab('today')}
-                    />
+                  history: () => (
+                    <React.Suspense fallback={<TabLoadingFallback />}>
+                      <HistoryScreen
+                        history={appState.history}
+                        todayMoments={appState.todayMoments}
+                        couple={appState.couple}
+                        onOpenLovely={() => setIsLovelyModalOpen(true)}
+                        onOpenPremium={() => setIsLovelyModalOpen(true)}
+                        onNavigateToToday={() => setActiveTab('today')}
+                      />
+                    </React.Suspense>
                   ),
-                  profile: (
-                    <ProfileScreen
-                      couple={appState.couple}
-                      todayMoments={appState.todayMoments}
-                      history={appState.history}
-                      pairSeed={pairSeed}
-                      settings={appState.settings}
-                      onUpdateSettings={handleUpdateSettings}
-                      onOpenLovely={() => setIsLovelyModalOpen(true)}
-                      onOpenPremium={() => setIsLovelyModalOpen(true)}
-                      streakInfo={streakInfo}
-                      onOpenEditProfile={() => setIsEditProfileOpen(true)}
-                      onOpenSky={() => setIsStreakModalOpen(true)}
-                      onOpenFingerprint={() => setIsStreakModalOpen(true)}
-                      onOpenThread={() => setIsStreakModalOpen(true)}
-                      onOpenTerms={() => setActiveLegalDoc('terms')}
-                      onOpenPrivacy={() => setActiveLegalDoc('privacy')}
-                      onLeavePair={handleLeavePair}
-                      onSignOut={handleSignOut}
-                    />
+                  profile: () => (
+                    <React.Suspense fallback={<TabLoadingFallback />}>
+                      <ProfileScreen
+                        couple={appState.couple}
+                        todayMoments={appState.todayMoments}
+                        history={appState.history}
+                        pairSeed={pairSeed}
+                        settings={appState.settings}
+                        onUpdateSettings={handleUpdateSettings}
+                        onOpenLovely={() => setIsLovelyModalOpen(true)}
+                        onOpenPremium={() => setIsLovelyModalOpen(true)}
+                        streakInfo={streakInfo}
+                        onOpenEditProfile={() => setIsEditProfileOpen(true)}
+                        onOpenSky={() => setIsStreakModalOpen(true)}
+                        onOpenFingerprint={() => setIsStreakModalOpen(true)}
+                        onOpenThread={() => setIsStreakModalOpen(true)}
+                        onOpenTerms={() => setActiveLegalDoc('terms')}
+                        onOpenPrivacy={() => setActiveLegalDoc('privacy')}
+                        onLeavePair={handleLeavePair}
+                        onSignOut={handleSignOut}
+                      />
+                    </React.Suspense>
                   ),
                 }}
               </SwipeableTabViews>
@@ -905,53 +931,69 @@ export default function App() {
             />
 
             {/* LOVELY One-Time Purchase Modal for the Couple */}
-            <LovelyModal
-              isOpen={isLovelyModalOpen}
-              onClose={() => setIsLovelyModalOpen(false)}
-              onPurchase={handlePurchaseLovely}
-              onResetLovely={handleResetLovely}
-              pairId={appState.couple.id}
-              isLovely={Boolean(appState.couple.isLovely || appState.couple.subscription === 'premium')}
-              partnerAName={appState.couple.user.name}
-              partnerBName={appState.couple.partner.name}
-              onOpenTerms={() => setActiveLegalDoc('terms')}
-            />
+            {isLovelyModalOpen && (
+              <React.Suspense fallback={null}>
+                <LovelyModal
+                  isOpen={isLovelyModalOpen}
+                  onClose={() => setIsLovelyModalOpen(false)}
+                  onPurchase={handlePurchaseLovely}
+                  onResetLovely={handleResetLovely}
+                  pairId={appState.couple.id}
+                  isLovely={Boolean(appState.couple.isLovely || appState.couple.subscription === 'premium')}
+                  partnerAName={appState.couple.user.name}
+                  partnerBName={appState.couple.partner.name}
+                  onOpenTerms={() => setActiveLegalDoc('terms')}
+                />
+              </React.Suspense>
+            )}
 
             {/* «Наше небо» Modal */}
-            <OurSkyModal
-              isOpen={isStreakModalOpen}
-              onClose={() => setIsStreakModalOpen(false)}
-              couple={appState.couple}
-              pairSeed={pairSeed}
-              todayMoments={appState.todayMoments}
-              history={appState.history}
-              matchedDates={matchedDates}
-              partnerAName={appState.couple.user.name}
-              partnerBName={appState.couple.partner.name}
-              onOpenPremium={() => setIsLovelyModalOpen(true)}
-              onOpenLovely={() => setIsLovelyModalOpen(true)}
-            />
+            {isStreakModalOpen && (
+              <React.Suspense fallback={null}>
+                <OurSkyModal
+                  isOpen={isStreakModalOpen}
+                  onClose={() => setIsStreakModalOpen(false)}
+                  couple={appState.couple}
+                  pairSeed={pairSeed}
+                  todayMoments={appState.todayMoments}
+                  history={appState.history}
+                  matchedDates={matchedDates}
+                  partnerAName={appState.couple.user.name}
+                  partnerBName={appState.couple.partner.name}
+                  onOpenPremium={() => setIsLovelyModalOpen(true)}
+                  onOpenLovely={() => setIsLovelyModalOpen(true)}
+                />
+              </React.Suspense>
+            )}
 
             {/* User Profile Editor Modal */}
-            <EditProfileModal
-              isOpen={isEditProfileOpen}
-              onClose={() => setIsEditProfileOpen(false)}
-              user={appState.couple.user}
-              daysTogether={appState.couple.daysTogether}
-              streakInfo={streakInfo}
-              onSaveProfile={handleSaveProfile}
-              onOpenSky={() => setIsStreakModalOpen(true)}
-              onOpenFingerprint={() => setIsStreakModalOpen(true)}
-              onOpenThread={() => setIsStreakModalOpen(true)}
-              soundEnabled={appState.settings.sounds}
-              hapticEnabled={appState.settings.haptic}
-            />
+            {isEditProfileOpen && (
+              <React.Suspense fallback={null}>
+                <EditProfileModal
+                  isOpen={isEditProfileOpen}
+                  onClose={() => setIsEditProfileOpen(false)}
+                  user={appState.couple.user}
+                  daysTogether={appState.couple.daysTogether}
+                  streakInfo={streakInfo}
+                  onSaveProfile={handleSaveProfile}
+                  onOpenSky={() => setIsStreakModalOpen(true)}
+                  onOpenFingerprint={() => setIsStreakModalOpen(true)}
+                  onOpenThread={() => setIsStreakModalOpen(true)}
+                  soundEnabled={appState.settings.sounds}
+                  hapticEnabled={appState.settings.haptic}
+                />
+              </React.Suspense>
+            )}
 
             {/* Legal Documents Screen (Terms of Service / Privacy Policy) */}
-            <LegalScreen
-              document={activeLegalDoc}
-              onClose={() => setActiveLegalDoc(null)}
-            />
+            {Boolean(activeLegalDoc) && (
+              <React.Suspense fallback={null}>
+                <LegalScreen
+                  document={activeLegalDoc}
+                  onClose={() => setActiveLegalDoc(null)}
+                />
+              </React.Suspense>
+            )}
           </div>
         </div>
       )}

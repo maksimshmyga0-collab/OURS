@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * Official single source of truth for the OURS Logo asset URL.
  */
-export const OURS_LOGO_URL = 'https://files.catbox.moe/zbcwso.png';
+export const OURS_LOGO_URL = '/icons/ours-logo-official.png';
 
 export interface OursLogoProps {
   size?: number;

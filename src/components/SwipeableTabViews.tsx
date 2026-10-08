@@ -4,6 +4,8 @@ import { playSoftChime, triggerHaptic } from '../services/feedback';
 
 const TABS: NavigationTab[] = ['date', 'today', 'history', 'profile'];
 
+export type TabContentNode = React.ReactNode | (() => React.ReactNode);
+
 interface SwipeableTabViewsProps {
   activeTab: NavigationTab;
   onTabChange: (tab: NavigationTab) => void;
@@ -11,10 +13,10 @@ interface SwipeableTabViewsProps {
   hapticEnabled?: boolean;
   disabled?: boolean;
   children: {
-    date: React.ReactNode;
-    today: React.ReactNode;
-    history: React.ReactNode;
-    profile: React.ReactNode;
+    date: TabContentNode;
+    today: TabContentNode;
+    history: TabContentNode;
+    profile: TabContentNode;
   };
 }
 
@@ -36,6 +38,13 @@ interface SwipeableTabViewsProps {
  * - Taps on PhotoSlot, buttons, and reactions are completely unaffected.
  * - Bidirectional synchronization with BottomTabBar.
  */
+function renderTabContent(nodeOrFn: TabContentNode) {
+  if (typeof nodeOrFn === 'function') {
+    return (nodeOrFn as () => React.ReactNode)();
+  }
+  return nodeOrFn;
+}
+
 export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   activeTab,
   onTabChange,
@@ -60,6 +69,34 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   isDraggingRef.current = isDragging;
 
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // Lazy tab mounting: track which tabs have ever been rendered/visited
+  const [mountedTabs, setMountedTabs] = useState<Set<number>>(() => new Set([currentIndex]));
+
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      if (prev.has(currentIndex)) return prev;
+      const next = new Set(prev);
+      next.add(currentIndex);
+      return next;
+    });
+  }, [currentIndex]);
+
+  const ensureAdjacentMounted = useCallback((idx: number) => {
+    setMountedTabs((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      if (idx > 0 && !next.has(idx - 1)) {
+        next.add(idx - 1);
+        changed = true;
+      }
+      if (idx < 3 && !next.has(idx + 1)) {
+        next.add(idx + 1);
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, []);
 
   // Track activeTab changes from external controls (e.g. BottomTabBar, header avatar, in-screen links)
   const prevTabRef = useRef(activeTab);
@@ -114,6 +151,8 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
     const touch = e.touches[0];
     if (!touch) return;
+
+    ensureAdjacentMounted(currentIndexRef.current);
 
     touchState.current = {
       startX: touch.clientX,
@@ -302,6 +341,8 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       return;
     }
 
+    ensureAdjacentMounted(currentIndexRef.current);
+
     mouseState.current = {
       isDown: true,
       startX: e.clientX,
@@ -436,7 +477,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           }`}
           aria-hidden={currentIndex !== 0}
         >
-          {children.date}
+          {mountedTabs.has(0) ? renderTabContent(children.date) : null}
         </div>
 
         {/* Slide 1: Today */}
@@ -448,7 +489,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           }`}
           aria-hidden={currentIndex !== 1}
         >
-          {children.today}
+          {mountedTabs.has(1) ? renderTabContent(children.today) : null}
         </div>
 
         {/* Slide 2: History */}
@@ -460,7 +501,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           }`}
           aria-hidden={currentIndex !== 2}
         >
-          {children.history}
+          {mountedTabs.has(2) ? renderTabContent(children.history) : null}
         </div>
 
         {/* Slide 3: Profile */}
@@ -472,7 +513,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           }`}
           aria-hidden={currentIndex !== 3}
         >
-          {children.profile}
+          {mountedTabs.has(3) ? renderTabContent(children.profile) : null}
         </div>
       </div>
     </div>

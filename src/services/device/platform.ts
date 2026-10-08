@@ -64,6 +64,18 @@ export function initNativeAppearance(): void {
   }
 }
 
+export function hideNativeSplashScreen(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const win = window as any;
+    if (win.Capacitor?.Plugins?.SplashScreen?.hide) {
+      win.Capacitor.Plugins.SplashScreen.hide();
+    }
+  } catch {
+    // Ignore if plugin not present
+  }
+}
+
 export function isCapacitor(): boolean {
   if (typeof window === 'undefined') return false;
   const win = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
