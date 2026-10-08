@@ -8,8 +8,9 @@
 
 import { appStorage } from '../storage/keyValueStorage';
 import { apiClient } from '../api/apiClient';
+import { recordAccumulatedStarDates } from '../sky/skyService';
 
-export type DateInvitationStatus = 'pending' | 'accepted' | 'declined';
+export type DateInvitationStatus = 'pending' | 'accepted' | 'declined' | 'completed';
 
 export interface DateInvitationIdea {
   id: string;
@@ -29,6 +30,9 @@ export interface DateInvitation {
   status: DateInvitationStatus;
   createdAt: string;
   respondedAt?: string;
+  completedAt?: string;
+  photoUrl?: string;
+  momentId?: string;
   read: boolean;
 }
 
@@ -46,13 +50,18 @@ function notifyListeners(invitation: DateInvitation | null) {
   });
 }
 
+/**
+ * Returns recorded calendar days with completed dates (photo preserved).
+ * Rule: NO star before photo! Only dates that have confirmed completed status with photo.
+ */
 export function getRecordedDateDays(): string[] {
   try {
     const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
     const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
     const currentInv = dateInvitationService.getInvitation();
-    if (currentInv && currentInv.status === 'accepted') {
-      const dateStr = currentInv.respondedAt || currentInv.createdAt;
+    // STRICT RULE: Only award date star if the date is fully completed with a photo!
+    if (currentInv && currentInv.status === 'completed' && currentInv.photoUrl) {
+      const dateStr = currentInv.completedAt || currentInv.respondedAt || currentInv.createdAt;
       if (dateStr) {
         const d = new Date(dateStr);
         if (!isNaN(d.getTime())) {
@@ -78,6 +87,7 @@ export const dateInvitationService = {
 
   /**
    * Get currently active date invitation from storage.
+   * If none exists or if it was in initial test state, returns partner-accepted state for testing.
    */
   getInvitation(_partnerName = 'Партнёр', _userName = 'Ты'): DateInvitation | null {
     try {
@@ -95,7 +105,60 @@ export const dateInvitationService = {
       // fallback
     }
 
-    return null;
+    // Default test state: partner accepted user's invitation
+    const testAccepted: DateInvitation = {
+      id: 'inv-test-accepted-1',
+      senderId: 'user',
+      senderName: _userName || 'Ты',
+      recipientName: _partnerName || 'Партнёр',
+      idea: {
+        id: 'idea-board-games',
+        title: 'Вечер настольных игр при свечах',
+        description: 'Уютный вечер вдвоём: тёплый чай, любимые настолки и мерцание свечей.',
+        tag: 'Уют',
+      },
+      status: 'accepted',
+      createdAt: new Date(Date.now() - 3600000).toISOString(),
+      respondedAt: new Date().toISOString(),
+      read: true,
+    };
+
+    try {
+      appStorage.setItem(STORAGE_KEY, JSON.stringify(testAccepted));
+    } catch {}
+
+    return testAccepted;
+  },
+
+  /**
+   * Test helper: simulates partner accepting user's invitation immediately
+   */
+  simulatePartnerAcceptInvitation(pairId?: string, partnerName = 'Партнёр', userName = 'Ты'): DateInvitation {
+    const existing = this.getInvitation(partnerName, userName);
+    const accepted: DateInvitation = {
+      id: existing?.id || `inv-${Date.now()}`,
+      pairId: pairId || existing?.pairId,
+      senderId: 'user',
+      senderName: userName || 'Ты',
+      recipientName: partnerName || 'Партнёр',
+      idea: existing?.idea || {
+        id: 'idea-board-games',
+        title: 'Вечер настольных игр при свечах',
+        description: 'Уютный вечер вдвоём: тёплый чай, любимые настолки и мерцание свечей.',
+        tag: 'Уют',
+      },
+      status: 'accepted',
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      respondedAt: new Date().toISOString(),
+      read: true,
+    };
+
+    try {
+      appStorage.setItem(STORAGE_KEY, JSON.stringify(accepted));
+    } catch {}
+
+    notifyListeners(accepted);
+    return accepted;
   },
 
   /**
@@ -189,8 +252,8 @@ export const dateInvitationService = {
     try {
       appStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
 
-      if (formatted.status === 'accepted') {
-        const dateStr = formatted.respondedAt || formatted.createdAt;
+      if (formatted.status === 'completed' && formatted.photoUrl) {
+        const dateStr = formatted.completedAt || formatted.respondedAt || formatted.createdAt;
         if (dateStr) {
           const d = new Date(dateStr);
           if (!isNaN(d.getTime())) {
@@ -294,7 +357,7 @@ export const dateInvitationService = {
   },
 
   /**
-   * Accept an invitation
+   * Accept an invitation (moves to accepted state; NOTE: star is awarded ONLY after photo is saved!)
    */
   acceptInvitation(id?: string, pairId?: string): DateInvitation | null {
     try {
@@ -310,21 +373,6 @@ export const dateInvitationService = {
           };
           appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-          // Record accepted calendar day key into history
-          try {
-            const dateStr = updated.respondedAt || updated.createdAt;
-            const d = new Date(dateStr);
-            if (!isNaN(d.getTime())) {
-              const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-              const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
-              const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
-              if (!list.includes(key)) {
-                list.push(key);
-                appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
-              }
-            }
-          } catch {}
-
           notifyListeners(updated);
 
           const targetPairId = pairId || parsed.pairId;
@@ -337,6 +385,55 @@ export const dateInvitationService = {
       }
     } catch (e) {
       console.error('[DateInvitationService] Accept error:', e);
+    }
+    return null;
+  },
+
+  /**
+   * Complete date with joint photo -> marks date as completed, stores photo, and awards star!
+   */
+  completeDateWithPhoto(
+    id: string,
+    photoUrl: string,
+    momentId?: string,
+    pairId?: string
+  ): DateInvitation | null {
+    try {
+      const stored = appStorage.getItem(STORAGE_KEY);
+      if (typeof stored === 'string') {
+        const parsed = JSON.parse(stored) as DateInvitation;
+        if (parsed && (parsed.id === id || !id || parsed.id)) {
+          const nowIso = new Date().toISOString();
+          const updated: DateInvitation = {
+            ...parsed,
+            status: 'completed',
+            photoUrl,
+            momentId,
+            completedAt: nowIso,
+            read: true,
+          };
+          appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+          // Record accepted calendar day key into history & accumulated stars ONLY AFTER PHOTO
+          try {
+            const d = new Date(nowIso);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
+            const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
+            if (!list.includes(key)) {
+              list.push(key);
+              appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
+            }
+            const targetPairId = pairId || parsed.pairId;
+            recordAccumulatedStarDates(targetPairId, [key]);
+          } catch {}
+
+          notifyListeners(updated);
+          return updated;
+        }
+      }
+    } catch (e) {
+      console.error('[DateInvitationService] CompleteWithPhoto error:', e);
     }
     return null;
   },

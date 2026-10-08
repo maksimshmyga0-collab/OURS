@@ -8,6 +8,7 @@ interface TouchReadyButtonProps {
   onPhotoSelected?: (photoDataUrl: string) => void;
   text?: string;
   subtext?: string;
+  icon?: React.ReactNode;
   soundEnabled?: boolean;
   hapticEnabled?: boolean;
   disabled?: boolean;
@@ -19,6 +20,7 @@ export const TouchReadyButton: React.FC<TouchReadyButtonProps> = ({
   onPhotoSelected,
   text = 'Касание готово',
   subtext,
+  icon,
   soundEnabled = true,
   hapticEnabled = true,
   disabled = false,
@@ -114,10 +116,14 @@ export const TouchReadyButton: React.FC<TouchReadyButtonProps> = ({
 
         {/* Content Overlay */}
         <div className="relative z-10 h-full w-full px-5 xs:px-6 flex items-center justify-center gap-2.5 pointer-events-none">
-          <Heart
-            size={16}
-            className="shrink-0 fill-[#E98787] text-[#E98787] transition-transform duration-300 group-hover:scale-110"
-          />
+          {icon !== undefined ? (
+            icon
+          ) : (
+            <Heart
+              size={16}
+              className="shrink-0 fill-[#E98787] text-[#E98787] transition-transform duration-300 group-hover:scale-110"
+            />
+          )}
           <span className="font-display font-semibold text-[15px] xs:text-[16px] tracking-tight text-[#343033] dark:text-white whitespace-nowrap">
             {text}
           </span>

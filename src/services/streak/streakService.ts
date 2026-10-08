@@ -97,6 +97,9 @@ export function calculateCoupleStreak(
 
     for (const m of list) {
       const hasDuo =
+        m.status === 'COMPLETED' ||
+        m.status === 'REVEALED' ||
+        m.status === 'REACTED' ||
         (Boolean(m.userPhoto) && Boolean(m.partnerPhoto)) ||
         (m.photos && m.photos.length >= 2);
       if (hasDuo) {

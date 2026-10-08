@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mail, Sparkles, Heart, RefreshCw, Check, X, ChevronRight } from 'lucide-react';
+import { Mail, Sparkles, Heart, RefreshCw, Check, X, ChevronRight, Camera } from 'lucide-react';
 import { DATE_IDEAS, DateIdea } from '../data/dateIdeas';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
-import { CoupleState } from '../types';
+import { PhotoPickerModal } from '../components/PhotoPickerModal';
+import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
+import { TouchReadyButton } from '../components/TouchReadyButton';
+import { CoupleState, MomentPhoto } from '../types';
+
+/**
+ * DEV PREVIEW STATE:
+ * Simulating an accepted date invitation from partner to evaluate the UI & UX
+ * of «Принятое свидание» and the «Загрузить фото» button under the envelope.
+ * Minimal dev-only preview flag.
+ */
+const DEV_PREVIEW_ACCEPTED_DATE = true;
 import {
   playEnvelopeOpenSound,
   playCardSlideSound,
@@ -44,17 +55,45 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   const [isShuffling, setIsShuffling] = useState(false);
 
   // Incoming / Active Date Invitation State
-  const [invitation, setInvitation] = useState<DateInvitation | null>(() =>
-    dateInvitationService.getInvitation(couple?.partner?.name || 'Партнёр', couple?.user?.name || 'Ты')
-  );
+  const [invitation, setInvitation] = useState<DateInvitation | null>(() => {
+    if (DEV_PREVIEW_ACCEPTED_DATE) {
+      return {
+        id: 'dev-preview-accepted',
+        senderId: 'user',
+        senderName: couple?.user?.name || 'Ты',
+        recipientName: couple?.partner?.name || 'Партнёр',
+        idea: {
+          id: 'date-picnic-sunset',
+          title: 'Пикник на закате',
+          description: 'Возьмите плед, любимые фрукты и проводите солнце под тёплый чай из термоса.',
+          tag: 'Романтика',
+        },
+        status: 'accepted',
+        createdAt: new Date().toISOString(),
+        respondedAt: new Date().toISOString(),
+        read: true,
+      };
+    }
+    return dateInvitationService.getInvitation(couple?.partner?.name || 'Партнёр', couple?.user?.name || 'Ты');
+  });
   const [isIncomingModalOpen, setIsIncomingModalOpen] = useState(false);
   const [isIncomingClosing, setIsIncomingClosing] = useState(false);
+  const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
+  const [datePhotos, setDatePhotos] = useState<MomentPhoto[]>([]);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadTargetPartner, setUploadTargetPartner] = useState(false);
+  const hasUserAdvancedCycleRef = useRef(false);
 
   const timersRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     const unsub = dateInvitationService.subscribe((updated) => {
-      setInvitation(updated);
+      if (updated) {
+        setInvitation(updated);
+      } else if (!DEV_PREVIEW_ACCEPTED_DATE || hasUserAdvancedCycleRef.current) {
+        setInvitation(null);
+      }
     });
     return () => {
       unsub();
@@ -81,6 +120,81 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     }
   }, [couple?.id]);
 
+  // Load and sync date photos when invitation is accepted
+  useEffect(() => {
+    if (!invitation?.id || invitation.status !== 'accepted') {
+      setDatePhotos([]);
+      return;
+    }
+
+    const momentId = `date-${invitation.id}`;
+    let isMounted = true;
+
+    const loadDatePhotos = async () => {
+      try {
+        const photos = await apiClient.fetchDatePhotos(momentId);
+        if (isMounted && photos) {
+          setDatePhotos(photos);
+        }
+      } catch {}
+    };
+
+    loadDatePhotos();
+
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        loadDatePhotos();
+      }
+    }, 6000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [invitation?.id, invitation?.status]);
+
+  const handleUploadPhotoClick = () => {
+    triggerHaptic(hapticEnabled);
+    playSoftChime('tap', soundEnabled);
+    setUploadTargetPartner(false);
+    setIsPhotoPickerOpen(true);
+  };
+
+  const handleDatePhotoSelected = async (photoUrl: string) => {
+    triggerHaptic(hapticEnabled);
+    playSoftChime('tap', soundEnabled);
+    setIsPhotoPickerOpen(false);
+
+    if (!invitation?.id) return;
+    const momentId = `date-${invitation.id}`;
+    setIsUploadingPhoto(true);
+
+    try {
+      const currentUserId = couple?.user?.id || apiClient.getCurrentUserId();
+      const partnerId = couple?.partner?.id || 'partner';
+      const targetUserId = uploadTargetPartner ? partnerId : currentUserId;
+
+      const res = await apiClient.uploadDatePhoto({
+        momentId,
+        photoData: photoUrl,
+        dateTitle: invitation.idea?.title,
+        dateDescription: invitation.idea?.description,
+        overrideUserId: targetUserId || undefined,
+      });
+
+      if (res?.photos) {
+        setDatePhotos(res.photos);
+      }
+      triggerHaptic(hapticEnabled);
+      playSoftChime('success', soundEnabled);
+    } catch (err) {
+      console.error('[OURS Date] Failed to upload date photo:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+      setUploadTargetPartner(false);
+    }
+  };
+
   const addTimer = (fn: () => void, ms: number) => {
     const t = setTimeout(fn, ms);
     timersRef.current.push(t);
@@ -99,6 +213,20 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   // 3. ZERO pause, ZERO duplicate states, zero teleporting
   const handleOpenEnvelope = () => {
     if (isOpen || isModalOpen) return;
+
+    const hasCompletedDate = Boolean(invitation?.status === 'accepted' && datePhotos.length > 0);
+
+    if (hasCompletedDate) {
+      hasUserAdvancedCycleRef.current = true;
+      // 1. Current completed date is closed & archived
+      dateInvitationService.clearInvitation(couple?.id);
+      // 2. Its photo/moment is already securely saved in History
+      // 3. Date screen is cleared of the old date
+      setInvitation(null);
+      setDatePhotos([]);
+      // 4. Generate next date idea for the upcoming cycle
+      setCurrentIdeaIndex(getRandomDateIdeaIndex(currentIdeaIndex));
+    }
 
     clearTimers();
     setIsOpen(true);
@@ -497,58 +625,61 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             }`}
           />
         </div>
+
       </div>
 
       {/* Bottom Action Area (Open Button & Incoming Invitation) */}
-      <footer className="w-full shrink-0 flex flex-col items-center z-20 pt-1.5 pb-3">
-        <div className="select-none flex justify-center w-full">
-          <button
-            type="button"
-            disabled={!isClosed}
-            onClick={handleOpenEnvelope}
-            className="group relative h-[50px] xs:h-[52px] sm:h-[54px] px-7 xs:px-8 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
-            aria-label="Открыть свидание"
-          >
-            {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Касание готово») */}
-            <svg
-              viewBox="0 0 360 65"
-              preserveAspectRatio="xMidYMid slice"
-              className="absolute inset-0 w-full h-full pointer-events-none block"
-              aria-hidden="true"
+      <footer className="w-full shrink-0 flex flex-col items-center z-20 pt-2 pb-4 mt-auto">
+        {(invitation?.status !== 'accepted' || datePhotos.length > 0) && (
+          <div className="select-none flex justify-center w-full">
+            <button
+              type="button"
+              disabled={!isClosed}
+              onClick={handleOpenEnvelope}
+              className="group relative h-[50px] xs:h-[52px] sm:h-[54px] px-7 xs:px-8 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center gap-2.5 disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+              aria-label={datePhotos.length > 0 ? 'Следующее свидание' : 'Открыть свидание'}
             >
-              <defs>
-                <radialGradient id="dateOpenPillGlow" cx="45%" cy="40%" r="65%">
-                  <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
-                  <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
-                  <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#dateOpenPillGlow)" />
+              {/* Ambient Background Aura & Delicate Floating Gleam */}
+              <svg
+                viewBox="0 0 360 65"
+                preserveAspectRatio="xMidYMid slice"
+                className="absolute inset-0 w-full h-full pointer-events-none block"
+                aria-hidden="true"
+              >
+                <defs>
+                  <radialGradient id="dateOpenPillGlow" cx="45%" cy="40%" r="65%">
+                    <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
+                    <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
+                    <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
+                  </radialGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#dateOpenPillGlow)" />
 
-              {/* Faint Romantic Gleam Particles */}
-              <g opacity="0.25">
-                <circle cx="42" cy="42" r="1.1" fill="#E98787" />
-                <circle cx="135" cy="18" r="0.8" fill="#E98787" />
-                <circle cx="235" cy="45" r="0.9" fill="#E98787" />
-                <circle cx="315" cy="20" r="1.0" fill="#E98787" />
-              </g>
-            </svg>
+                {/* Faint Romantic Gleam Particles */}
+                <g opacity="0.25">
+                  <circle cx="42" cy="42" r="1.1" fill="#E98787" />
+                  <circle cx="135" cy="18" r="0.8" fill="#E98787" />
+                  <circle cx="235" cy="45" r="0.9" fill="#E98787" />
+                  <circle cx="315" cy="20" r="1.0" fill="#E98787" />
+                </g>
+              </svg>
 
-            {/* Content Overlay */}
-            <div className="relative z-10 flex items-center justify-center gap-2 pointer-events-none">
-              <Mail
-                size={16}
-                className="shrink-0 text-[#E98787] dark:text-[#F0B9C6] transition-transform duration-300 group-hover:scale-110"
-              />
-              <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
-                Открыть свидание
-              </span>
-            </div>
-          </button>
-        </div>
+              {/* Content Overlay */}
+              <div className="relative z-10 flex items-center justify-center gap-2 pointer-events-none">
+                <Mail
+                  size={16}
+                  className="shrink-0 text-[#E98787] dark:text-[#F0B9C6] transition-transform duration-300 group-hover:scale-110"
+                />
+                <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
+                  {datePhotos.length > 0 ? 'Следующее свидание' : 'Открыть свидание'}
+                </span>
+              </div>
+            </button>
+          </div>
+        )}
 
         {/* =========================================================================
-            COMPACT STATUS / INVITATION PLATE (КОМПАКТНАЯ ПЛАШКА ПРИГЛАШЕНИЯ)
+            INVITATION CARDS (ПЛАШКИ ПРИГЛАШЕНИЙ)
             ========================================================================= */}
         {invitation && (
           <>
@@ -626,8 +757,93 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                   </div>
                 </div>
               </div>
+            ) : invitation.status === 'accepted' ? (
+              /* STATE B: Accepted Date (Принятое свидание) */
+              <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-2 relative group">
+                {/* Soft ambient mist UNDER the card */}
+                <div
+                  className="absolute -inset-3 rounded-[32px] bg-gradient-to-b from-[#FAD4DF]/25 via-[#F7CAD6]/15 to-transparent dark:from-[#3D222E]/30 dark:via-[#2F1A24]/15 dark:to-transparent blur-xl pointer-events-none -z-10"
+                  aria-hidden="true"
+                />
+
+                <div className="w-full px-5 py-5 xs:px-6 xs:py-5.5 sm:px-6.5 sm:py-6 rounded-[26px] bg-gradient-to-b from-[#FFFDFB]/95 via-[#FFFFFF]/90 to-[#FAF6F3]/95 dark:from-[#1D161C]/95 dark:via-[#181116]/95 dark:to-[#130D11]/95 backdrop-blur-md border border-[#ECD4DC] dark:border-[#30222B] shadow-[0_8px_26px_-6px_rgba(233,135,135,0.16)] dark:shadow-[0_12px_30px_-8px_rgba(0,0,0,0.6)] transition-all duration-300 animate-card-enter relative overflow-hidden select-none">
+                  {/* Primary Headline: Large, expressive, main accent of the card */}
+                  <h3 className="relative z-10 font-display font-bold text-[20px] xs:text-[22px] sm:text-[23.5px] leading-snug text-[#343033] dark:text-[#FAF5F7] tracking-tight mb-2">
+                    Партнёр принял свидание
+                  </h3>
+
+                  {/* Brief date description snippet */}
+                  {(invitation.idea.description || invitation.idea.title) && (
+                    <p className="relative z-10 text-[13px] xs:text-[13.5px] sm:text-[14px] text-[#635D62] dark:text-[#C5BEC2] leading-relaxed line-clamp-2 mb-4 font-normal">
+                      {invitation.idea.description || invitation.idea.title}
+                    </p>
+                  )}
+
+                  {/* Lower Part of Card: 0 Photos, 1 Photo, or 2 Photos Diptych */}
+                  {datePhotos.length === 0 ? (
+                    <div className="relative z-10">
+                      <TouchReadyButton
+                        text={isUploadingPhoto ? 'Загрузка снимка...' : 'Загрузить фото'}
+                        icon={
+                          <Camera
+                            size={17}
+                            strokeWidth={2.1}
+                            className="shrink-0 text-[#E98787] dark:text-[#F0B9C6] transition-transform duration-300 group-hover:scale-110"
+                          />
+                        }
+                        onClick={handleUploadPhotoClick}
+                        soundEnabled={soundEnabled}
+                        hapticEnabled={hapticEnabled}
+                        className="w-full max-w-none"
+                      />
+                    </div>
+                  ) : (
+                    (() => {
+                      const photo = datePhotos[datePhotos.length - 1] || datePhotos[0];
+
+                      return (
+                        <div className="relative z-10 space-y-3">
+                          {/* Joint Date Photo Card */}
+                          <div
+                            onClick={() => {
+                              triggerHaptic(hapticEnabled);
+                              playSoftChime('tap', soundEnabled);
+                              setFullscreenPhoto({
+                                url: photo.imageUrl,
+                                title: invitation.idea.title || 'Свидание',
+                              });
+                            }}
+                            className="relative aspect-[16/10] xs:aspect-[16/9.5] w-full rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#ECD4DC] dark:border-[#33222B] shadow-xs group cursor-pointer active:scale-[0.99] transition-all duration-200"
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Открыть фото свидания"
+                          >
+                            <img
+                              src={photo.imageUrl}
+                              alt="Фото свидания"
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-102"
+                              loading="lazy"
+                            />
+                            {/* Tap hint in bottom right */}
+                            <div className="absolute bottom-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-white/90 text-[10.5px] font-medium tracking-tight pointer-events-none">
+                              Смотреть
+                            </div>
+                          </div>
+
+                          {/* Subtle prompt indicating that envelope begins next date */}
+                          <div className="pt-0.5 text-center">
+                            <span className="text-[12px] text-[#777277] dark:text-[#B5ADB1] font-medium">
+                              Нажмите на конверт, чтобы начать следующее свидание
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+              </div>
             ) : (
-              /* STATE B: Sent invitation or resolved invitation (accepted/declined) */
+              /* STATE C: Sent pending or declined invitation */
               <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-4.5 relative group">
                 {/* Soft ambient mist UNDER the card */}
                 <div
@@ -669,12 +885,6 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                       <div className="inline-flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
                         <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
                         <span>{partnerDisplayName}: Ожидание</span>
-                      </div>
-                    )}
-                    {invitation.status === 'accepted' && (
-                      <div className="inline-flex items-center gap-2 font-semibold text-emerald-600 dark:text-emerald-400">
-                        <Check size={16} strokeWidth={2.5} className="shrink-0" />
-                        <span>Свидание принято</span>
                       </div>
                     )}
                     {invitation.status === 'declined' && (
@@ -739,76 +949,107 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               {/* Upper Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#2A2026] text-[#E17282] dark:text-[#F3AEBF] text-[13.5px] xs:text-[14px] font-semibold tracking-wide mb-3.5">
                 <Sparkles size={14} className="text-[#E17282] dark:text-[#F3AEBF] shrink-0" />
-                <span>Идея для вас</span>
+                <span>{invitation?.status === 'accepted' ? 'Свидание' : 'Идея для вас'}</span>
               </div>
+
+              {/* Subtitle if accepted */}
+              {invitation?.status === 'accepted' && (
+                <div className="text-[13px] xs:text-[14px] text-[#777277] dark:text-[#B5ADB1] font-medium flex items-center gap-1.5 mb-2.5">
+                  <Heart size={13} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
+                  <span>{partnerDisplayName} принял(а) приглашение</span>
+                </div>
+              )}
 
               {/* Date Title */}
               <h2 className="text-xl xs:text-2xl sm:text-[25px] font-bold tracking-tight text-[#343033] dark:text-[#FAF5F7] mb-3 leading-snug px-1">
-                {currentIdea.title}
+                {invitation?.status === 'accepted' ? invitation.idea.title : currentIdea.title}
               </h2>
 
               {/* Description */}
               <p className="text-sm xs:text-[14.5px] text-[#554F54] dark:text-[#C5BEC2] leading-relaxed mb-6 max-w-[300px]">
-                {currentIdea.description}
+                {invitation?.status === 'accepted' ? invitation.idea.description : currentIdea.description}
               </p>
 
-              {/* Action Buttons: 'Пригласить' + refresh button */}
-              <div className="flex items-center gap-2.5 w-full">
-                <button
-                  type="button"
-                  onClick={handleInvitePartner}
-                  className="group relative flex-1 h-[50px] xs:h-[52px] sm:h-[54px] px-6 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
-                  aria-label="Пригласить"
-                >
-                  {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Открыть свидание») */}
-                  <svg
-                    viewBox="0 0 360 65"
-                    preserveAspectRatio="xMidYMid slice"
-                    className="absolute inset-0 w-full h-full pointer-events-none block"
-                    aria-hidden="true"
+              {/* Action Buttons: 'Загрузить фото' if accepted, or 'Пригласить' + refresh if picking */}
+              {invitation?.status === 'accepted' ? (
+                <div className="flex flex-col gap-2.5 w-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCloseModal();
+                      handleUploadPhotoClick();
+                    }}
+                    className="w-full h-[52px] xs:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 dark:border-white/20 shadow-[inset_0_1px_1.5px_rgba(255,255,255,0.45),0_8px_24px_-6px_rgba(233,135,135,0.32)] text-white font-display font-semibold text-[15px] sm:text-[15.5px] tracking-tight hover:opacity-95 active:scale-[0.985] transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <defs>
-                      <radialGradient id="dateInvitePillGlow" cx="45%" cy="40%" r="65%">
-                        <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
-                        <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
-                        <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
-                      </radialGradient>
-                    </defs>
-                    <rect width="100%" height="100%" fill="url(#dateInvitePillGlow)" />
+                    <Camera size={18} strokeWidth={2.2} />
+                    <span>Загрузить фото</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="w-full py-2.5 px-4 rounded-full text-[#8A8488] dark:text-[#9E969B] hover:text-[#343033] dark:hover:text-white font-medium text-xs xs:text-sm active:scale-[0.985] transition-colors cursor-pointer"
+                  >
+                    Закрыть
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 w-full">
+                  <button
+                    type="button"
+                    onClick={handleInvitePartner}
+                    className="group relative flex-1 h-[50px] xs:h-[52px] sm:h-[54px] px-6 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center disabled:opacity-40 disabled:pointer-events-none disabled:active:scale-100"
+                    aria-label="Пригласить"
+                  >
+                    {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Открыть свидание») */}
+                    <svg
+                      viewBox="0 0 360 65"
+                      preserveAspectRatio="xMidYMid slice"
+                      className="absolute inset-0 w-full h-full pointer-events-none block"
+                      aria-hidden="true"
+                    >
+                      <defs>
+                        <radialGradient id="dateInvitePillGlow" cx="45%" cy="40%" r="65%">
+                          <stop offset="0%" stopColor="#E98787" stopOpacity="0.09" />
+                          <stop offset="50%" stopColor="#FFDEE7" stopOpacity="0.03" />
+                          <stop offset="100%" stopColor="#FAF0F2" stopOpacity="0" />
+                        </radialGradient>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#dateInvitePillGlow)" />
 
-                    {/* Faint Romantic Gleam Particles */}
-                    <g opacity="0.25">
-                      <circle cx="42" cy="42" r="1.1" fill="#E98787" />
-                      <circle cx="135" cy="18" r="0.8" fill="#E98787" />
-                      <circle cx="235" cy="45" r="0.9" fill="#E98787" />
-                      <circle cx="315" cy="20" r="1.0" fill="#E98787" />
-                    </g>
-                  </svg>
+                      {/* Faint Romantic Gleam Particles */}
+                      <g opacity="0.25">
+                        <circle cx="42" cy="42" r="1.1" fill="#E98787" />
+                        <circle cx="135" cy="18" r="0.8" fill="#E98787" />
+                        <circle cx="235" cy="45" r="0.9" fill="#E98787" />
+                        <circle cx="315" cy="20" r="1.0" fill="#E98787" />
+                      </g>
+                    </svg>
 
-                  {/* Content Overlay */}
-                  <div className="relative z-10 flex items-center justify-center pointer-events-none">
-                    <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
-                      Пригласить
-                    </span>
-                  </div>
-                </button>
+                    {/* Content Overlay */}
+                    <div className="relative z-10 flex items-center justify-center pointer-events-none">
+                      <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
+                        Пригласить
+                      </span>
+                    </div>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleNextIdea}
-                  disabled={isShuffling}
-                  title="Сменить свидание"
-                  aria-label="Сменить свидание"
-                  className="w-[50px] h-[50px] xs:w-[52px] xs:h-[52px] sm:w-[54px] sm:h-[54px] shrink-0 rounded-full border border-[#E98787]/20 dark:border-[#E8BFC7]/15 bg-[#FAF0F2] dark:bg-[#150F13] shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-[#6E676D] dark:text-[#C5BEC2] hover:text-[#E98787] dark:hover:text-[#F0B9C6] active:scale-[0.985] transition-all duration-200 flex items-center justify-center cursor-pointer disabled:opacity-40"
-                >
-                  <RefreshCw
-                    size={18}
-                    className={`shrink-0 transition-transform duration-400 ${
-                      isShuffling ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleNextIdea}
+                    disabled={isShuffling}
+                    title="Сменить свидание"
+                    aria-label="Сменить свидание"
+                    className="w-[50px] h-[50px] xs:w-[52px] xs:h-[52px] sm:w-[54px] sm:h-[54px] shrink-0 rounded-full border border-[#E98787]/20 dark:border-[#E8BFC7]/15 bg-[#FAF0F2] dark:bg-[#150F13] shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-[#6E676D] dark:text-[#C5BEC2] hover:text-[#E98787] dark:hover:text-[#F0B9C6] active:scale-[0.985] transition-all duration-200 flex items-center justify-center cursor-pointer disabled:opacity-40"
+                  >
+                    <RefreshCw
+                      size={18}
+                      className={`shrink-0 transition-transform duration-400 ${
+                        isShuffling ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -917,15 +1158,30 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                     Отклонить
                   </button>
                 </div>
+              ) : invitation.status === 'accepted' ? (
+                <div className="w-full space-y-3">
+                  <div className="w-full py-3.5 px-4 rounded-2xl bg-[#FAF0F2] dark:bg-[#2A2026] text-center border border-[#ECD4DC]/60 dark:border-[#3D3039]">
+                    <span className="text-xs xs:text-sm font-semibold text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1.5">
+                      <Check size={16} strokeWidth={2.4} />
+                      <span>Свидание принято · {partnerDisplayName} ждёт встречи</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCloseIncomingModal();
+                      handleUploadPhotoClick();
+                    }}
+                    className="w-full h-[52px] xs:h-[54px] rounded-full bg-gradient-to-r from-[#F0B9C6] via-[#E98787] to-[#E27A7A] dark:from-[#C95B6F] dark:via-[#B84E5F] dark:to-[#A3404D] border border-white/35 text-white font-display font-semibold text-sm hover:opacity-95 active:scale-[0.985] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-[0_6px_20px_-4px_rgba(233,135,135,0.32)]"
+                  >
+                    <Camera size={17} strokeWidth={2.2} />
+                    <span>Загрузить фото</span>
+                  </button>
+                </div>
               ) : (
                 <div className="w-full py-3.5 px-4 rounded-2xl bg-[#FAF0F2] dark:bg-[#2A2026] text-center border border-[#ECD4DC]/60 dark:border-[#3D3039]">
                   <span className="text-xs xs:text-sm font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center justify-center gap-1.5">
-                    {invitation.status === 'accepted' ? (
-                      <>
-                        <Check size={16} strokeWidth={2.4} />
-                        <span>Свидание принято</span>
-                      </>
-                    ) : invitation.status === 'declined' ? (
+                    {invitation.status === 'declined' ? (
                       <span>Приглашение отклонено</span>
                     ) : (
                       <>
@@ -940,6 +1196,29 @@ export const DateScreen: React.FC<DateScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* =========================================================================
+          MATCH PHOTO UPLOAD FLOW (CAMERA / GALLERY)
+          Directly reuses Match's PhotoPickerModal (Camera & Gallery picker)
+          ========================================================================= */}
+      <PhotoPickerModal
+        isOpen={isPhotoPickerOpen}
+        onClose={() => {
+          setIsPhotoPickerOpen(false);
+          setUploadTargetPartner(false);
+        }}
+        onSelectPhoto={handleDatePhotoSelected}
+        title="Фото свидания"
+        subtitle="Снимок для вашего свидания"
+      />
+
+      {/* Fullscreen Photo Viewer for Date Photos */}
+      <FullscreenPhotoViewer
+        isOpen={Boolean(fullscreenPhoto)}
+        onClose={() => setFullscreenPhoto(null)}
+        photoUrl={fullscreenPhoto?.url || null}
+        title={fullscreenPhoto?.title}
+      />
 
       {/* CSS Keyframe animations */}
       <style>{`

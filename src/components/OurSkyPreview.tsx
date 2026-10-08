@@ -54,7 +54,7 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
   // Retrieve calendar days with completed/conducted dates (real, confirmed dates only)
   const completedDateDays = useMemo(() => {
     return dateInvitationService.getCompletedDateDays();
-  }, []);
+  }, [todayMoments, history]);
 
   // All deduplicated sky dates (1 day = max 1 star: either authentic match or confirmed date)
   const allSkyDates = useMemo(() => {

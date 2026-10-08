@@ -98,6 +98,22 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     });
   }, []);
 
+  // Idle pre-mount adjacent tabs in the background so swiping is 100% instant without frame drops
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const idleCallback = (window as any).requestIdleCallback || ((cb: Function) => setTimeout(cb, 500));
+    const handle = idleCallback(() => {
+      ensureAdjacentMounted(currentIndex);
+    });
+    return () => {
+      if ((window as any).cancelIdleCallback) {
+        (window as any).cancelIdleCallback(handle);
+      } else {
+        clearTimeout(handle);
+      }
+    };
+  }, [currentIndex, ensureAdjacentMounted]);
+
   // Track activeTab changes from external controls (e.g. BottomTabBar, header avatar, in-screen links)
   const prevTabRef = useRef(activeTab);
   useEffect(() => {

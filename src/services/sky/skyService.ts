@@ -1,5 +1,6 @@
 import { Moment, HistoryDay, CoupleState } from '../../types';
 import { pluralizeWord } from '../gamification';
+import { appStorage } from '../storage/keyValueStorage';
 
 export type StarEventType = 'moment' | 'date';
 
@@ -37,6 +38,50 @@ export interface SkyState {
   lines: ConstellationLine[];
   isCompleted: boolean;
   statusText: string;
+}
+
+// --------------------------------------------------------------------------
+// INDEPENDENT ACCUMULATED STAR DATES REGISTRY
+// Monotonic & persistent: once earned, stars are NEVER lost, reset or wiped
+// by Free-tier 7-day limits, photo stripping, or offline reloads.
+// --------------------------------------------------------------------------
+
+const STAR_DATES_STORAGE_PREFIX = 'ours_accumulated_stars_v1_';
+
+export function getAccumulatedStarDates(pairId?: string): string[] {
+  const cleanId = (pairId || 'default').trim().toLowerCase();
+  try {
+    const raw = appStorage.getItem(`${STAR_DATES_STORAGE_PREFIX}${cleanId}`);
+    if (typeof raw === 'string' && raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return [];
+}
+
+export function recordAccumulatedStarDates(pairId: string | undefined, newDates: string[]): string[] {
+  const cleanId = (pairId || 'default').trim().toLowerCase();
+  const existing = getAccumulatedStarDates(cleanId);
+  const dateSet = new Set<string>(existing);
+
+  for (const d of newDates) {
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      dateSet.add(d);
+    }
+  }
+
+  const merged = Array.from(dateSet).sort();
+  try {
+    appStorage.setItem(`${STAR_DATES_STORAGE_PREFIX}${cleanId}`, JSON.stringify(merged));
+  } catch {
+    // ignore
+  }
+  return merged;
 }
 
 // --------------------------------------------------------------------------
@@ -91,20 +136,44 @@ function toDateKey(d: Date): string {
 }
 
 /**
- * Checks whether a Moment represents an authentic completed MATCH
+ * Checks whether a Moment represents an authentic completed MATCH.
+ * Crucial: If a moment was completed/revealed/reacted, it IS a match, even if
+ * older photos were archived or stripped on the wire for Free tier limits.
  */
 export function isMomentMatched(moment: Moment): boolean {
   if (!moment) return false;
-  const hasBoth = Boolean(
-    (moment.userPhoto && moment.partnerPhoto) ||
-    (moment.photos && moment.photos.length >= 2)
-  );
+
+  // 1. Date moments with uploaded photos count as completed date events
+  if (moment.isDate || (typeof moment.id === 'string' && moment.id.startsWith('date-'))) {
+    const hasPhoto = Boolean(
+      moment.imageUrl ||
+      moment.userPhoto ||
+      moment.partnerPhoto ||
+      (moment.photos && moment.photos.length > 0)
+    );
+    if (hasPhoto) return true;
+  }
+
+  // 2. If moment has completed status or recorded reactions: it is definitely an authentic match
   const isMatchStatus =
     moment.status === 'COMPLETED' ||
     moment.status === 'REVEALED' ||
-    moment.status === 'REACTED';
+    moment.status === 'REACTED' ||
+    moment.status === 'MATCH' ||
+    Boolean(moment.userReaction || moment.partnerReaction);
 
-  return hasBoth && isMatchStatus;
+  if (isMatchStatus) {
+    return true;
+  }
+
+  // 3. In-progress / unfinalized moments count if both photos are present or both uploaded
+  const hasBoth = Boolean(
+    (moment.userPhoto && moment.partnerPhoto) ||
+    (moment.photos && moment.photos.length >= 2) ||
+    moment.status === 'BOTH_UPLOADED'
+  );
+
+  return hasBoth;
 }
 
 /**
@@ -159,9 +228,15 @@ export function getCoupleMatchedDates(
     matchedDatesSet.add(todayKey);
   }
 
-  // 2. Check real history days
+  // 2. Check real history days:
+  // History days only exist when joint moments took place.
+  // Locked days (>7 days on Free plan) and sanitized moments MUST retain their stars.
   for (const day of history) {
-    const hasMatch = day.moments.some(isMomentMatched);
+    const hasMatch =
+      Boolean(day.isLocked) ||
+      (Array.isArray(day.moments) && day.moments.length > 0) ||
+      (Array.isArray(day.moments) && day.moments.some(isMomentMatched));
+
     if (hasMatch) {
       let key: string | null = null;
       if (day.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(day.dateKey)) {
@@ -178,23 +253,24 @@ export function getCoupleMatchedDates(
         }
       }
 
-      if (!key) {
+      if (!key && Array.isArray(day.moments)) {
         for (const m of day.moments) {
-          if (isMomentMatched(m)) {
-            if (m.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(m.dateKey)) {
-              key = m.dateKey;
-            } else if (m.createdAt) {
-              try {
-                const d = new Date(m.createdAt);
-                if (!isNaN(d.getTime())) key = toDateKey(d);
-              } catch {}
-            }
-            if (key) break;
+          if (m.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(m.dateKey)) {
+            key = m.dateKey;
+            break;
+          } else if (m.createdAt) {
+            try {
+              const d = new Date(m.createdAt);
+              if (!isNaN(d.getTime())) {
+                key = toDateKey(d);
+                break;
+              }
+            } catch {}
           }
         }
       }
 
-      if (key) {
+      if (key && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
         matchedDatesSet.add(key);
       }
     }
@@ -207,6 +283,7 @@ export function getCoupleMatchedDates(
 /**
  * Combines authentic matches and confirmed completed dates for a couple into the unified sky calendar.
  * Rule: Exactly 1 star per unique calendar day with an event (match or date).
+ * Strictly monotonic & persistent: once earned, stars are never lost or recalculated away.
  */
 export function getCoupleSkyDates(
   couple: CoupleState,
@@ -215,9 +292,13 @@ export function getCoupleSkyDates(
   completedDateDays: string[] = [],
   referenceDate: Date = new Date()
 ): string[] {
-  const datesSet = new Set<string>();
+  const pairId = couple?.id || couple?.inviteCode || couple?.pairSeed;
 
-  // 1. All authentic match days
+  // 1. Retrieve all previously persisted, accumulated star dates for this pair
+  const persistedDates = getAccumulatedStarDates(pairId);
+  const datesSet = new Set<string>(persistedDates);
+
+  // 2. All authentic match days from today & history
   const matchDays = getCoupleMatchedDates(couple, todayMoments, history, referenceDate);
   for (const d of matchDays) {
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
@@ -225,14 +306,36 @@ export function getCoupleSkyDates(
     }
   }
 
-  // 2. All confirmed date days (ONLY if actually confirmed/accepted!)
+  // 3. All confirmed date days (ONLY if actually confirmed/accepted!)
   for (const d of completedDateDays) {
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
       datesSet.add(d);
     }
   }
 
-  return Array.from(datesSet).sort();
+  // 4. Also check recorded date days from local key if present
+  try {
+    const rawAccepted = appStorage.getItem('ours_accepted_date_keys_v1');
+    if (typeof rawAccepted === 'string' && rawAccepted) {
+      const list: string[] = JSON.parse(rawAccepted);
+      if (Array.isArray(list)) {
+        for (const k of list) {
+          if (typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k)) {
+            datesSet.add(k);
+          }
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  const allDates = Array.from(datesSet).sort();
+
+  // 5. Persist merged cumulative state (monotonic union: stars are never lost)
+  recordAccumulatedStarDates(pairId, allDates);
+
+  return allDates;
 }
 
 /**

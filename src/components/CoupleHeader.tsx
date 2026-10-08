@@ -8,6 +8,7 @@ interface CoupleHeaderProps {
   couple: CoupleState;
   onOpenProfile?: () => void;
   currentStreak?: number;
+  starsCount?: number;
   onOpenStreak?: () => void;
 }
 
@@ -15,9 +16,11 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = React.memo(({
   couple,
   onOpenProfile,
   currentStreak = 0,
+  starsCount,
   onOpenStreak,
 }) => {
   const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
+  const displayedStars = typeof starsCount === 'number' ? starsCount : currentStreak;
 
   return (
     <header
@@ -36,7 +39,7 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = React.memo(({
             title="Наше небо"
           >
             <Sparkles size={14} className="text-[#E98787] dark:text-[#F0B9C6] shrink-0" />
-            <span>{currentStreak > 0 ? `${currentStreak}` : '0'}</span>
+            <span>{displayedStars > 0 ? `${displayedStars}` : '0'}</span>
           </button>
         </div>
 

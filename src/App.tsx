@@ -22,7 +22,11 @@ import {
   resolveAuthoritativeActiveMomentId,
   getSynchronizedNow,
 } from './services/moments/momentTiming';
-import { getCoupleMatchedDates } from './services/sky/skyService';
+import {
+  getCoupleMatchedDates,
+  getCoupleSkyDates,
+  getMatchedDatesForMonth,
+} from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 import { LegalDocumentType } from './screens/LegalScreen';
 import { dateInvitationService } from './services/dates/dateInvitationService';
@@ -43,7 +47,7 @@ const TabLoadingFallback = () => (
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
-  const [activeTab, setActiveTab] = useState<NavigationTab>('today');
+  const [activeTab, setActiveTab] = useState<NavigationTab>('date');
   const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -395,7 +399,78 @@ export default function App() {
     };
   }, [isInitialSessionReady, appState.couple.id]);
 
-  // 3. Lazy-load history when History tab or Our Sky modal is opened
+  // 3. Proactive Background Prefetch & Preload History while on Today
+  useEffect(() => {
+    if (!isInitialSessionReady || !appState.couple.id) return;
+
+    let isMounted = true;
+
+    // A. Preload HistoryScreen JS chunk during idle time
+    if (typeof window !== 'undefined') {
+      const idleCallback = (window as any).requestIdleCallback || ((cb: Function) => setTimeout(cb, 400));
+      idleCallback(() => {
+        import('./screens/HistoryScreen').catch(() => {});
+      });
+    }
+
+    // B. Prefetch History data from Supabase
+    const prefetchHistoryData = async () => {
+      try {
+        const history = await apiClient.fetchHistory(appState.couple.id);
+        if (!isMounted || !history || history.length === 0) return;
+
+        setAppState((prev) => {
+          if (
+            prev.history.length === history.length &&
+            prev.history[0]?.id === history[0]?.id &&
+            prev.history[prev.history.length - 1]?.id === history[history.length - 1]?.id
+          ) {
+            return prev;
+          }
+          const next = {
+            ...prev,
+            history,
+          };
+          saveAppState(next);
+          return next;
+        });
+
+        // C. Gentle photo pre-warming: pre-warm only top 2-3 thumbnails for the latest day
+        if (typeof window !== 'undefined' && history.length > 0) {
+          const idleCallback = (window as any).requestIdleCallback || ((cb: Function) => setTimeout(cb, 600));
+          idleCallback(() => {
+            const latestDay = history[0];
+            if (latestDay && !latestDay.isLocked && Array.isArray(latestDay.moments)) {
+              const urls: string[] = [];
+              for (const m of latestDay.moments.slice(0, 2)) {
+                const uP = m.userPhoto || (m.photos && m.photos[0]?.imageUrl);
+                const pP = m.partnerPhoto || (m.photos && m.photos[1]?.imageUrl);
+                if (uP) urls.push(uP);
+                if (pP) urls.push(pP);
+              }
+              urls.slice(0, 3).forEach((url) => {
+                const img = new Image();
+                img.decoding = 'async';
+                img.src = url;
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[OURS] Failed to prefetch history in background:', err);
+      }
+    };
+
+    // Slight delay so TodayScreen's first interactive frame has 100% CPU priority
+    const timer = setTimeout(prefetchHistoryData, 350);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [isInitialSessionReady, appState.couple.id]);
+
+  // Ensure History is fresh when History tab or Our Sky modal is opened (returns in 0ms if already cached)
   useEffect(() => {
     if ((activeTab === 'history' || isStreakModalOpen) && appState.couple.id) {
       apiClient.fetchHistory(appState.couple.id).then((history) => {
@@ -415,7 +490,7 @@ export default function App() {
           });
         }
       }).catch((err) => {
-        console.warn('[OURS] Failed to lazy-load history:', err);
+        console.warn('[OURS] Failed to sync history on tab open:', err);
       });
     }
   }, [activeTab, isStreakModalOpen, appState.couple.id]);
@@ -455,10 +530,31 @@ export default function App() {
     );
   }, [appState.couple.id, appState.couple.pairSeed, appState.couple.inviteCode]);
 
+  // Retrieve calendar days with completed/conducted dates
+  const completedDateDays = useMemo(() => {
+    return dateInvitationService.getCompletedDateDays();
+  }, [hasUnreadDateInvitation]);
+
+  // All deduplicated sky dates (strictly cumulative & persistent across reloads/device/plans)
+  const allSkyDates = useMemo(() => {
+    return getCoupleSkyDates(
+      appState.couple,
+      appState.todayMoments,
+      appState.history,
+      completedDateDays
+    );
+  }, [appState.couple, appState.todayMoments, appState.history, completedDateDays]);
+
+  // Current month's stars in the active constellation
+  const currentMonthSkyDates = useMemo(() => {
+    const now = new Date();
+    return getMatchedDatesForMonth(allSkyDates, now.getFullYear(), now.getMonth() + 1);
+  }, [allSkyDates]);
+
+  const monthStarsCount = currentMonthSkyDates.length;
+
   // Matched dates extracted from real history & today's moments
-  const matchedDates = useMemo(() => {
-    return getCoupleMatchedDates(appState.couple, appState.todayMoments, appState.history);
-  }, [appState.couple, appState.todayMoments, appState.history]);
+  const matchedDates = allSkyDates;
 
   // Handle Onboarding Completion (Create, Join, or Restore Pair via Supabase)
   const handleOnboardingComplete = async (
@@ -838,6 +934,7 @@ export default function App() {
                 }
               }}
               currentStreak={streakInfo.currentStreak}
+              starsCount={monthStarsCount}
               onOpenStreak={() => setIsStreakModalOpen(true)}
             />
 

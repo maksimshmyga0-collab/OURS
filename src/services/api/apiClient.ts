@@ -6,6 +6,7 @@
 import { supabase, supabaseConfig } from './supabaseClient';
 import { env } from '../config/env';
 import { photoStorageService } from '../storage/storageService';
+import { appStorage } from '../storage/keyValueStorage';
 import {
   CoupleState,
   Moment,
@@ -19,6 +20,7 @@ import {
   formatRussianDate,
   updateServerTimeOffset,
 } from '../moments/momentTiming';
+import { recordAccumulatedStarDates } from '../sky/skyService';
 
 let lastClockSync = 0;
 async function syncServerClock(): Promise<void> {
@@ -80,6 +82,7 @@ export class ApiClient {
   private currentPairId: string | null = null;
   private activeChannels: Map<string, any> = new Map();
   private historyCache: Map<string, { data: HistoryDay[]; timestamp: number }> = new Map();
+  private historyInflight: Map<string, Promise<HistoryDay[]>> = new Map();
   private authLockPromise: Promise<string> | null = null;
   private cachedPartnerNames: Map<string, string> = new Map();
 
@@ -92,6 +95,7 @@ export class ApiClient {
           this.currentUserId = null;
           this.currentPairId = null;
           this.historyCache.clear();
+          this.historyInflight.clear();
         }
       });
     } catch {
@@ -124,13 +128,28 @@ export class ApiClient {
   }
 
   /**
+   * Return in-memory cached history without issuing any network requests
+   */
+  getCachedHistory(pairId?: string): HistoryDay[] | null {
+    const targetPairId = pairId || this.currentPairId;
+    if (!targetPairId) return null;
+    const cached = this.historyCache.get(targetPairId);
+    if (cached && Date.now() - cached.timestamp < 60000) {
+      return cached.data;
+    }
+    return null;
+  }
+
+  /**
    * Invalidate history cache on data mutations
    */
   invalidateHistoryCache(pairId?: string): void {
     if (pairId) {
       this.historyCache.delete(pairId);
+      this.historyInflight.delete(pairId);
     } else {
       this.historyCache.clear();
+      this.historyInflight.clear();
     }
   }
 
@@ -612,7 +631,7 @@ export class ApiClient {
   }
 
   /**
-   * Lazy-fetch complete history for the pair on demand (e.g. when opening History tab or Our Sky modal)
+   * Fetch complete history for the pair with in-memory caching and in-flight request deduplication
    */
   async fetchHistory(pairId?: string, forceRefresh: boolean = false): Promise<HistoryDay[]> {
     const targetPairId = pairId || this.currentPairId;
@@ -622,144 +641,182 @@ export class ApiClient {
 
     if (!forceRefresh) {
       const cached = this.historyCache.get(targetPairId);
-      if (cached && Date.now() - cached.timestamp < 45000) {
+      if (cached && Date.now() - cached.timestamp < 60000) {
         return cached.data;
       }
+      const existingInflight = this.historyInflight.get(targetPairId);
+      if (existingInflight) {
+        return existingInflight;
+      }
     }
 
-    try {
-      const userId = await this.ensureAuthenticatedUser();
-      const todayKey = getLocalDateKey();
+    const fetchPromise = (async () => {
+      try {
+        const userId = await this.ensureAuthenticatedUser();
+        const todayKey = getLocalDateKey();
 
-      // Fetch all historical moments of this pair
-      const { data: allPairMoments } = await supabase
-        .from('moments')
-        .select('*')
-        .eq('pair_id', targetPairId)
-        .order('created_at', { ascending: true });
+        // Fetch all historical moments of this pair
+        const { data: allPairMoments } = await supabase
+          .from('moments')
+          .select('*')
+          .eq('pair_id', targetPairId)
+          .order('created_at', { ascending: true });
 
-      if (!allPairMoments || allPairMoments.length === 0) {
-        return [];
-      }
-
-      const allMomentIds = allPairMoments.map((m: any) => m.id);
-
-      // Fetch photos, reactions, and pair plan in parallel
-      const [photosRes, reactionsRes, pairRes] = await Promise.all([
-        supabase.from('photos').select('*').in('moment_id', allMomentIds),
-        supabase.from('reactions').select('*').in('moment_id', allMomentIds),
-        supabase.from('pairs').select('is_lovely, subscription').eq('id', targetPairId).maybeSingle(),
-      ]);
-
-      const allPhotos = photosRes.data || [];
-      const allReactions = reactionsRes.data || [];
-      const isLovely = Boolean(pairRes.data?.is_lovely || pairRes.data?.subscription === 'premium');
-
-      const photosByMoment = new Map<string, any[]>();
-      allPhotos.forEach((p: any) => {
-        const list = photosByMoment.get(p.moment_id) || [];
-        list.push(p);
-        photosByMoment.set(p.moment_id, list);
-      });
-
-      const reactionsByMoment = new Map<string, any[]>();
-      allReactions.forEach((r: any) => {
-        const list = reactionsByMoment.get(r.moment_id) || [];
-        list.push(r);
-        reactionsByMoment.set(r.moment_id, list);
-      });
-
-      const dayMap = new Map<string, Moment[]>();
-
-      allPairMoments.forEach((pm: any, idx: number) => {
-        const dKey = pm.moment_date || todayKey;
-        const pPhotos = photosByMoment.get(pm.id) || [];
-        const pReactions = reactionsByMoment.get(pm.id) || [];
-
-        const uPhoto = pPhotos.find((p) => p.user_id === userId)?.storage_path || null;
-        const partPhoto = pPhotos.find((p) => p.user_id !== userId)?.storage_path || null;
-
-        const isMatched = Boolean(uPhoto && partPhoto && pReactions.length > 0);
-
-        if (isMatched) {
-          const order = ((idx % 3) + 1) as 1 | 2 | 3;
-          const uReact = pReactions.find((r) => r.user_id === userId)?.reaction || null;
-          const pReact = pReactions.find((r) => r.user_id !== userId)?.reaction || null;
-
-          const hMoment: Moment = {
-            id: pm.id,
-            pairId: targetPairId,
-            createdBy: userId,
-            createdAt: pm.created_at,
-            dateKey: dKey,
-            imageUrl: uPhoto,
-            caption: null,
-            order,
-            label: `МОМЕНТ ${order}`,
-            prompt: pm.prompt,
-            subtext: '',
-            status: 'COMPLETED',
-            themeColor: order === 1 ? 'pink' : order === 2 ? 'peach' : 'blue',
-            userPhoto: uPhoto,
-            partnerPhoto: partPhoto,
-            photos: pPhotos.map((p) => ({
-              userId: p.user_id,
-              imageUrl: p.storage_path,
-              createdAt: p.created_at,
-            })),
-            userReaction: (uReact === '✨' ? null : uReact) as ReactionEmoji | null,
-            partnerReaction: (pReact === '✨' ? null : pReact) as ReactionEmoji | null,
-            completedAt: pm.created_at,
-          };
-
-          const list = dayMap.get(dKey) || [];
-          list.push(hMoment);
-          dayMap.set(dKey, list);
+        if (!allPairMoments || allPairMoments.length === 0) {
+          this.historyCache.set(targetPairId, { data: [], timestamp: Date.now() });
+          return [];
         }
-      });
 
-      // Calculate the 7 calendar days boundary (today + previous 6 days = 7 days)
-      const now = new Date();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 6);
-      const sevenDaysAgoKey = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
+        const allMomentIds = allPairMoments.map((m: any) => m.id);
 
-      const historyDays: HistoryDay[] = Array.from(dayMap.entries())
-        .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-        .map(([dKey, dayMoments]) => {
-          const isWithinSevenDays = dKey >= sevenDaysAgoKey;
-          const isLocked = !isLovely && !isWithinSevenDays;
+        // Fetch photos, reactions, and pair plan in parallel
+        const [photosRes, reactionsRes, pairRes] = await Promise.all([
+          supabase.from('photos').select('*').in('moment_id', allMomentIds),
+          supabase.from('reactions').select('*').in('moment_id', allMomentIds),
+          supabase.from('pairs').select('is_lovely, subscription').eq('id', targetPairId).maybeSingle(),
+        ]);
 
-          // For Free users, omit high-res photo URLs on locked older days to enforce privacy & data limitation on wire
-          const sanitizedMoments = isLocked
-            ? dayMoments.map((m) => ({
-                ...m,
-                imageUrl: null,
-                userPhoto: null,
-                partnerPhoto: null,
-                photos: [],
-              }))
-            : dayMoments.sort((a, b) => a.order - b.order);
+        const allPhotos = photosRes.data || [];
+        const allReactions = reactionsRes.data || [];
+        const isLovely = Boolean(pairRes.data?.is_lovely || pairRes.data?.subscription === 'premium');
 
-          return {
-            id: `day-${dKey}`,
-            dateKey: dKey,
-            title: dKey === todayKey ? 'Сегодня' : formatRussianDate(dKey),
-            subtitle: `${dayMoments.length} ${
-              dayMoments.length === 1 ? 'момент' : dayMoments.length < 5 ? 'момента' : 'моментов'
-            }`,
-            dateStr: formatRussianDate(dKey),
-            moments: sanitizedMoments,
-            isLocked,
-          };
+        const photosByMoment = new Map<string, any[]>();
+        allPhotos.forEach((p: any) => {
+          const list = photosByMoment.get(p.moment_id) || [];
+          list.push(p);
+          photosByMoment.set(p.moment_id, list);
         });
 
-      this.historyCache.set(targetPairId, { data: historyDays, timestamp: Date.now() });
-      return historyDays;
-    } catch (err) {
-      console.warn('[OURS History] Exception lazy-loading history:', err);
-      return [];
-    }
+        const reactionsByMoment = new Map<string, any[]>();
+        allReactions.forEach((r: any) => {
+          const list = reactionsByMoment.get(r.moment_id) || [];
+          list.push(r);
+          reactionsByMoment.set(r.moment_id, list);
+        });
+
+        const dayMap = new Map<string, Moment[]>();
+
+        allPairMoments.forEach((pm: any, idx: number) => {
+          const dKey = pm.moment_date || todayKey;
+          const pPhotos = photosByMoment.get(pm.id) || [];
+          const pReactions = reactionsByMoment.get(pm.id) || [];
+
+          const uPhoto = pPhotos.find((p) => p.user_id === userId)?.storage_path || null;
+          const partPhoto = pPhotos.find((p) => p.user_id !== userId)?.storage_path || null;
+
+          const isDateMoment = typeof pm.id === 'string' && pm.id.startsWith('date-');
+          const isMatched = Boolean(uPhoto && partPhoto && pReactions.length > 0);
+
+          if (isMatched || (isDateMoment && pPhotos.length > 0)) {
+            const order = isDateMoment ? 1 : (((idx % 3) + 1) as 1 | 2 | 3);
+            const uReact = pReactions.find((r) => r.user_id === userId)?.reaction || null;
+            const pReact = pReactions.find((r) => r.user_id !== userId)?.reaction || null;
+
+            const hMoment: Moment = {
+              id: pm.id,
+              pairId: targetPairId,
+              createdBy: pm.creator_user_id || userId,
+              createdAt: pm.created_at,
+              dateKey: dKey,
+              imageUrl: uPhoto || partPhoto || pPhotos[0]?.storage_path || null,
+              caption: null,
+              order,
+              label: isDateMoment ? 'СВИДАНИЕ' : `МОМЕНТ ${order}`,
+              prompt: pm.prompt,
+              subtext: isDateMoment ? 'Воспоминание свидания' : '',
+              status: 'COMPLETED',
+              themeColor: isDateMoment ? 'pink' : order === 1 ? 'pink' : order === 2 ? 'peach' : 'blue',
+              userPhoto: uPhoto,
+              partnerPhoto: partPhoto,
+              photos: pPhotos.map((p) => ({
+                userId: p.user_id,
+                imageUrl: p.storage_path,
+                createdAt: p.created_at,
+              })),
+              userReaction: (uReact === '✨' ? null : uReact) as ReactionEmoji | null,
+              partnerReaction: (pReact === '✨' ? null : pReact) as ReactionEmoji | null,
+              completedAt: pm.created_at,
+              isDate: isDateMoment,
+            };
+
+            const list = dayMap.get(dKey) || [];
+            list.push(hMoment);
+            dayMap.set(dKey, list);
+          }
+        });
+
+        // Merge offline / locally persisted date moments if any
+        try {
+          const rawLocalDates = appStorage.getItem(`ours_local_date_moments_${targetPairId}`);
+          if (typeof rawLocalDates === 'string' && rawLocalDates) {
+            const localMoments: Moment[] = JSON.parse(rawLocalDates);
+            if (Array.isArray(localMoments)) {
+              localMoments.forEach((lm) => {
+                const dKey = lm.dateKey || todayKey;
+                const existingList = dayMap.get(dKey) || [];
+                if (!existingList.some((m) => m.id === lm.id)) {
+                  existingList.push(lm);
+                  dayMap.set(dKey, existingList);
+                }
+              });
+            }
+          }
+        } catch {}
+
+        // Persist all dates with matched moments into the independent accumulative star registry
+        const matchedHistoryDates = Array.from(dayMap.keys()).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+        if (matchedHistoryDates.length > 0) {
+          recordAccumulatedStarDates(targetPairId, matchedHistoryDates);
+        }
+
+        // Calculate the 7 calendar days boundary (today + previous 6 days = 7 days)
+        const now = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(now.getDate() - 6);
+        const sevenDaysAgoKey = `${sevenDaysAgo.getFullYear()}-${String(sevenDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(sevenDaysAgo.getDate()).padStart(2, '0')}`;
+
+        const historyDays: HistoryDay[] = Array.from(dayMap.entries())
+          .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+          .map(([dKey, dayMoments]) => {
+            const isWithinSevenDays = dKey >= sevenDaysAgoKey;
+            const isLocked = !isLovely && !isWithinSevenDays;
+
+            // For Free users, omit high-res photo URLs on locked older days to enforce privacy & data limitation on wire
+            const sanitizedMoments = isLocked
+              ? dayMoments.map((m) => ({
+                  ...m,
+                  imageUrl: null,
+                  userPhoto: null,
+                  partnerPhoto: null,
+                  photos: [],
+                }))
+              : dayMoments.sort((a, b) => a.order - b.order);
+
+            return {
+              id: `day-${dKey}`,
+              dateKey: dKey,
+              title: dKey === todayKey ? 'Сегодня' : formatRussianDate(dKey),
+              subtitle: `${dayMoments.length} ${
+                dayMoments.length === 1 ? 'момент' : dayMoments.length < 5 ? 'момента' : 'моментов'
+              }`,
+              dateStr: formatRussianDate(dKey),
+              moments: sanitizedMoments,
+              isLocked,
+            };
+          });
+
+        this.historyCache.set(targetPairId, { data: historyDays, timestamp: Date.now() });
+        return historyDays;
+      } catch (err) {
+        console.warn('[OURS History] Exception lazy-loading history:', err);
+        return [];
+      } finally {
+        this.historyInflight.delete(targetPairId);
+      }
+    })();
+
+    this.historyInflight.set(targetPairId, fetchPromise);
+    return fetchPromise;
   }
 
   /**
@@ -1297,6 +1354,230 @@ export class ApiClient {
     } catch {
       return { success: true };
     }
+  }
+
+  /**
+   * Fetch photos for a specific date moment (by momentId = date-{invitation.id})
+   */
+  async fetchDatePhotos(momentId: string): Promise<MomentPhoto[]> {
+    if (!momentId) return [];
+
+    let cachedList: MomentPhoto[] = [];
+    try {
+      const stored = appStorage.getItem(`ours_date_photos_${momentId}`);
+      if (typeof stored === 'string' && stored) {
+        cachedList = JSON.parse(stored);
+      }
+    } catch {}
+
+    if (supabaseConfig.isConfigured) {
+      try {
+        const { data: dbPhotos } = await supabase
+          .from('photos')
+          .select('storage_path, image_url, user_id, created_at')
+          .eq('moment_id', momentId)
+          .order('created_at', { ascending: true });
+
+        if (Array.isArray(dbPhotos) && dbPhotos.length > 0) {
+          const mapped: MomentPhoto[] = dbPhotos.map((p: any) => ({
+            userId: p.user_id,
+            imageUrl: p.storage_path || p.image_url,
+            createdAt: p.created_at,
+          }));
+
+          try {
+            appStorage.setItem(`ours_date_photos_${momentId}`, JSON.stringify(mapped));
+          } catch {}
+
+          return mapped;
+        }
+      } catch (err) {
+        console.warn('[OURS Date] Error fetching date photos from Supabase:', err);
+      }
+    }
+
+    return cachedList;
+  }
+
+  /**
+   * Upload Photo for an accepted Date Invitation:
+   * 1. Creates/ensures historic moment in public.moments with id = date-{invitation.id}
+   * 2. Uploads photo via photoStorageService.uploadMomentPhoto()
+   * 3. Upserts photo record into public.photos linked to moment_id
+   * 4. Enforces max 1 photo per user for this date moment (max 2 total for pair)
+   * 5. Grants 1 persistent star into the sky for this date
+   * 6. Realtime broadcasts across pair channel and invalidates history cache
+   */
+  async uploadDatePhoto(params: {
+    momentId: string;
+    photoData: string;
+    dateTitle?: string;
+    dateDescription?: string;
+    overrideUserId?: string;
+  }): Promise<{ success: boolean; photos: MomentPhoto[]; momentId: string; photoUrl: string }> {
+    const { momentId, photoData, dateTitle, dateDescription, overrideUserId } = params;
+    let userId = overrideUserId;
+    if (!userId) {
+      try {
+        userId = await this.ensureAuthenticatedUser();
+      } catch {
+        userId = this.currentUserId || 'user';
+      }
+    }
+
+    if (!this.currentPairId) {
+      try {
+        const { data: membership } = await supabase
+          .from('pair_members')
+          .select('pair_id')
+          .eq('user_id', userId)
+          .order('joined_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (membership?.pair_id) {
+          this.currentPairId = membership.pair_id;
+        }
+      } catch {}
+    }
+
+    const pairId = this.currentPairId || 'pair';
+    const todayKey = getLocalDateKey();
+
+    // 1. Upload photo through photoStorageService
+    const storageUrl = await photoStorageService.uploadMomentPhoto(
+      pairId,
+      momentId,
+      userId,
+      photoData
+    );
+
+    // 2. Ensure moment row exists in public.moments
+    if (supabaseConfig.isConfigured) {
+      try {
+        await supabase.from('moments').upsert(
+          {
+            id: momentId,
+            pair_id: pairId,
+            moment_date: todayKey,
+            prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+      } catch (err) {
+        console.warn('[OURS Date] Could not upsert moments row:', err);
+      }
+    }
+
+    // 3. Upsert photo metadata into public.photos (enforces max 1 per user on conflict)
+    if (supabaseConfig.isConfigured) {
+      try {
+        await supabase.from('photos').upsert(
+          {
+            moment_id: momentId,
+            user_id: userId,
+            storage_path: storageUrl,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: 'moment_id,user_id' }
+        );
+      } catch (err) {
+        console.warn('[OURS Date] Could not upsert photos row:', err);
+      }
+    }
+
+    // 4. Update local storage cache for instant UI feedback
+    let updatedPhotos: MomentPhoto[] = [];
+    try {
+      const stored = appStorage.getItem(`ours_date_photos_${momentId}`);
+      const list: MomentPhoto[] = typeof stored === 'string' && stored ? JSON.parse(stored) : [];
+      const filtered = list.filter((p) => p.userId !== userId);
+      filtered.push({
+        userId,
+        imageUrl: storageUrl,
+        createdAt: new Date().toISOString(),
+      });
+      updatedPhotos = filtered.slice(0, 2);
+      appStorage.setItem(`ours_date_photos_${momentId}`, JSON.stringify(updatedPhotos));
+    } catch {
+      updatedPhotos = [{ userId, imageUrl: storageUrl, createdAt: new Date().toISOString() }];
+    }
+
+    // 5. Update local history cache for this pair
+    try {
+      const rawLocalDates = appStorage.getItem(`ours_local_date_moments_${pairId}`);
+      const localMoments: Moment[] = typeof rawLocalDates === 'string' && rawLocalDates ? JSON.parse(rawLocalDates) : [];
+      const existingIdx = localMoments.findIndex((m) => m.id === momentId);
+      const newMoment: Moment = {
+        id: momentId,
+        pairId,
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+        dateKey: todayKey,
+        imageUrl: storageUrl,
+        caption: null,
+        order: 1,
+        label: 'СВИДАНИЕ',
+        prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
+        subtext: dateDescription || 'Воспоминание свидания',
+        status: 'COMPLETED',
+        themeColor: 'pink',
+        userPhoto: storageUrl,
+        partnerPhoto: updatedPhotos.find((p) => p.userId !== userId)?.imageUrl || null,
+        photos: updatedPhotos,
+        userReaction: null,
+        partnerReaction: null,
+        completedAt: new Date().toISOString(),
+        isDate: true,
+      };
+
+      if (existingIdx >= 0) {
+        localMoments[existingIdx] = {
+          ...localMoments[existingIdx],
+          ...newMoment,
+          photos: updatedPhotos,
+        };
+      } else {
+        localMoments.push(newMoment);
+      }
+      appStorage.setItem(`ours_local_date_moments_${pairId}`, JSON.stringify(localMoments));
+    } catch {}
+
+    // 6. Monotonically record star in sky registry for this pair
+    try {
+      recordAccumulatedStarDates(pairId, [todayKey]);
+    } catch {}
+
+    // 7. Broadcast Realtime across pair channel and invalidate caches
+    this.broadcastPairUpdate(pairId, { action: 'date_photo_uploaded', momentId, userId });
+    this.invalidateHistoryCache(pairId);
+
+    // 8. If Supabase configured, re-fetch authoritative photos list
+    if (supabaseConfig.isConfigured) {
+      try {
+        const { data: dbPhotos } = await supabase
+          .from('photos')
+          .select('storage_path, image_url, user_id, created_at')
+          .eq('moment_id', momentId)
+          .order('created_at', { ascending: true });
+
+        if (Array.isArray(dbPhotos) && dbPhotos.length > 0) {
+          updatedPhotos = dbPhotos.map((p: any) => ({
+            userId: p.user_id,
+            imageUrl: p.storage_path || p.image_url,
+            createdAt: p.created_at,
+          }));
+          appStorage.setItem(`ours_date_photos_${momentId}`, JSON.stringify(updatedPhotos));
+        }
+      } catch {}
+    }
+
+    return {
+      success: true,
+      photos: updatedPhotos,
+      momentId,
+      photoUrl: storageUrl,
+    };
   }
 
   /**

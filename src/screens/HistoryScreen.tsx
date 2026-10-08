@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { HistoryDay, Moment, CoupleState, ReactionEmoji } from '../types';
-import { Lock, ArrowLeft, Sparkles, Heart, Calendar, Layers, Image as ImageIcon } from 'lucide-react';
+import { Lock, ArrowLeft, Sparkles, Heart, Calendar, Layers, Image as ImageIcon, Mail } from 'lucide-react';
 import { ReactionIcon } from '../components/ReactionIcon';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
@@ -78,44 +78,54 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
 
   // Only real couple history
-  const cleanHistory = (history || []).filter(
-    (d) => d && d.id && !d.id.startsWith('day-hist-') && !d.id.startsWith('hist-')
-  );
+  const cleanHistory = useMemo(() => {
+    return (history || []).filter(
+      (d) => d && d.id && !d.id.startsWith('day-hist-') && !d.id.startsWith('hist-')
+    );
+  }, [history]);
 
   // Completed / matched today moments from local state
-  const completedTodayMoments = todayMoments.filter(
-    (m) =>
-      (m.status === 'COMPLETED' || m.status === 'REVEALED' || m.status === 'REACTED') &&
-      Boolean(m.userPhoto || m.partnerPhoto)
-  );
-
-  const hasTodayInHistory = cleanHistory.some((d) => d.dateKey === 'today' || d.title === 'Сегодня');
-  const hasRealContent = cleanHistory.length > 0 || completedTodayMoments.length > 0;
+  const completedTodayMoments = useMemo(() => {
+    return todayMoments.filter(
+      (m) =>
+        (m.status === 'COMPLETED' || m.status === 'REVEALED' || m.status === 'REACTED') &&
+        Boolean(m.userPhoto || m.partnerPhoto)
+    );
+  }, [todayMoments]);
 
   // Combined history list: renders real history if available, otherwise empty
-  const displayHistory: HistoryDay[] = hasRealContent
-    ? [
-        ...(!hasTodayInHistory && completedTodayMoments.length > 0
-          ? [
-              {
-                id: 'hist-today-dynamic',
-                title: 'Сегодня',
-                subtitle: `${completedTodayMoments.length} ${getPluralMoments(completedTodayMoments.length)}`,
-                dateStr: 'Сегодня',
-                isLocked: false,
-                moments: completedTodayMoments,
-              },
-            ]
-          : []),
-        ...cleanHistory,
-      ]
-    : [];
+  const displayHistory = useMemo((): HistoryDay[] => {
+    const hasTodayInHistory = cleanHistory.some((d) => d.dateKey === 'today' || d.title === 'Сегодня');
+    const hasRealContent = cleanHistory.length > 0 || completedTodayMoments.length > 0;
+    if (!hasRealContent) return [];
 
-  const totalMomentsCount = displayHistory.reduce((acc, day) => acc + day.moments.length, 0);
+    return [
+      ...(!hasTodayInHistory && completedTodayMoments.length > 0
+        ? [
+            {
+              id: 'hist-today-dynamic',
+              title: 'Сегодня',
+              subtitle: `${completedTodayMoments.length} ${getPluralMoments(completedTodayMoments.length)}`,
+              dateStr: 'Сегодня',
+              isLocked: false,
+              moments: completedTodayMoments,
+            },
+          ]
+        : []),
+      ...cleanHistory,
+    ];
+  }, [cleanHistory, completedTodayMoments]);
+
+  const totalMomentsCount = useMemo(() => {
+    return displayHistory.reduce((acc, day) => acc + day.moments.length, 0);
+  }, [displayHistory]);
+
   const totalDaysCount = displayHistory.length;
 
   const isUnlockedGlobally = couple.isLovely || couple.subscription === 'premium';
-  const selectedDay = displayHistory.find((d) => d.id === selectedDayId);
+  const selectedDay = useMemo(() => {
+    return displayHistory.find((d) => d.id === selectedDayId) || null;
+  }, [displayHistory, selectedDayId]);
 
   const handlePhotoClick = (url: string | null, authorName: string) => {
     if (!url) return;
@@ -159,6 +169,56 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               Открыть воспоминания
             </span>
           </button>
+        </div>
+      );
+    }
+
+    const isDateMoment = Boolean(
+      moment.isDate ||
+      (typeof moment.id === 'string' && moment.id.startsWith('date-')) ||
+      moment.label === 'СВИДАНИЕ'
+    );
+    const singleDatePhoto = userPhoto || partnerPhoto || (moment.photos && moment.photos[0]?.imageUrl);
+
+    // For a completed date moment with a single joint photo, display it as a unified full-width card
+    if (isDateMoment && (!hasBoth || (moment.photos && moment.photos.length <= 1))) {
+      return (
+        <div className="space-y-2">
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              if (singleDatePhoto) {
+                handlePhotoClick(singleDatePhoto, moment.prompt || 'Свидание');
+              }
+            }}
+            className="relative aspect-[16/10] xs:aspect-[16/9.5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
+            role="button"
+            tabIndex={0}
+            aria-label="Открыть фото свидания"
+          >
+            {singleDatePhoto ? (
+              <>
+                <img
+                  src={singleDatePhoto}
+                  alt="Фото свидания"
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
+                />
+                <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
+                  Совместное фото
+                </div>
+                <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-white text-[10px] font-medium tracking-tight pointer-events-none shadow-xs">
+                  Смотреть
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[#777277] text-xs">
+                Фото свидания
+              </div>
+            )}
+          </div>
         </div>
       );
     }
@@ -222,7 +282,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   {couple.user.name}
                 </span>
                 <span className="text-[10px] text-[#8A8488] dark:text-[#A8A0A6] mt-0.5 leading-tight">
-                  Кадр в сердце ✨
+                  Кадр в сердце
                 </span>
               </div>
             )}
@@ -290,7 +350,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   {couple.partner.name}
                 </span>
                 <span className="text-[10px] text-[#8A8488] dark:text-[#A8A0A6] mt-0.5 leading-tight">
-                  Рядом в мыслях 🕊️
+                  Рядом в мыслях
                 </span>
               </div>
             )}
@@ -354,16 +414,37 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
         {/* Moments in this Day */}
         <div className="space-y-4">
-          {selectedDay.moments.map((m, idx) => (
-            <div key={m.id || idx} className="relative overflow-visible">
-              <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
-              <div className="relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all">
+          {selectedDay.moments.map((m, idx) => {
+            const isDateM = Boolean(m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) || m.label === 'СВИДАНИЕ');
+            const dPhoto = m.imageUrl || m.userPhoto || m.partnerPhoto || (m.photos && m.photos[0]?.imageUrl);
+
+            return (
+              <div key={m.id || idx} className="relative overflow-visible">
+                <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+                <div
+                  onClick={() => {
+                    if (isDateM && dPhoto) {
+                      handlePhotoClick(dPhoto, m.prompt || 'Свидание');
+                    }
+                  }}
+                  className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
+                    isDateM && dPhoto ? 'cursor-pointer hover:border-[#E98787]/40' : ''
+                  }`}
+                >
                 {/* Moment Prompt & Order Header */}
                 <div className="flex items-start justify-between gap-2.5 px-1 pt-0.5">
                   <div className="flex-1 min-w-0 space-y-0.5">
                     <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                      <Sparkles size={11} className="shrink-0" />
-                      <span>{m.label || `МОМЕНТ ${m.order || idx + 1}`}</span>
+                      {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) ? (
+                        <Mail size={11} className="shrink-0" />
+                      ) : (
+                        <Sparkles size={11} className="shrink-0" />
+                      )}
+                      <span>
+                        {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-'))
+                          ? 'СВИДАНИЕ'
+                          : (m.label || `МОМЕНТ ${m.order || idx + 1}`)}
+                      </span>
                     </div>
                     <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
                       {m.prompt}
@@ -380,7 +461,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 {renderCoupleDiptych(m, !isDayUnlocked)}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
 
         {/* Fullscreen Photo Viewer */}
@@ -491,16 +573,37 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
                 {/* Day's Moments Cards */}
                 <div className="space-y-4">
-                  {day.moments.map((m, mIdx) => (
-                    <div key={m.id || mIdx} className="relative overflow-visible">
-                      <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
-                      <div className="relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all">
+                  {day.moments.map((m, mIdx) => {
+                    const isDateM = Boolean(m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) || m.label === 'СВИДАНИЕ');
+                    const dPhoto = m.imageUrl || m.userPhoto || m.partnerPhoto || (m.photos && m.photos[0]?.imageUrl);
+
+                    return (
+                      <div key={m.id || mIdx} className="relative overflow-visible">
+                        <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+                        <div
+                          onClick={() => {
+                            if (isDateM && dPhoto) {
+                              handlePhotoClick(dPhoto, m.prompt || 'Свидание');
+                            }
+                          }}
+                          className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
+                            isDateM && dPhoto ? 'cursor-pointer hover:border-[#E98787]/40' : ''
+                          }`}
+                        >
                         {/* Moment Title & Timestamp */}
                         <div className="flex items-start justify-between gap-2.5 px-1 pt-0.5">
                           <div className="flex-1 min-w-0 space-y-0.5">
                             <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                              <Sparkles size={11} className="shrink-0" />
-                              <span>{m.label || `МОМЕНТ ${m.order || mIdx + 1}`}</span>
+                              {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) ? (
+                                <Mail size={11} className="shrink-0" />
+                              ) : (
+                                <Sparkles size={11} className="shrink-0" />
+                              )}
+                              <span>
+                                {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-'))
+                                  ? 'СВИДАНИЕ'
+                                  : (m.label || `МОМЕНТ ${m.order || mIdx + 1}`)}
+                              </span>
                             </div>
                             <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
                               {m.prompt}
@@ -517,7 +620,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                         {renderCoupleDiptych(m, !isDayUnlocked)}
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               </div>
             );
@@ -533,7 +637,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 </div>
                 <div className="space-y-1 max-w-xs mx-auto">
                   <h4 className="font-display text-base font-bold text-[#343033] dark:text-white">
-                    Здесь начинается ваша более старая история ✨
+                    Здесь начинается ваша более старая история
                   </h4>
                   <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
                     С LOVELY все воспоминания старше 7 дней остаются с вами навсегда.
@@ -635,24 +739,45 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 {isDayUnlocked ? (
                   <div className="grid grid-cols-3 gap-2 pt-1">
                     {day.moments.slice(0, 3).map((m, mIdx) => {
+                      const isDateM = Boolean(
+                        m.isDate ||
+                        (typeof m.id === 'string' && m.id.startsWith('date-')) ||
+                        m.label === 'СВИДАНИЕ'
+                      );
                       const uP = resolveUserPhoto(m, couple.user.id);
                       const pP = resolvePartnerPhoto(m, couple.user.id);
+                      const hasDistinctPair = Boolean(uP && pP && uP !== pP);
+                      const singlePhoto = uP || pP || m.imageUrl || (m.photos && m.photos[0]?.imageUrl);
 
                       return (
                         <div
                           key={m.id || mIdx}
-                          className="aspect-[4/3] rounded-[14px] overflow-hidden bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] relative shadow-2xs flex"
+                          className={`aspect-[4/3] rounded-[14px] overflow-hidden bg-white dark:bg-[#141214] relative flex transition-all ${
+                            isDateM
+                              ? 'border border-[#E98787]/40 dark:border-[#E8BFC7]/30 shadow-[0_2px_8px_-2px_rgba(233,135,135,0.22)]'
+                              : 'border border-[#EBE3E5] dark:border-[#242024] shadow-2xs'
+                          }`}
                         >
-                          {uP && pP ? (
+                          {hasDistinctPair ? (
                             <div className="grid grid-cols-2 w-full h-full">
-                              <img src={uP} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover border-r border-white/20" />
-                              <img src={pP} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                              <img src={uP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover border-r border-white/20" />
+                              <img src={pP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                             </div>
-                          ) : uP || pP ? (
-                            <img src={uP || pP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                          ) : singlePhoto ? (
+                            <img src={singlePhoto} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-[#777277]">
                               <ImageIcon size={14} />
+                            </div>
+                          )}
+
+                          {/* Subtle, elegant OURS Date Indicator Badge */}
+                          {isDateM && (
+                            <div className="absolute bottom-1.5 left-1.5 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/45 dark:bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs pointer-events-none select-none">
+                              <Heart size={8} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
+                              <span className="text-[9px] font-semibold tracking-tight text-white/95 leading-none">
+                                Свидание
+                              </span>
                             </div>
                           )}
                         </div>
