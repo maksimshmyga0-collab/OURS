@@ -84,8 +84,13 @@ export function isCapacitor(): boolean {
 
 export function isNativeApp(): boolean {
   if (typeof window === 'undefined') return false;
-  const win = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } };
-  return Boolean(win.Capacitor?.isNativePlatform && win.Capacitor.isNativePlatform());
+  const win = window as any;
+  if (!win.Capacitor) return false;
+  if (typeof win.Capacitor.isNativePlatform === 'function') {
+    return Boolean(win.Capacitor.isNativePlatform());
+  }
+  const platform = win.Capacitor.getPlatform?.();
+  return platform === 'android' || platform === 'ios';
 }
 
 export function getPlatform(): PlatformType {
