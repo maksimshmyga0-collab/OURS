@@ -19,8 +19,12 @@ import {
   getPromptForPairMoment,
   formatRussianDate,
   updateServerTimeOffset,
-} from '../moments/momentTiming';
-import { recordAccumulatedStarDates } from '../sky/skyService';
+import {
+  recordAccumulatedStarDates,
+  recordAccumulatedStarRecords,
+  StarEvent,
+  isMomentMatched,
+} from '../sky/skyService';
 
 let lastClockSync = 0;
 async function syncServerClock(): Promise<void> {
@@ -701,16 +705,23 @@ export class ApiClient {
           const pPhotos = photosByMoment.get(pm.id) || [];
           const pReactions = reactionsByMoment.get(pm.id) || [];
 
-          const uPhoto = pPhotos.find((p) => p.user_id === userId)?.storage_path || null;
-          const partPhoto = pPhotos.find((p) => p.user_id !== userId)?.storage_path || null;
+          const uPhotoObj = pPhotos.find((p) => p.user_id === userId);
+          const partPhotoObj = pPhotos.find((p) => p.user_id !== userId);
+          const uPhoto = uPhotoObj?.storage_path || uPhotoObj?.image_url || null;
+          const partPhoto = partPhotoObj?.storage_path || partPhotoObj?.image_url || null;
 
-          const isDateMoment = typeof pm.id === 'string' && pm.id.startsWith('date-');
+          const isDateMoment = Boolean(
+            (typeof pm.id === 'string' && pm.id.startsWith('date-')) ||
+            (typeof pm.prompt === 'string' && pm.prompt.startsWith('Свидание')) ||
+            pm.is_date === true
+          );
           const isMatched = Boolean(uPhoto && partPhoto && pReactions.length > 0);
 
           if (isMatched || (isDateMoment && pPhotos.length > 0)) {
             const order = isDateMoment ? 1 : (((idx % 3) + 1) as 1 | 2 | 3);
             const uReact = pReactions.find((r) => r.user_id === userId)?.reaction || null;
             const pReact = pReactions.find((r) => r.user_id !== userId)?.reaction || null;
+            const fallbackPhoto = pPhotos[0]?.storage_path || pPhotos[0]?.image_url || null;
 
             const hMoment: Moment = {
               id: pm.id,
@@ -718,7 +729,7 @@ export class ApiClient {
               createdBy: pm.creator_user_id || userId,
               createdAt: pm.created_at,
               dateKey: dKey,
-              imageUrl: uPhoto || partPhoto || pPhotos[0]?.storage_path || null,
+              imageUrl: uPhoto || partPhoto || fallbackPhoto,
               caption: null,
               order,
               label: isDateMoment ? 'СВИДАНИЕ' : `МОМЕНТ ${order}`,
@@ -730,7 +741,7 @@ export class ApiClient {
               partnerPhoto: partPhoto,
               photos: pPhotos.map((p) => ({
                 userId: p.user_id,
-                imageUrl: p.storage_path,
+                imageUrl: p.storage_path || p.image_url,
                 createdAt: p.created_at,
               })),
               userReaction: (uReact === '✨' ? null : uReact) as ReactionEmoji | null,
@@ -763,7 +774,34 @@ export class ApiClient {
           }
         } catch {}
 
-        // Persist all dates with matched moments into the independent accumulative star registry
+        // Persist all authentic star events into the independent accumulative star registry
+        const starEventsToRecord: StarEvent[] = [];
+        for (const [dKey, dayMoments] of dayMap.entries()) {
+          const hasMatch = dayMoments.some((m) => !m.isDate && isMomentMatched(m));
+          if (hasMatch) {
+            starEventsToRecord.push({
+              id: `match_${dKey}`,
+              dateKey: dKey,
+              starType: 'moment',
+              title: 'Касание',
+            });
+          }
+          for (const m of dayMoments) {
+            if (m.isDate) {
+              starEventsToRecord.push({
+                id: `date_${m.id || dKey}`,
+                dateKey: dKey,
+                starType: 'date',
+                momentId: m.id,
+                title: m.prompt || 'Свидание',
+                createdAt: m.createdAt,
+              });
+            }
+          }
+        }
+        if (starEventsToRecord.length > 0) {
+          recordAccumulatedStarRecords(targetPairId, starEventsToRecord);
+        }
         const matchedHistoryDates = Array.from(dayMap.keys()).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
         if (matchedHistoryDates.length > 0) {
           recordAccumulatedStarDates(targetPairId, matchedHistoryDates);
@@ -781,16 +819,23 @@ export class ApiClient {
             const isWithinSevenDays = dKey >= sevenDaysAgoKey;
             const isLocked = !isLovely && !isWithinSevenDays;
 
+            // Sort moments: regular daily moments by order (1, 2, 3), followed by date moments
+            const sortedMoments = [...dayMoments].sort((a, b) => {
+              if (a.isDate && !b.isDate) return 1;
+              if (!a.isDate && b.isDate) return -1;
+              return a.order - b.order;
+            });
+
             // For Free users, omit high-res photo URLs on locked older days to enforce privacy & data limitation on wire
             const sanitizedMoments = isLocked
-              ? dayMoments.map((m) => ({
+              ? sortedMoments.map((m) => ({
                   ...m,
                   imageUrl: null,
                   userPhoto: null,
                   partnerPhoto: null,
                   photos: [],
                 }))
-              : dayMoments.sort((a, b) => a.order - b.order);
+              : sortedMoments;
 
             return {
               id: `day-${dKey}`,
@@ -1411,6 +1456,7 @@ export class ApiClient {
   async uploadDatePhoto(params: {
     momentId: string;
     photoData: string;
+    pairId?: string;
     dateTitle?: string;
     dateDescription?: string;
     overrideUserId?: string;
@@ -1425,7 +1471,8 @@ export class ApiClient {
       }
     }
 
-    if (!this.currentPairId) {
+    let pairId = (params.pairId || this.currentPairId || '').trim();
+    if (!pairId) {
       try {
         const { data: membership } = await supabase
           .from('pair_members')
@@ -1435,12 +1482,18 @@ export class ApiClient {
           .limit(1)
           .maybeSingle();
         if (membership?.pair_id) {
+          pairId = membership.pair_id;
           this.currentPairId = membership.pair_id;
         }
       } catch {}
     }
 
-    const pairId = this.currentPairId || 'pair';
+    if (!pairId) {
+      pairId = this.currentPairId || 'pair';
+    } else {
+      this.currentPairId = pairId;
+    }
+
     const todayKey = getLocalDateKey();
 
     // 1. Upload photo through photoStorageService
@@ -1477,6 +1530,7 @@ export class ApiClient {
             moment_id: momentId,
             user_id: userId,
             storage_path: storageUrl,
+            image_url: storageUrl,
             created_at: new Date().toISOString(),
           },
           { onConflict: 'moment_id,user_id' }
@@ -1543,13 +1597,23 @@ export class ApiClient {
       appStorage.setItem(`ours_local_date_moments_${pairId}`, JSON.stringify(localMoments));
     } catch {}
 
-    // 6. Monotonically record star in sky registry for this pair
+    // 6. Monotonically record Big Star ✨ in sky registry for this pair
     try {
+      recordAccumulatedStarRecords(pairId, [
+        {
+          id: `date_${momentId}`,
+          dateKey: todayKey,
+          starType: 'date',
+          momentId,
+          title: dateTitle || 'Свидание',
+          createdAt: new Date().toISOString(),
+        },
+      ]);
       recordAccumulatedStarDates(pairId, [todayKey]);
     } catch {}
 
     // 7. Broadcast Realtime across pair channel and invalidate caches
-    this.broadcastPairUpdate(pairId, { action: 'date_photo_uploaded', momentId, userId });
+    this.broadcastPairUpdate(pairId, { action: 'date_photo_uploaded', momentId, userId, pairId });
     this.invalidateHistoryCache(pairId);
 
     // 8. If Supabase configured, re-fetch authoritative photos list

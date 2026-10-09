@@ -7,6 +7,9 @@ import {
   getCoupleSkyDates,
   getMatchedDatesForMonth,
   getSkyForMonth,
+  getCoupleStarEvents,
+  getStarEventsForMonth,
+  StarEvent,
 } from '../services/sky/skyService';
 import { dateInvitationService } from '../services/dates/dateInvitationService';
 import { exportSkyPolaroid } from '../services/sky/exportSkyPolaroid';
@@ -107,10 +110,14 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     return dateInvitationService.getCompletedDateDays();
   }, [isOpen]);
 
-  // All deduplicated sky dates (1 day = max 1 star: authentic match or confirmed date)
-  const allSkyDates = useMemo(() => {
-    return getCoupleSkyDates(couple, todayMoments, history, completedDateDays, now);
+  // All authoritative star events with exact type (Match ⭐ vs Date ✨) directly linked to memories
+  const allStarEvents = useMemo(() => {
+    return getCoupleStarEvents(couple, todayMoments, history, completedDateDays, now);
   }, [couple, todayMoments, history, completedDateDays, now]);
+
+  const allSkyDates = useMemo(() => {
+    return allStarEvents.map((e) => e.dateKey);
+  }, [allStarEvents]);
 
   // Determine available historical months + current month (strictly from real history & events)
   const availableMonths = useMemo(() => {
@@ -163,12 +170,16 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   // Determine if viewing the active current month
   const isCurrentMonth = selectedYear === currentYear && selectedMonth === currentMonth;
 
-  // Sky dates in the currently selected month
-  const monthSkyDates = useMemo(() => {
-    return getMatchedDatesForMonth(allSkyDates, selectedYear, selectedMonth);
-  }, [allSkyDates, selectedYear, selectedMonth]);
+  // Star events in the currently selected month
+  const monthStarEvents = useMemo(() => {
+    return getStarEventsForMonth(allStarEvents, selectedYear, selectedMonth);
+  }, [allStarEvents, selectedYear, selectedMonth]);
 
-  const starsCount = monthSkyDates.length;
+  const monthSkyDates = useMemo(() => {
+    return monthStarEvents.map((e) => e.dateKey);
+  }, [monthStarEvents]);
+
+  const starsCount = monthStarEvents.length;
   const effectiveStarsCount = starsCount;
 
   const stablePairSeed = useMemo(() => {
@@ -184,7 +195,8 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
       effectiveStarsCount,
       isCurrentMonth,
       monthSkyDates,
-      completedDateDays
+      completedDateDays,
+      monthStarEvents
     );
   }, [
     stablePairSeed,
@@ -194,6 +206,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     isCurrentMonth,
     monthSkyDates,
     completedDateDays,
+    monthStarEvents,
   ]);
 
   // Download Polaroid Card

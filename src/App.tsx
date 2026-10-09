@@ -26,6 +26,9 @@ import {
   getCoupleMatchedDates,
   getCoupleSkyDates,
   getMatchedDatesForMonth,
+  getCoupleStarEvents,
+  getStarEventsForMonth,
+  StarEvent,
 } from './services/sky/skyService';
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 import { LegalDocumentType } from './screens/LegalScreen';
@@ -420,8 +423,11 @@ export default function App() {
         if (!isMounted || !history || history.length === 0) return;
 
         setAppState((prev) => {
+          const prevCount = prev.history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
+          const nextCount = history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
           if (
             prev.history.length === history.length &&
+            prevCount === nextCount &&
             prev.history[0]?.id === history[0]?.id &&
             prev.history[prev.history.length - 1]?.id === history[history.length - 1]?.id
           ) {
@@ -473,11 +479,14 @@ export default function App() {
   // Ensure History is fresh when History tab or Our Sky modal is opened (returns in 0ms if already cached)
   useEffect(() => {
     if ((activeTab === 'history' || isStreakModalOpen) && appState.couple.id) {
-      apiClient.fetchHistory(appState.couple.id).then((history) => {
+      apiClient.fetchHistory(appState.couple.id, true).then((history) => {
         if (history && history.length > 0) {
           setAppState((prev) => {
+            const prevCount = prev.history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
+            const nextCount = history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
             if (
               prev.history.length === history.length &&
+              prevCount === nextCount &&
               prev.history[0]?.id === history[0]?.id &&
               prev.history[prev.history.length - 1]?.id === history[history.length - 1]?.id
             ) {
@@ -535,9 +544,9 @@ export default function App() {
     return dateInvitationService.getCompletedDateDays();
   }, [hasUnreadDateInvitation]);
 
-  // All deduplicated sky dates (strictly cumulative & persistent across reloads/device/plans)
-  const allSkyDates = useMemo(() => {
-    return getCoupleSkyDates(
+  // All authoritative star events with exact type (Match ⭐ vs Date ✨) directly linked to memories
+  const allStarEvents = useMemo(() => {
+    return getCoupleStarEvents(
       appState.couple,
       appState.todayMoments,
       appState.history,
@@ -545,13 +554,22 @@ export default function App() {
     );
   }, [appState.couple, appState.todayMoments, appState.history, completedDateDays]);
 
-  // Current month's stars in the active constellation
-  const currentMonthSkyDates = useMemo(() => {
-    const now = new Date();
-    return getMatchedDatesForMonth(allSkyDates, now.getFullYear(), now.getMonth() + 1);
-  }, [allSkyDates]);
+  // All deduplicated sky dates (strictly cumulative & persistent across reloads/device/plans)
+  const allSkyDates = useMemo(() => {
+    return allStarEvents.map((e) => e.dateKey);
+  }, [allStarEvents]);
 
-  const monthStarsCount = currentMonthSkyDates.length;
+  // Current month's stars in the active constellation
+  const currentMonthStarEvents = useMemo(() => {
+    const now = new Date();
+    return getStarEventsForMonth(allStarEvents, now.getFullYear(), now.getMonth() + 1);
+  }, [allStarEvents]);
+
+  const currentMonthSkyDates = useMemo(() => {
+    return currentMonthStarEvents.map((e) => e.dateKey);
+  }, [currentMonthStarEvents]);
+
+  const monthStarsCount = currentMonthStarEvents.length;
 
   // Matched dates extracted from real history & today's moments
   const matchedDates = allSkyDates;

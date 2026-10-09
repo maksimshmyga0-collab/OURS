@@ -41,12 +41,95 @@ export interface SkyState {
 }
 
 // --------------------------------------------------------------------------
-// INDEPENDENT ACCUMULATED STAR DATES REGISTRY
+// INDEPENDENT ACCUMULATED STAR REGISTRY
 // Monotonic & persistent: once earned, stars are NEVER lost, reset or wiped
 // by Free-tier 7-day limits, photo stripping, or offline reloads.
+// Preserves exact event types: Small Star ⭐ (Match) vs Big Star ✨ (Date).
 // --------------------------------------------------------------------------
 
+export interface StarEvent {
+  id: string; // unique ID, e.g. `match_${dateKey}` or `date_${momentId || dateKey}`
+  dateKey: string; // 'YYYY-MM-DD'
+  starType: StarEventType; // 'moment' (Match ⭐) | 'date' (Date ✨)
+  momentId?: string;
+  title?: string;
+  createdAt?: string;
+}
+
+const STAR_RECORDS_STORAGE_PREFIX = 'ours_accumulated_stars_v2_';
 const STAR_DATES_STORAGE_PREFIX = 'ours_accumulated_stars_v1_';
+
+export function getAccumulatedStarRecords(pairId?: string): StarEvent[] {
+  const cleanId = (pairId || 'default').trim().toLowerCase();
+  try {
+    const raw = appStorage.getItem(`${STAR_RECORDS_STORAGE_PREFIX}${cleanId}`);
+    if (typeof raw === 'string' && raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (e) =>
+            e &&
+            typeof e.id === 'string' &&
+            typeof e.dateKey === 'string' &&
+            /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey) &&
+            (e.starType === 'moment' || e.starType === 'date')
+        );
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  // Backward migration from v1 date array
+  const legacyDates = getAccumulatedStarDates(cleanId);
+  if (legacyDates.length > 0) {
+    return legacyDates.map((d) => ({
+      id: `match_${d}`,
+      dateKey: d,
+      starType: 'moment',
+      title: 'Касание',
+    }));
+  }
+
+  return [];
+}
+
+export function recordAccumulatedStarRecords(
+  pairId: string | undefined,
+  newRecords: StarEvent[]
+): StarEvent[] {
+  const cleanId = (pairId || 'default').trim().toLowerCase();
+  const existing = getAccumulatedStarRecords(cleanId);
+  const eventMap = new Map<string, StarEvent>();
+
+  for (const e of existing) {
+    eventMap.set(e.id, e);
+  }
+
+  for (const e of newRecords) {
+    if (e && e.id && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey)) {
+      eventMap.set(e.id, e);
+    }
+  }
+
+  const merged = Array.from(eventMap.values()).sort((a, b) => {
+    const cmp = a.dateKey.localeCompare(b.dateKey);
+    if (cmp !== 0) return cmp;
+    if (a.starType === b.starType) return a.id.localeCompare(b.id);
+    return a.starType === 'moment' ? -1 : 1;
+  });
+
+  try {
+    appStorage.setItem(`${STAR_RECORDS_STORAGE_PREFIX}${cleanId}`, JSON.stringify(merged));
+    // Also keep legacy date registry in sync
+    const dateSet = Array.from(new Set(merged.map((e) => e.dateKey))).sort();
+    appStorage.setItem(`${STAR_DATES_STORAGE_PREFIX}${cleanId}`, JSON.stringify(dateSet));
+  } catch {
+    // ignore
+  }
+
+  return merged;
+}
 
 export function getAccumulatedStarDates(pairId?: string): string[] {
   const cleanId = (pairId || 'default').trim().toLowerCase();
@@ -81,6 +164,16 @@ export function recordAccumulatedStarDates(pairId: string | undefined, newDates:
   } catch {
     // ignore
   }
+
+  // Also sync to v2 records
+  const newRecords: StarEvent[] = merged.map((d) => ({
+    id: `event_${d}`,
+    dateKey: d,
+    starType: 'moment',
+    title: 'Воспоминание',
+  }));
+  recordAccumulatedStarRecords(cleanId, newRecords);
+
   return merged;
 }
 
@@ -281,9 +374,178 @@ export function getCoupleMatchedDates(
 }
 
 /**
+ * Extracts all authentic, authoritatively typed StarEvents (Match ⭐ and Date ✨)
+ * directly linked to real memories, preserving individual identities across devices.
+ */
+export function getCoupleStarEvents(
+  couple: CoupleState,
+  todayMoments: Moment[] = [],
+  history: HistoryDay[] = [],
+  completedDateDays: string[] = [],
+  referenceDate: Date = new Date()
+): StarEvent[] {
+  const pairId = couple?.id || couple?.inviteCode || couple?.pairSeed;
+  const eventsMap = new Map<string, StarEvent>();
+
+  // 1. Retrieve previously persisted accumulated star records
+  const persisted = getAccumulatedStarRecords(pairId);
+  for (const ev of persisted) {
+    if (ev && ev.id && ev.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(ev.dateKey)) {
+      eventsMap.set(ev.id, ev);
+    }
+  }
+
+  // 2. Extract authentic events from real history days
+  for (const day of history) {
+    let dayKey: string | null = null;
+    if (day.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(day.dateKey)) {
+      dayKey = day.dateKey;
+    } else if (day.id?.startsWith('day-')) {
+      const raw = day.id.replace('day-', '');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) dayKey = raw;
+    }
+
+    if (!dayKey && Array.isArray(day.moments)) {
+      for (const m of day.moments) {
+        if (m.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(m.dateKey)) {
+          dayKey = m.dateKey;
+          break;
+        } else if (m.createdAt) {
+          try {
+            const d = new Date(m.createdAt);
+            if (!isNaN(d.getTime())) {
+              dayKey = toDateKey(d);
+              break;
+            }
+          } catch {}
+        }
+      }
+    }
+
+    if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
+
+    // A. Check for Match moments in this day:
+    const hasMatchMoment = Array.isArray(day.moments) && day.moments.some((m) => {
+      const isDate = Boolean(
+        m.isDate ||
+        (typeof m.id === 'string' && m.id.startsWith('date-')) ||
+        (typeof m.prompt === 'string' && m.prompt.startsWith('Свидание'))
+      );
+      return !isDate && isMomentMatched(m);
+    });
+
+    const isLockedWithoutMoments = Boolean(day.isLocked) && (!day.moments || day.moments.length === 0);
+
+    if (hasMatchMoment || isLockedWithoutMoments) {
+      const matchId = `match_${dayKey}`;
+      eventsMap.set(matchId, {
+        id: matchId,
+        dateKey: dayKey,
+        starType: 'moment',
+        title: 'Касание',
+      });
+    }
+
+    // B. Check for completed Date moments in this day:
+    if (Array.isArray(day.moments)) {
+      for (const m of day.moments) {
+        const isDate = Boolean(
+          m.isDate ||
+          (typeof m.id === 'string' && m.id.startsWith('date-')) ||
+          (typeof m.prompt === 'string' && m.prompt.startsWith('Свидание')) ||
+          m.label === 'СВИДАНИЕ'
+        );
+        if (isDate) {
+          const hasPhoto = Boolean(
+            m.imageUrl ||
+            m.userPhoto ||
+            m.partnerPhoto ||
+            (m.photos && m.photos.length > 0)
+          );
+          if (hasPhoto) {
+            const dateEventId = `date_${m.id || dayKey}`;
+            eventsMap.set(dateEventId, {
+              id: dateEventId,
+              dateKey: dayKey,
+              starType: 'date',
+              momentId: m.id,
+              title: m.prompt || 'Свидание',
+              createdAt: m.createdAt,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Extract today's events from todayMoments
+  const todayKey = toDateKey(referenceDate);
+  const todayHasMatch = todayMoments.some((m) => {
+    const isDate = Boolean(
+      m.isDate ||
+      (typeof m.id === 'string' && m.id.startsWith('date-')) ||
+      (typeof m.prompt === 'string' && m.prompt.startsWith('Свидание'))
+    );
+    return !isDate && isMomentMatched(m);
+  });
+
+  if (todayHasMatch) {
+    const matchId = `match_${todayKey}`;
+    eventsMap.set(matchId, {
+      id: matchId,
+      dateKey: todayKey,
+      starType: 'moment',
+      title: 'Касание',
+    });
+  }
+
+  // 4. Any completed date days recorded from invitation service
+  for (const d of completedDateDays) {
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const dateId = `date_inv_${d}`;
+      const alreadyHasDateStar = Array.from(eventsMap.values()).some(
+        (e) => e.dateKey === d && e.starType === 'date'
+      );
+      if (!alreadyHasDateStar) {
+        eventsMap.set(dateId, {
+          id: dateId,
+          dateKey: d,
+          starType: 'date',
+          title: 'Свидание',
+        });
+      }
+    }
+  }
+
+  // 5. Sort chronologically: by date ascending, then moment before date
+  const sortedEvents = Array.from(eventsMap.values()).sort((a, b) => {
+    const cmp = a.dateKey.localeCompare(b.dateKey);
+    if (cmp !== 0) return cmp;
+    if (a.starType === b.starType) return a.id.localeCompare(b.id);
+    return a.starType === 'moment' ? -1 : 1;
+  });
+
+  // 6. Monotonically persist in registry
+  recordAccumulatedStarRecords(pairId, sortedEvents);
+
+  return sortedEvents;
+}
+
+/**
+ * Filter StarEvents belonging to a specific Year & Month (1-indexed month)
+ */
+export function getStarEventsForMonth(
+  events: StarEvent[],
+  year: number,
+  month: number
+): StarEvent[] {
+  const prefix = `${year}-${String(month).padStart(2, '0')}`;
+  return events.filter((e) => e.dateKey.startsWith(prefix));
+}
+
+/**
  * Combines authentic matches and confirmed completed dates for a couple into the unified sky calendar.
- * Rule: Exactly 1 star per unique calendar day with an event (match or date).
- * Strictly monotonic & persistent: once earned, stars are never lost or recalculated away.
+ * Rule: Exactly 1 star per unique event, strictly monotonic & persistent.
  */
 export function getCoupleSkyDates(
   couple: CoupleState,
@@ -292,50 +554,14 @@ export function getCoupleSkyDates(
   completedDateDays: string[] = [],
   referenceDate: Date = new Date()
 ): string[] {
-  const pairId = couple?.id || couple?.inviteCode || couple?.pairSeed;
-
-  // 1. Retrieve all previously persisted, accumulated star dates for this pair
-  const persistedDates = getAccumulatedStarDates(pairId);
-  const datesSet = new Set<string>(persistedDates);
-
-  // 2. All authentic match days from today & history
-  const matchDays = getCoupleMatchedDates(couple, todayMoments, history, referenceDate);
-  for (const d of matchDays) {
-    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      datesSet.add(d);
-    }
-  }
-
-  // 3. All confirmed date days (ONLY if actually confirmed/accepted!)
-  for (const d of completedDateDays) {
-    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      datesSet.add(d);
-    }
-  }
-
-  // 4. Also check recorded date days from local key if present
-  try {
-    const rawAccepted = appStorage.getItem('ours_accepted_date_keys_v1');
-    if (typeof rawAccepted === 'string' && rawAccepted) {
-      const list: string[] = JSON.parse(rawAccepted);
-      if (Array.isArray(list)) {
-        for (const k of list) {
-          if (typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k)) {
-            datesSet.add(k);
-          }
-        }
-      }
-    }
-  } catch {
-    // ignore
-  }
-
-  const allDates = Array.from(datesSet).sort();
-
-  // 5. Persist merged cumulative state (monotonic union: stars are never lost)
-  recordAccumulatedStarDates(pairId, allDates);
-
-  return allDates;
+  const events = getCoupleStarEvents(
+    couple,
+    todayMoments,
+    history,
+    completedDateDays,
+    referenceDate
+  );
+  return events.map((e) => e.dateKey);
 }
 
 /**
@@ -604,7 +830,8 @@ export function getSkyForMonth(
   starsCount: number,
   isCurrentMonth: boolean = true,
   matchedDatesInMonth: string[] = [],
-  completedDateDays: string[] = []
+  completedDateDays: string[] = [],
+  starEventsInMonth?: StarEvent[]
 ): SkyState {
   const cleanSeed = (pairSeed || 'ours').trim().toLowerCase();
   const seedKey = `${cleanSeed}_sky_${year}_${month}`;
@@ -621,13 +848,19 @@ export function getSkyForMonth(
   const points: StarPoint[] = layout.stars.map((raw, idx) => {
     const isLit = idx < effectiveStarsCount;
     const isNewest = idx === effectiveStarsCount - 1 && isCurrentMonth && isLit;
-    const dateKey = matchedDatesInMonth[idx] || '';
+    const starEvent = starEventsInMonth && starEventsInMonth[idx];
+    const dateKey = starEvent ? starEvent.dateKey : (matchedDatesInMonth[idx] || '');
 
-    // Determine star type based on whether a completed date occurred on this day
-    const isDateEvent = Boolean(
-      dateKey && completedDateDays.length > 0 && completedDateDays.includes(dateKey)
-    );
-    const starType: StarEventType = isDateEvent ? 'date' : 'moment';
+    // Determine star type based on authoritative StarEvent, or fallback to completedDateDays
+    let starType: StarEventType;
+    if (starEvent) {
+      starType = starEvent.starType;
+    } else {
+      const isDateEvent = Boolean(
+        dateKey && completedDateDays.length > 0 && completedDateDays.includes(dateKey)
+      );
+      starType = isDateEvent ? 'date' : 'moment';
+    }
 
     if (isLit) {
       if (starType === 'date') {
@@ -644,6 +877,7 @@ export function getSkyForMonth(
       role: raw.role,
       starType,
       dateKey: dateKey || undefined,
+      label: starEvent?.title || (starType === 'date' ? 'Свидание' : 'Касание'),
       isLit,
       isNewest,
     };

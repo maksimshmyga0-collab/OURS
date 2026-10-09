@@ -173,14 +173,24 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       const currentUserId = couple?.user?.id || apiClient.getCurrentUserId();
       const partnerId = couple?.partner?.id || 'partner';
       const targetUserId = uploadTargetPartner ? partnerId : currentUserId;
+      const targetPairId = couple?.id || invitation.pairId;
 
       const res = await apiClient.uploadDatePhoto({
+        pairId: targetPairId,
         momentId,
         photoData: photoUrl,
         dateTitle: invitation.idea?.title,
         dateDescription: invitation.idea?.description,
         overrideUserId: targetUserId || undefined,
       });
+
+      // Mark date as completed with photo in dateInvitationService so star & state persist
+      dateInvitationService.completeDateWithPhoto(
+        invitation.id,
+        photoUrl,
+        momentId,
+        targetPairId
+      );
 
       if (res?.photos) {
         setDatePhotos(res.photos);
