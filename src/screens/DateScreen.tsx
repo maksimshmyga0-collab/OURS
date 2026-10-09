@@ -184,19 +184,23 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         overrideUserId: targetUserId || undefined,
       });
 
-      // Mark date as completed with photo in dateInvitationService so star & state persist
-      dateInvitationService.completeDateWithPhoto(
-        invitation.id,
-        photoUrl,
-        momentId,
-        targetPairId
-      );
+      if (res && res.success) {
+        // Mark date as completed with photo in dateInvitationService so star & state persist
+        dateInvitationService.completeDateWithPhoto(
+          invitation.id,
+          res.photoUrl || photoUrl,
+          momentId,
+          targetPairId
+        );
 
-      if (res?.photos) {
-        setDatePhotos(res.photos);
+        if (res?.photos) {
+          setDatePhotos(res.photos);
+        }
+        triggerHaptic(hapticEnabled);
+        playSoftChime('success', soundEnabled);
+      } else {
+        console.warn('[OURS Date] Photo upload returned failure, not marking completed');
       }
-      triggerHaptic(hapticEnabled);
-      playSoftChime('success', soundEnabled);
     } catch (err) {
       console.error('[OURS Date] Failed to upload date photo:', err);
     } finally {

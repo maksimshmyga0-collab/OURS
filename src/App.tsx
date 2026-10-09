@@ -247,8 +247,13 @@ export default function App() {
               const prevM = prev.todayMoments.find((pm) => pm.id === srvM.id || pm.order === srvM.order);
               if (!prevM) return srvM;
 
-              const userPhoto = srvM.userPhoto || prevM.userPhoto || null;
-              const partnerPhoto = srvM.partnerPhoto || prevM.partnerPhoto || null;
+              const sanitizePhoto = (u: string | null | undefined): string | null => {
+                if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
+                return u;
+              };
+
+              const userPhoto = sanitizePhoto(srvM.userPhoto) || sanitizePhoto(prevM.userPhoto) || null;
+              const partnerPhoto = sanitizePhoto(srvM.partnerPhoto) || sanitizePhoto(prevM.partnerPhoto) || null;
               const hasBoth = Boolean(userPhoto && partnerPhoto);
 
               const userReaction = srvM.userReaction || prevM.userReaction || null;
@@ -772,9 +777,14 @@ export default function App() {
             ...prev,
             todayMoments: prev.todayMoments.map((m) => {
               if (m.id === uploadedM.id || m.order === updated.order) {
-                // Strictly preserve existing photos: never overwrite an existing photo with null
-                const userPhoto = uploadedM.userPhoto || m.userPhoto || updated.userPhoto;
-                const partnerPhoto = uploadedM.partnerPhoto || m.partnerPhoto || updated.partnerPhoto;
+                // Strictly preserve existing photos: never overwrite an existing photo with null or local blob
+                const sanitizePhoto = (u: string | null | undefined): string | null => {
+                  if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
+                  return u;
+                };
+
+                const userPhoto = sanitizePhoto(uploadedM.userPhoto) || sanitizePhoto(updated.userPhoto) || sanitizePhoto(m.userPhoto) || null;
+                const partnerPhoto = sanitizePhoto(uploadedM.partnerPhoto) || sanitizePhoto(m.partnerPhoto) || sanitizePhoto(updated.partnerPhoto) || null;
                 const hasBoth = Boolean(userPhoto && partnerPhoto);
                 const status = hasBoth
                   ? (m.status === 'COMPLETED' ? 'COMPLETED' : m.status === 'REVEALED' ? 'REVEALED' : 'BOTH_UPLOADED')
@@ -793,15 +803,37 @@ export default function App() {
                   ],
                 };
               }
-              return m;
-            }),
-          }));
-        }
+            return m;
+          }),
+        }));
+      } else {
+        // Revert optimistic photo if upload failed so user does not see false success
+        console.warn('[OURS] Photo upload failed, reverting state');
+        setAppState((prev) => ({
+          ...prev,
+          todayMoments: prev.todayMoments.map((m) =>
+            m.id === updated.id || m.order === updated.order
+              ? { ...m, userPhoto: null, status: 'EMPTY' }
+              : m
+          ),
+        }));
       }
-    } catch (err) {
-      console.error('[OURS] Failed to sync moment update:', err);
     }
-  };
+  } catch (err) {
+    console.error('[OURS] Failed to sync moment update:', err);
+    // Revert optimistic photo on network error
+    if (updated.userPhoto) {
+      setAppState((prev) => ({
+        ...prev,
+        todayMoments: prev.todayMoments.map((m) =>
+          m.id === updated.id || m.order === updated.order
+            ? { ...m, userPhoto: null, status: 'EMPTY' }
+            : m
+        ),
+      }));
+    }
+  }
+};
 
   // Switch active moment
   const handleSelectActiveMoment = useCallback((momentId: string) => {

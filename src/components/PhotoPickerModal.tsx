@@ -325,25 +325,60 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const handleConfirmPhoto = async (photoUrl: string, file: File | null = capturedFile) => {
     triggerHaptic(true);
     playSoftChime('success', true);
-    handleClose();
+    setIsLoading(true);
 
-    // 1. Instant fast preview in the parent screen
-    onSelectPhoto(photoUrl);
-
-    // 2. Client-side optimization (scale down, crisp JPEG, orientation preserve)
     try {
-      let sourceToOptimize: File | Blob | string = file || photoUrl;
-      if (!file && photoUrl.startsWith('blob:')) {
-        const res = await fetch(photoUrl);
-        sourceToOptimize = await res.blob();
+      let finalPhotoData = photoUrl;
+      const sourceToOptimize: File | Blob | string = file || photoUrl;
+
+      // 1. Convert/optimize to crisp standalone JPEG Data URI before handing off
+      try {
+        const optimized = await optimizePhotoForUpload(sourceToOptimize);
+        if (optimized && !optimized.startsWith('blob:')) {
+          finalPhotoData = optimized;
+        }
+      } catch (optErr) {
+        console.warn('[PhotoPickerModal] Optimization error:', optErr);
       }
 
-      const optimized = await optimizePhotoForUpload(sourceToOptimize);
-      if (optimized && optimized !== photoUrl) {
-        onSelectPhoto(optimized);
+      // 2. If still a blob: URL and we have a File, read it directly via FileReader
+      if (finalPhotoData.startsWith('blob:') && file) {
+        try {
+          finalPhotoData = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : photoUrl);
+            reader.onerror = () => resolve(photoUrl);
+            reader.readAsDataURL(file);
+          });
+        } catch {
+          // ignore
+        }
       }
+
+      // 3. If still a blob: URL without file, fetch its blob data before revoke
+      if (finalPhotoData.startsWith('blob:')) {
+        try {
+          const resp = await fetch(photoUrl);
+          if (resp.ok) {
+            const blobData = await resp.blob();
+            const fallbackOpt = await optimizePhotoForUpload(blobData);
+            if (fallbackOpt && !fallbackOpt.startsWith('blob:')) {
+              finalPhotoData = fallbackOpt;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 4. Pass the persistent, valid image data to the parent screen
+      onSelectPhoto(finalPhotoData);
     } catch (err) {
-      console.warn('[PhotoPickerModal] Optimization error:', err);
+      console.warn('[PhotoPickerModal] handleConfirmPhoto exception:', err);
+      onSelectPhoto(photoUrl);
+    } finally {
+      setIsLoading(false);
+      handleClose();
     }
   };
 

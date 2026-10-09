@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -65,6 +66,145 @@ async function startServer() {
   });
 
   app.use(express.json({ limit: '10mb' }));
+
+  // --------------------------------------------------------------------------
+  // Photo Storage Upload Endpoint (Uses Server Service Role Key to upload to ours-photos)
+  // --------------------------------------------------------------------------
+  // In-memory sliding rate limiter: max 20 uploads per minute per user
+  const uploadRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+
+  // --------------------------------------------------------------------------
+  // Photo Storage Upload Endpoint (Protected by Supabase Auth + Pair Membership)
+  // --------------------------------------------------------------------------
+  app.post('/api/storage/upload-photo', async (req, res) => {
+    try {
+      const { pairId, momentId, photoData } = req.body;
+      const cleanPairId = typeof pairId === 'string' ? pairId.trim() : '';
+      const cleanMomentId = typeof momentId === 'string' ? momentId.trim() : '';
+
+      if (!cleanPairId || !isValidPairId(cleanPairId)) {
+        return res.status(400).json({ success: false, error: 'Valid pairId is required' });
+      }
+
+      if (!cleanMomentId || !/^[0-9a-zA-Z_-]{4,64}$/.test(cleanMomentId)) {
+        return res.status(400).json({ success: false, error: 'Valid momentId is required' });
+      }
+
+      if (!photoData || typeof photoData !== 'string') {
+        return res.status(400).json({ success: false, error: 'photoData is required' });
+      }
+
+      // If photoData is already a remote public URL, return as-is
+      if (photoData.startsWith('http://') || photoData.startsWith('https://')) {
+        return res.json({ success: true, url: photoData });
+      }
+
+      // 1. Mandatory Supabase Authentication & Pair Membership Verification
+      const authHeader = req.headers['authorization'];
+      const membership = await verifyUserPairMembership(authHeader, cleanPairId);
+      if (!membership.authorized || !membership.userId) {
+        return res.status(membership.status || 401).json({
+          success: false,
+          error: membership.error || 'Unauthorized: Valid Supabase session belonging to this pair is required',
+        });
+      }
+
+      const verifiedUserId = membership.userId;
+
+      // 2. Sliding window rate limit: max 20 photo uploads per minute per authenticated user
+      const nowMs = Date.now();
+      const rateInfo = uploadRateLimitMap.get(verifiedUserId) || { count: 0, resetAt: nowMs + 60000 };
+      if (nowMs > rateInfo.resetAt) {
+        rateInfo.count = 0;
+        rateInfo.resetAt = nowMs + 60000;
+      }
+      rateInfo.count += 1;
+      uploadRateLimitMap.set(verifiedUserId, rateInfo);
+
+      if (rateInfo.count > 20) {
+        return res.status(429).json({ success: false, error: 'Слишком много запросов. Подождите минуту.' });
+      }
+
+      // 3. Payload size check (max ~6MB base64 string = ~4.5MB binary image)
+      if (photoData.length > 7 * 1024 * 1024) {
+        return res.status(413).json({ success: false, error: 'Размер фото превышает допустимый лимит (5 MB)' });
+      }
+
+      if (!SUPABASE_SECRET_KEY) {
+        // Fallback: return photoData (data URI) directly if server key not present
+        return res.json({ success: true, url: photoData });
+      }
+
+      // 4. Validate and decode data URI
+      let buffer: Buffer;
+      let contentType = 'image/jpeg';
+      let ext = 'jpg';
+
+      if (photoData.startsWith('data:')) {
+        const matches = photoData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (matches && matches.length === 3) {
+          const rawMime = matches[1].toLowerCase();
+          // Strictly restrict allowed MIME types
+          if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(rawMime)) {
+            return res.status(400).json({ success: false, error: 'Недопустимый формат изображения. Разрешены JPEG, PNG, WEBP.' });
+          }
+
+          contentType = rawMime === 'image/jpg' ? 'image/jpeg' : rawMime;
+          buffer = Buffer.from(matches[2], 'base64');
+          if (contentType.includes('png')) ext = 'png';
+          if (contentType.includes('webp')) ext = 'webp';
+        } else {
+          return res.status(400).json({ success: false, error: 'Некорректный формат Data URI' });
+        }
+      } else {
+        return res.status(400).json({ success: false, error: 'Ожидается data URI изображения' });
+      }
+
+      // 5. Verify image magic bytes for security
+      if (buffer.length < 12) {
+        return res.status(400).json({ success: false, error: 'Повреждённый файл изображения' });
+      }
+
+      const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+      const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+      const isWebp = buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP';
+
+      if (!isJpeg && !isPng && !isWebp) {
+        return res.status(400).json({ success: false, error: 'Сигнатура файла не соответствует разрешённым форматам изображений' });
+      }
+
+      // 6. Safe server-constructed storage path (prevents traversal and unauthorized overwrite)
+      const safePair = cleanPairId.replace(/[^a-zA-Z0-9_-]/g, '');
+      const safeMoment = cleanMomentId.replace(/[^a-zA-Z0-9_-]/g, '');
+      const safeUser = verifiedUserId.replace(/[^a-zA-Z0-9_-]/g, '');
+      const filePath = `${safePair}/${safeMoment}/${safeUser}_${Date.now()}.${ext}`;
+
+      const adminSupabase = createClient(SUPABASE_TARGET, SUPABASE_SECRET_KEY, {
+        auth: { persistSession: false },
+      });
+
+      const { error: upErr } = await adminSupabase.storage
+        .from('ours-photos')
+        .upload(filePath, buffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (upErr) {
+        console.warn('[Storage Server] Supabase upload warning, returning data URI fallback:', upErr.message);
+        return res.json({ success: true, url: photoData });
+      }
+
+      const { data: pubData } = adminSupabase.storage
+        .from('ours-photos')
+        .getPublicUrl(filePath);
+
+      return res.json({ success: true, url: pubData.publicUrl });
+    } catch (err: any) {
+      console.warn('[Storage Server] Upload handler exception:', err);
+      return res.json({ success: true, url: req.body?.photoData || '' });
+    }
+  });
 
   // --------------------------------------------------------------------------
   // YooKassa Payment & Verification Endpoints

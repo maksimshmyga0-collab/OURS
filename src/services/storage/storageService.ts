@@ -49,25 +49,78 @@ export class AppStorageService implements IStorageService {
     userId: string,
     fileOrData: File | Blob | string
   ): Promise<string> {
-    // If it's already an external HTTP URL (preset sample photo or CDN), return as-is
+    // 1. If it's already an external HTTP URL (preset sample photo or CDN), return as-is
     if (typeof fileOrData === 'string' && (fileOrData.startsWith('http://') || fileOrData.startsWith('https://'))) {
       return fileOrData;
     }
 
-    // If already an optimized data URL, use it directly without re-compression
-    let targetSource: File | Blob | string = fileOrData;
-    if (typeof fileOrData === 'string' && fileOrData.startsWith('data:')) {
-      targetSource = fileOrData;
+    // 2. If it's a blob: URL, resolve its binary data before it gets revoked
+    let sourceToOptimize: File | Blob | string = fileOrData;
+    if (typeof fileOrData === 'string' && fileOrData.startsWith('blob:')) {
+      try {
+        const blobResp = await fetch(fileOrData);
+        if (blobResp.ok) {
+          sourceToOptimize = await blobResp.blob();
+        }
+      } catch (err) {
+        console.warn('[OURS Storage] Could not fetch local blob URL:', err);
+      }
+    }
+
+    // 3. Optimize image into a clean, standalone JPEG Data URL
+    let targetSource: File | Blob | string = sourceToOptimize;
+    if (typeof sourceToOptimize === 'string' && sourceToOptimize.startsWith('data:')) {
+      targetSource = sourceToOptimize;
     } else {
       try {
-        const optimized = await optimizePhotoForUpload(fileOrData);
-        if (optimized) targetSource = optimized;
+        const optimized = await optimizePhotoForUpload(sourceToOptimize);
+        if (optimized && !optimized.startsWith('blob:')) {
+          targetSource = optimized;
+        }
       } catch {
         // ignore
       }
     }
 
-    let blob: Blob;
+    // 4. Try server-side upload endpoint (uses Service Role Key to upload to ours-photos CDN)
+    if (typeof targetSource === 'string' && targetSource.startsWith('data:')) {
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (supabaseConfig.isConfigured) {
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData?.session?.access_token;
+            if (token) {
+              headers['Authorization'] = `Bearer ${token}`;
+            }
+          } catch {
+            // ignore
+          }
+        }
+
+        const srvResp = await fetch('/api/storage/upload-photo', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            pairId,
+            momentId,
+            photoData: targetSource,
+          }),
+        });
+
+        if (srvResp.ok) {
+          const srvJson = await srvResp.json();
+          if (srvJson?.url && (srvJson.url.startsWith('http://') || srvJson.url.startsWith('https://'))) {
+            return srvJson.url;
+          }
+        }
+      } catch (srvErr) {
+        console.warn('[OURS Storage] Server upload fallback to client storage/data URI:', srvErr);
+      }
+    }
+
+    // 5. Try direct Supabase client storage upload
+    let blob: Blob | null = null;
     let ext = 'jpg';
 
     if (typeof targetSource === 'string' && targetSource.startsWith('data:')) {
@@ -78,18 +131,15 @@ export class AppStorageService implements IStorageService {
       blob = targetSource;
       if (targetSource.type === 'image/png') ext = 'png';
       if (targetSource.type === 'image/webp') ext = 'webp';
-    } else {
-      return typeof targetSource === 'string' ? targetSource : '';
     }
 
-    const safePairId = pairId || 'pair';
-    const safeMomentId = momentId || 'moment';
-    const safeUserId = userId || 'user';
-    const filePath = `${safePairId}/${safeMomentId}/${safeUserId}_${Date.now()}.${ext}`;
+    if (blob && supabaseConfig.isConfigured) {
+      const safePairId = pairId || 'pair';
+      const safeMomentId = momentId || 'moment';
+      const safeUserId = userId || 'user';
+      const filePath = `${safePairId}/${safeMomentId}/${safeUserId}_${Date.now()}.${ext}`;
 
-    if (supabaseConfig.isConfigured) {
       try {
-        // Attempt upload to primary bucket 'ours-photos', fallback to 'moments'
         let uploadRes = await supabase.storage
           .from(this.bucketName)
           .upload(filePath, blob, {
@@ -98,7 +148,6 @@ export class AppStorageService implements IStorageService {
           });
 
         if (uploadRes.error && this.bucketName !== 'moments') {
-          // Try fallback bucket 'moments'
           uploadRes = await supabase.storage
             .from('moments')
             .upload(filePath, blob, {
@@ -114,21 +163,39 @@ export class AppStorageService implements IStorageService {
         if (!uploadRes.error) {
           const { data } = supabase.storage.from(this.bucketName).getPublicUrl(filePath);
           return data.publicUrl;
-        } else {
-          console.warn('[OURS Storage] Upload warning, falling back to data URL:', uploadRes.error.message);
         }
       } catch (err) {
-        console.warn('[OURS Storage] Upload exception:', err);
+        console.warn('[OURS Storage] Client direct storage upload exception:', err);
       }
     }
 
-    // Graceful fallback for local data URL if storage is unconfigured / offline
-    if (typeof fileOrData === 'string') {
+    // 6. Graceful persistent fallback: standalone Data URL (works across all devices and browsers)
+    if (typeof targetSource === 'string' && targetSource.startsWith('data:')) {
+      return targetSource;
+    }
+
+    // 7. If targetSource is still a Blob, convert it to Data URL via FileReader (NEVER return a blob: URL)
+    if (blob) {
+      try {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob!);
+        });
+        if (dataUrl && dataUrl.startsWith('data:')) {
+          return dataUrl;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // 8. Absolute safety guarantee: NEVER return a blob: URL under any circumstances
+    if (typeof fileOrData === 'string' && !fileOrData.startsWith('blob:')) {
       return fileOrData;
     }
-    if (typeof URL !== 'undefined' && URL.createObjectURL) {
-      return URL.createObjectURL(blob);
-    }
+
     return '';
   }
 

@@ -545,17 +545,32 @@ export class ApiClient {
       const userPhotoObj = mPhotos.find((p: any) => p.user_id === currentUserId);
       const partnerPhotoObj = mPhotos.find((p: any) => p.user_id !== currentUserId);
 
-      const userPhotoUrl = userPhotoObj?.storage_path || userPhotoObj?.image_url || null;
-      const partnerPhotoUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
+      const rawUserPhoto = userPhotoObj?.storage_path || userPhotoObj?.image_url || null;
+      const rawPartnerPhoto = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
+
+      // Filter out invalid/unrenderable local blob URLs that cannot cross device boundaries
+      const sanitizePhotoUrl = (url: string | null | undefined): string | null => {
+        if (!url || typeof url !== 'string') return null;
+        if (url.startsWith('blob:')) return null;
+        return url;
+      };
+
+      const userPhotoUrl = sanitizePhotoUrl(rawUserPhoto);
+      const partnerPhotoUrl = sanitizePhotoUrl(rawPartnerPhoto);
 
       const userReactionObj = mReactions.find((r: any) => r.user_id === currentUserId);
       const partnerReactionObj = mReactions.find((r: any) => r.user_id !== currentUserId);
 
-      const photosList: MomentPhoto[] = mPhotos.map((p: any) => ({
-        userId: p.user_id,
-        imageUrl: p.storage_path || p.image_url,
-        createdAt: p.created_at,
-      }));
+      const photosList: MomentPhoto[] = mPhotos
+        .filter((p: any) => {
+          const u = p.storage_path || p.image_url;
+          return u && typeof u === 'string' && !u.startsWith('blob:');
+        })
+        .map((p: any) => ({
+          userId: p.user_id,
+          imageUrl: p.storage_path || p.image_url,
+          createdAt: p.created_at,
+        }));
 
       // Determine authoritative status strictly for the CURRENT user
       const hasBoth = Boolean(userPhotoUrl && partnerPhotoUrl);
@@ -708,8 +723,14 @@ export class ApiClient {
 
           const uPhotoObj = pPhotos.find((p) => p.user_id === userId);
           const partPhotoObj = pPhotos.find((p) => p.user_id !== userId);
-          const uPhoto = uPhotoObj?.storage_path || uPhotoObj?.image_url || null;
-          const partPhoto = partPhotoObj?.storage_path || partPhotoObj?.image_url || null;
+
+          const sanitizeHistUrl = (u: string | null | undefined): string | null => {
+            if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
+            return u;
+          };
+
+          const uPhoto = sanitizeHistUrl(uPhotoObj?.storage_path || uPhotoObj?.image_url);
+          const partPhoto = sanitizeHistUrl(partPhotoObj?.storage_path || partPhotoObj?.image_url);
 
           const isDateMoment = Boolean(
             (typeof pm.id === 'string' && pm.id.startsWith('date-')) ||
@@ -717,12 +738,16 @@ export class ApiClient {
             pm.is_date === true
           );
           const isMatched = Boolean(uPhoto && partPhoto && pReactions.length > 0);
+          const validPhotos = pPhotos.filter((p) => {
+            const url = p.storage_path || p.image_url;
+            return url && typeof url === 'string' && !url.startsWith('blob:');
+          });
 
-          if (isMatched || (isDateMoment && pPhotos.length > 0)) {
+          if (isMatched || (isDateMoment && validPhotos.length > 0)) {
             const order = isDateMoment ? 1 : (((idx % 3) + 1) as 1 | 2 | 3);
             const uReact = pReactions.find((r) => r.user_id === userId)?.reaction || null;
             const pReact = pReactions.find((r) => r.user_id !== userId)?.reaction || null;
-            const fallbackPhoto = pPhotos[0]?.storage_path || pPhotos[0]?.image_url || null;
+            const fallbackPhoto = validPhotos[0]?.storage_path || validPhotos[0]?.image_url || null;
 
             const hMoment: Moment = {
               id: pm.id,
@@ -740,7 +765,7 @@ export class ApiClient {
               themeColor: isDateMoment ? 'pink' : order === 1 ? 'pink' : order === 2 ? 'peach' : 'blue',
               userPhoto: uPhoto,
               partnerPhoto: partPhoto,
-              photos: pPhotos.map((p) => ({
+              photos: validPhotos.map((p) => ({
                 userId: p.user_id,
                 imageUrl: p.storage_path || p.image_url,
                 createdAt: p.created_at,
@@ -1356,8 +1381,13 @@ export class ApiClient {
       photoData
     );
 
+    if (!storageUrl || storageUrl.startsWith('blob:')) {
+      console.warn('[OURS uploadPhoto] Aborting: storageUrl is invalid or local blob URL:', storageUrl);
+      return { success: false };
+    }
+
     // 2. Upsert photo metadata into public.photos with correct column storage_path
-    await supabase.from('photos').upsert(
+    const { error: upsertErr } = await supabase.from('photos').upsert(
       {
         moment_id: momentId,
         user_id: userId,
@@ -1366,6 +1396,11 @@ export class ApiClient {
       },
       { onConflict: 'moment_id,user_id' }
     );
+
+    if (upsertErr) {
+      console.error('[OURS uploadPhoto] Failed to save photo to public.photos:', upsertErr);
+      return { success: false };
+    }
 
     // Instant Realtime broadcast across pair channel
     this.broadcastPairUpdate(pairId, { action: 'photo_uploaded', momentId, userId });
@@ -1378,7 +1413,8 @@ export class ApiClient {
         .eq('moment_id', momentId);
 
       const partnerPhotoObj = mPhotos?.find((p: any) => p.user_id !== userId);
-      const partnerPhotoUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
+      const rawPartnerUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
+      const partnerPhotoUrl = (rawPartnerUrl && !rawPartnerUrl.startsWith('blob:')) ? rawPartnerUrl : null;
 
       let matchTs: number | undefined = undefined;
       if (mPhotos && mPhotos.length >= 2) {
@@ -1425,11 +1461,16 @@ export class ApiClient {
           .order('created_at', { ascending: true });
 
         if (Array.isArray(dbPhotos) && dbPhotos.length > 0) {
-          const mapped: MomentPhoto[] = dbPhotos.map((p: any) => ({
-            userId: p.user_id,
-            imageUrl: p.storage_path || p.image_url,
-            createdAt: p.created_at,
-          }));
+          const mapped: MomentPhoto[] = dbPhotos
+            .filter((p: any) => {
+              const url = p.storage_path || p.image_url;
+              return url && typeof url === 'string' && !url.startsWith('blob:');
+            })
+            .map((p: any) => ({
+              userId: p.user_id,
+              imageUrl: p.storage_path || p.image_url,
+              createdAt: p.created_at,
+            }));
 
           try {
             appStorage.setItem(`ours_date_photos_${momentId}`, JSON.stringify(mapped));
@@ -1505,6 +1546,11 @@ export class ApiClient {
       photoData
     );
 
+    if (!storageUrl || storageUrl.startsWith('blob:')) {
+      console.warn('[OURS uploadDatePhoto] Aborting: storageUrl is invalid or local blob URL:', storageUrl);
+      return { success: false, photos: [], momentId, photoUrl: '' };
+    }
+
     // 2. Ensure moment row exists in public.moments
     if (supabaseConfig.isConfigured) {
       try {
@@ -1526,7 +1572,7 @@ export class ApiClient {
     // 3. Upsert photo metadata into public.photos (enforces max 1 per user on conflict)
     if (supabaseConfig.isConfigured) {
       try {
-        await supabase.from('photos').upsert(
+        const { error: photoUpsertErr } = await supabase.from('photos').upsert(
           {
             moment_id: momentId,
             user_id: userId,
@@ -1536,8 +1582,14 @@ export class ApiClient {
           },
           { onConflict: 'moment_id,user_id' }
         );
+
+        if (photoUpsertErr) {
+          console.error('[OURS Date] Failed to upsert photos row:', photoUpsertErr);
+          return { success: false, photos: [], momentId, photoUrl: '' };
+        }
       } catch (err) {
         console.warn('[OURS Date] Could not upsert photos row:', err);
+        return { success: false, photos: [], momentId, photoUrl: '' };
       }
     }
 

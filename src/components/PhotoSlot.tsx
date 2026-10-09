@@ -76,23 +76,28 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
     if (!file) return;
     e.target.value = '';
 
-    // Provide instant local preview for zero-lag UI feedback
-    const fastPreview = URL.createObjectURL(file);
-    if (onPhotoSelected) {
-      onPhotoSelected(fastPreview);
-    } else if (onAddPhoto) {
-      onAddPhoto();
-    }
-
     try {
       const optimized = await optimizePhotoForUpload(file);
-      if (optimized && optimized !== fastPreview) {
-        if (onPhotoSelected) {
-          onPhotoSelected(optimized);
-        }
+      if (optimized && !optimized.startsWith('blob:')) {
+        onPhotoSelected?.(optimized);
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            onPhotoSelected?.(reader.result);
+          }
+        };
+        reader.readAsDataURL(file);
       }
     } catch (err) {
       console.warn('[PhotoSlot] Optimization fallback:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          onPhotoSelected?.(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
