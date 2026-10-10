@@ -414,7 +414,7 @@ export const dateInvitationService = {
           };
           appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-          // Record accepted calendar day key into history & accumulated stars ONLY AFTER PHOTO
+          // Record accepted calendar day key into history ONLY AFTER confirmed photo
           try {
             const d = new Date(nowIso);
             const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -424,8 +424,6 @@ export const dateInvitationService = {
               list.push(key);
               appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
             }
-            const targetPairId = pairId || parsed.pairId;
-            recordAccumulatedStarDates(targetPairId, [key]);
           } catch {}
 
           notifyListeners(updated);

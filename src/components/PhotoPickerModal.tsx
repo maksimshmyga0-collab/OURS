@@ -8,6 +8,7 @@ import {
   Check,
   ArrowLeft,
   AlertCircle,
+  FlipHorizontal,
 } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { isNativeApp } from '../services/device/platform';
@@ -36,6 +37,7 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const [sourceType, setSourceType] = useState<'camera' | 'gallery'>('camera');
   const [capturedDataUrl, setCapturedDataUrl] = useState<string | null>(null);
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
+  const [isFlipped, setIsFlipped] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -60,6 +62,7 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     setSourceType('camera');
     setCapturedDataUrl(null);
     setCapturedFile(null);
+    setIsFlipped(false);
     setErrorMessage(null);
     setIsLoading(false);
   }, [cleanupObjectUrl]);
@@ -118,6 +121,7 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
       setCapturedDataUrl(url);
       setCapturedFile(file);
       setSourceType(source);
+      setIsFlipped(false);
       setMode('preview');
       setErrorMessage(null);
       setIsLoading(false);
@@ -333,7 +337,12 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
 
       // 1. Convert/optimize to crisp standalone JPEG Data URI before handing off
       try {
-        const optimized = await optimizePhotoForUpload(sourceToOptimize);
+        const optimized = await optimizePhotoForUpload(
+          sourceToOptimize,
+          960,
+          0.82,
+          isFlipped
+        );
         if (optimized && !optimized.startsWith('blob:')) {
           finalPhotoData = optimized;
         }
@@ -361,7 +370,7 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           const resp = await fetch(photoUrl);
           if (resp.ok) {
             const blobData = await resp.blob();
-            const fallbackOpt = await optimizePhotoForUpload(blobData);
+            const fallbackOpt = await optimizePhotoForUpload(blobData, 960, 0.82, isFlipped);
             if (fallbackOpt && !fallbackOpt.startsWith('blob:')) {
               finalPhotoData = fallbackOpt;
             }
@@ -398,7 +407,6 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           ref={systemCameraInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/jpg"
-          capture="environment"
           onChange={handleCameraInputChange}
           className="hidden"
         />
@@ -517,12 +525,33 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
               <img
                 src={capturedDataUrl}
                 alt="Сделанный снимок"
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover transition-transform duration-200 ${
+                  isFlipped ? '-scale-x-100' : ''
+                }`}
               />
 
               <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-medium text-white/90 border border-white/10 pointer-events-none">
                 {sourceType === 'camera' ? 'Снимок с камеры' : 'Из галереи'}
               </div>
+
+              {/* Flip Horizontal Toggle Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(true);
+                  setIsFlipped((prev) => !prev);
+                }}
+                className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-full backdrop-blur-md text-xs font-medium border flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-sm ${
+                  isFlipped
+                    ? 'bg-[#E98787] text-white border-[#E98787]'
+                    : 'bg-black/60 text-white/90 border-white/20 hover:bg-black/80'
+                }`}
+                title="Отразить зеркально"
+                aria-label="Отразить зеркально"
+              >
+                <FlipHorizontal size={14} />
+                <span>{isFlipped ? 'Отражено' : 'Отразить'}</span>
+              </button>
             </div>
 
             {/* Action Buttons: Retake vs Confirm */}

@@ -7,18 +7,21 @@
 export async function optimizePhotoForUpload(
   fileOrDataUrl: File | Blob | string,
   maxDimension: number = 960,
-  quality: number = 0.82
+  quality: number = 0.82,
+  flipHorizontal: boolean = false
 ): Promise<string> {
-  // Pass through remote URLs untouched
+  // Pass through remote URLs untouched only if no horizontal flip is requested
   if (
+    !flipHorizontal &&
     typeof fileOrDataUrl === 'string' &&
     (fileOrDataUrl.startsWith('http://') || fileOrDataUrl.startsWith('https://'))
   ) {
     return fileOrDataUrl;
   }
 
-  // If already an optimized data URI (< 300KB), return directly to avoid redundant recompression
+  // If already an optimized data URI (< 300KB) and no flip is requested, return directly to avoid redundant recompression
   if (
+    !flipHorizontal &&
     typeof fileOrDataUrl === 'string' &&
     fileOrDataUrl.startsWith('data:image/') &&
     fileOrDataUrl.length < 400000
@@ -62,7 +65,16 @@ export async function optimizePhotoForUpload(
         ctx.imageSmoothingQuality = 'medium';
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0, width, height);
+
+        if (flipHorizontal) {
+          ctx.save();
+          ctx.translate(width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(img, 0, 0, width, height);
+          ctx.restore();
+        } else {
+          ctx.drawImage(img, 0, 0, width, height);
+        }
 
         const optimized = canvas.toDataURL('image/jpeg', quality);
         resolve(optimized);

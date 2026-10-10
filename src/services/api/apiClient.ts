@@ -737,11 +737,15 @@ export class ApiClient {
             (typeof pm.prompt === 'string' && pm.prompt.startsWith('Свидание')) ||
             pm.is_date === true
           );
-          const isMatched = Boolean(uPhoto && partPhoto && pReactions.length > 0);
           const validPhotos = pPhotos.filter((p) => {
             const url = p.storage_path || p.image_url;
             return url && typeof url === 'string' && !url.startsWith('blob:');
           });
+          const hasBothPhotos = Boolean(uPhoto && partPhoto);
+          const hasTwoDistinctPhotos = validPhotos.length >= 2 && new Set(validPhotos.map((p) => p.user_id)).size >= 2;
+          const hasReaction = pReactions.length > 0;
+          const isExplicitCompleted = pm.status === 'COMPLETED' || pm.status === 'REVEALED' || pm.status === 'MATCH';
+          const isMatched = Boolean((hasBothPhotos || hasTwoDistinctPhotos || isExplicitCompleted) && (hasBothPhotos || hasTwoDistinctPhotos || hasReaction));
 
           if (isMatched || (isDateMoment && validPhotos.length > 0)) {
             const order = isDateMoment ? 1 : (((idx % 3) + 1) as 1 | 2 | 3);
@@ -1662,7 +1666,6 @@ export class ApiClient {
           createdAt: new Date().toISOString(),
         },
       ]);
-      recordAccumulatedStarDates(pairId, [todayKey]);
     } catch {}
 
     // 7. Broadcast Realtime across pair channel and invalidate caches

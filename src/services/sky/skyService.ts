@@ -100,15 +100,37 @@ export function recordAccumulatedStarRecords(
 ): StarEvent[] {
   const cleanId = (pairId || 'default').trim().toLowerCase();
   const existing = getAccumulatedStarRecords(cleanId);
+  // Deduplicate strictly by semantic identity: (starType, dateKey)
+  // For 'date' stars with specific momentId, allow multiple dates if moments differ,
+  // but for 'moment' (daily touch) stars: strictly at most 1 star per calendar day.
   const eventMap = new Map<string, StarEvent>();
 
+  const getRecordSemanticKey = (e: StarEvent): string => {
+    if (e.starType === 'moment') {
+      return `moment_${e.dateKey}`;
+    }
+    // Date stars preserve distinct completed date moments
+    return e.momentId ? `date_${e.dateKey}_${e.momentId}` : `date_${e.dateKey}`;
+  };
+
   for (const e of existing) {
-    eventMap.set(e.id, e);
+    if (e && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey)) {
+      const key = getRecordSemanticKey(e);
+      // Prefer canonical match_${dateKey} ID over legacy event_${dateKey}
+      const prev = eventMap.get(key);
+      if (!prev || (prev.id.startsWith('event_') && e.id.startsWith('match_'))) {
+        eventMap.set(key, e);
+      }
+    }
   }
 
   for (const e of newRecords) {
-    if (e && e.id && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey)) {
-      eventMap.set(e.id, e);
+    if (e && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey)) {
+      const key = getRecordSemanticKey(e);
+      const prev = eventMap.get(key);
+      if (!prev || (prev.id.startsWith('event_') && e.id.startsWith('match_')) || e.momentId) {
+        eventMap.set(key, e);
+      }
     }
   }
 
@@ -165,12 +187,12 @@ export function recordAccumulatedStarDates(pairId: string | undefined, newDates:
     // ignore
   }
 
-  // Also sync to v2 records
+  // Also sync to v2 records using canonical match_${d} ID
   const newRecords: StarEvent[] = merged.map((d) => ({
-    id: `event_${d}`,
+    id: `match_${d}`,
     dateKey: d,
     starType: 'moment',
-    title: 'Воспоминание',
+    title: 'Касание',
   }));
   recordAccumulatedStarRecords(cleanId, newRecords);
 
@@ -387,11 +409,22 @@ export function getCoupleStarEvents(
   const pairId = couple?.id || couple?.inviteCode || couple?.pairSeed;
   const eventsMap = new Map<string, StarEvent>();
 
+  const getSemanticKey = (ev: StarEvent): string => {
+    if (ev.starType === 'moment') {
+      return `moment_${ev.dateKey}`;
+    }
+    return ev.momentId ? `date_${ev.dateKey}_${ev.momentId}` : `date_${ev.dateKey}`;
+  };
+
   // 1. Retrieve previously persisted accumulated star records
   const persisted = getAccumulatedStarRecords(pairId);
   for (const ev of persisted) {
-    if (ev && ev.id && ev.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(ev.dateKey)) {
-      eventsMap.set(ev.id, ev);
+    if (ev && ev.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(ev.dateKey)) {
+      const key = getSemanticKey(ev);
+      const prev = eventsMap.get(key);
+      if (!prev || (prev.id.startsWith('event_') && ev.id.startsWith('match_'))) {
+        eventsMap.set(key, ev);
+      }
     }
   }
 
@@ -438,12 +471,13 @@ export function getCoupleStarEvents(
 
     if (hasMatchMoment || isLockedWithoutMoments) {
       const matchId = `match_${dayKey}`;
-      eventsMap.set(matchId, {
+      const ev: StarEvent = {
         id: matchId,
         dateKey: dayKey,
         starType: 'moment',
         title: 'Касание',
-      });
+      };
+      eventsMap.set(getSemanticKey(ev), ev);
     }
 
     // B. Check for completed Date moments in this day:
@@ -464,14 +498,15 @@ export function getCoupleStarEvents(
           );
           if (hasPhoto) {
             const dateEventId = `date_${m.id || dayKey}`;
-            eventsMap.set(dateEventId, {
+            const ev: StarEvent = {
               id: dateEventId,
               dateKey: dayKey,
               starType: 'date',
               momentId: m.id,
               title: m.prompt || 'Свидание',
               createdAt: m.createdAt,
-            });
+            };
+            eventsMap.set(getSemanticKey(ev), ev);
           }
         }
       }
@@ -491,28 +526,28 @@ export function getCoupleStarEvents(
 
   if (todayHasMatch) {
     const matchId = `match_${todayKey}`;
-    eventsMap.set(matchId, {
+    const ev: StarEvent = {
       id: matchId,
       dateKey: todayKey,
       starType: 'moment',
       title: 'Касание',
-    });
+    };
+    eventsMap.set(getSemanticKey(ev), ev);
   }
 
   // 4. Any completed date days recorded from invitation service
   for (const d of completedDateDays) {
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
       const dateId = `date_inv_${d}`;
-      const alreadyHasDateStar = Array.from(eventsMap.values()).some(
-        (e) => e.dateKey === d && e.starType === 'date'
-      );
-      if (!alreadyHasDateStar) {
-        eventsMap.set(dateId, {
-          id: dateId,
-          dateKey: d,
-          starType: 'date',
-          title: 'Свидание',
-        });
+      const ev: StarEvent = {
+        id: dateId,
+        dateKey: d,
+        starType: 'date',
+        title: 'Свидание',
+      };
+      const semKey = getSemanticKey(ev);
+      if (!eventsMap.has(semKey)) {
+        eventsMap.set(semKey, ev);
       }
     }
   }

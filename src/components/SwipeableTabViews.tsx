@@ -24,7 +24,7 @@ interface SwipeableTabViewsProps {
  * SwipeableTabViews:
  * Smooth horizontal swipe navigation between the four main OURS tabs:
  * 0. 'date'    ("Свидание")
- * 1. 'today'   ("Сегодня")
+ * 1. 'today'   ("Касание")
  * 2. 'history' ("История")
  * 3. 'profile' ("Профиль")
  * 

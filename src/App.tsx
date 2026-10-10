@@ -50,7 +50,7 @@ const TabLoadingFallback = () => (
 
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
-  const [activeTab, setActiveTab] = useState<NavigationTab>('date');
+  const [activeTab, setActiveTab] = useState<NavigationTab>('today');
   const [isLovelyModalOpen, setIsLovelyModalOpen] = useState(false);
   const [isStreakModalOpen, setIsStreakModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -537,10 +537,9 @@ export default function App() {
   // Dynamic pair seed strictly derived from pairId for deterministic constellation generation
   const pairSeed = useMemo(() => {
     return (
-      appState.couple.id ||
-      appState.couple.pairSeed ||
-      appState.couple.inviteCode ||
-      'ours_pair'
+      appState.couple.id
+        ? `pair_${appState.couple.id}`
+        : appState.couple.pairSeed || appState.couple.inviteCode || 'ours_pair'
     );
   }, [appState.couple.id, appState.couple.pairSeed, appState.couple.inviteCode]);
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarHeart, Clock3, Mail, UserRound } from 'lucide-react';
+import { Clock3, HeartHandshake, Mail, UserRound } from 'lucide-react';
 import { NavigationTab } from '../types';
 
 interface BottomTabBarProps {
@@ -21,8 +21,8 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
     },
     {
       id: 'today' as NavigationTab,
-      label: 'Сегодня',
-      icon: CalendarHeart,
+      label: 'Касание',
+      icon: HeartHandshake,
     },
     {
       id: 'history' as NavigationTab,
