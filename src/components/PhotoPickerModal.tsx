@@ -185,14 +185,22 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           setErrorMessage(
             'Доступ к камере запрещён. Разрешите использование камеры в настройках устройства.'
           );
-        } else {
-          // Fallback to HTML capture input if native plugin threw unexpected error
-          console.warn('[PhotoPickerModal] Capacitor Camera fallback to input:', err);
-          if (systemCameraInputRef.current) {
-            systemCameraInputRef.current.value = '';
-            systemCameraInputRef.current.click();
-          }
+          return;
         }
+
+        // Camera unavailable or hardware missing
+        if (
+          message.includes('unavailable') ||
+          message.includes('not available') ||
+          message.includes('No camera') ||
+          message.includes('no camera')
+        ) {
+          setErrorMessage('Камера недоступна на этом устройстве.');
+          return;
+        }
+
+        // Other unexpected error: display informative message without silently substituting gallery
+        setErrorMessage('Не удалось запустить камеру. Проверьте разрешения устройства.');
       }
       return;
     }
@@ -406,7 +414,8 @@ export const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
         <input
           ref={systemCameraInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/jpg"
+          accept="image/*"
+          capture="environment"
           onChange={handleCameraInputChange}
           className="hidden"
         />

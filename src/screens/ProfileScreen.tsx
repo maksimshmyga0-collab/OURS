@@ -23,6 +23,7 @@ import {
   Copy,
   Lock,
   Link as LinkIcon,
+  Settings,
 } from 'lucide-react';
 import { getCoupleLevel, pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
@@ -74,6 +75,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isCodesScreenOpen, setIsCodesScreenOpen] = useState(false);
+  const [isSettingsScreenOpen, setIsSettingsScreenOpen] = useState(false);
   const [hasCopiedPair, setHasCopiedPair] = useState(false);
   const [personalCode, setPersonalCode] = useState<string | null>(null);
   const [hasCopiedPersonal, setHasCopiedPersonal] = useState(false);
@@ -83,6 +85,19 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
   const handleOpenLovely = onOpenLovely || onOpenPremium;
   const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
+
+  // Escape key support to close open screens cleanly
+  useEffect(() => {
+    if (!isSettingsScreenOpen && !isCodesScreenOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isSettingsScreenOpen) setIsSettingsScreenOpen(false);
+        if (isCodesScreenOpen) setIsCodesScreenOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSettingsScreenOpen, isCodesScreenOpen]);
 
   const loadPersonalCode = async (isRetry = false) => {
     if (isLoadingPersonalCode) return;
@@ -164,19 +179,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
-      {/* Profile Header Card with frosted-glass surface and strong inner ambient atmospheric illumination */}
-      <div className="relative overflow-hidden isolate rounded-[28px] p-6 space-y-4 border border-[#EBE3E5] dark:border-[#282529] bg-white/85 dark:bg-[#161418]/85 backdrop-blur-xl shadow-[0_2px_12px_rgba(52,48,51,0.02),0_12px_28px_-6px_rgba(52,48,51,0.03)] flex flex-col items-center text-center transition-all duration-300">
-        {/* Inner Glowing Aura System illuminating the frosted card from within behind avatars & names */}
-        <div className="absolute top-0 inset-x-0 h-64 pointer-events-none -z-1 select-none overflow-hidden flex items-center justify-center opacity-85 dark:opacity-80" aria-hidden="true">
-          {/* Layer 1: Wide atmospheric halo illuminating the upper frosted card */}
-          <div className="absolute -top-10 w-[320px] sm:w-[380px] h-[220px] rounded-full blur-3xl animate-diptych-halo bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.55)_0%,_rgba(253,225,232,0.30)_45%,_rgba(253,225,232,0.10)_65%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.40)_0%,_rgba(128,28,52,0.18)_45%,_rgba(128,28,52,0.05)_65%,_transparent_75%)]" />
-
-          {/* Layer 2: Organic fluid rounded wave pulsing behind avatars */}
-          <div className="absolute top-2 w-[240px] sm:w-[270px] h-[150px] rounded-full blur-2xl animate-fluid-blob-1 bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.58)_0%,_rgba(253,225,232,0.28)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.45)_0%,_rgba(128,28,52,0.20)_45%,_transparent_70%)]" />
-
-          {/* Layer 3: Vibrant luminous warm core light right behind avatars and names */}
-          <div className="absolute top-6 w-[170px] sm:w-[200px] h-[110px] rounded-full blur-xl animate-fluid-pulse bg-[radial-gradient(circle,_rgba(253,225,232,0.65)_0%,_rgba(235,168,184,0.35)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(198,58,86,0.52)_0%,_rgba(128,28,52,0.25)_45%,_transparent_70%)]" />
-        </div>
+      {/* Profile Header Card with signature OURS matte surface and atmospheric backlight aura */}
+      <div className="relative overflow-visible isolate rounded-[28px] p-6 space-y-4 border border-[#E8DFE1] dark:border-[#242024] bg-white dark:bg-[#111111] main-moment-card-shadow flex flex-col items-center text-center transition-all duration-300">
+        {/* Inner Glowing Aura System illuminating from within behind avatars & names */}
+        <AtmosphericGlow variant="card" insetClassName="inset-0" roundedClassName="rounded-[28px]" />
 
         {/* Paired avatars (Large, prominent and expressive on mobile & desktop) */}
         <div className="relative z-10 inline-flex items-center -space-x-5 pt-2">
@@ -428,14 +434,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </div>
           </div>
         )}
-      </div>
 
-      {/* Codes Section: «Коды OURS» */}
-      <div className="space-y-2.5">
-        <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
-          Коды OURS
-        </h3>
-
+        {/* Card 3: «Твои коды» */}
         <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] overflow-hidden shadow-2xs">
           <button
             type="button"
@@ -452,7 +452,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-medium text-[#343033] dark:text-white block truncate">
-                  Коды OURS
+                  Твои коды
                 </span>
                 <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5] block truncate">
                   Коды для подключения и входа на новом устройстве
@@ -462,207 +462,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
           </button>
         </div>
-      </div>
 
-      {/* Settings Section - iOS Grouped List */}
-      <div className="space-y-2.5">
-        <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
-          Настройки
-        </h3>
-
-        <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] divide-y divide-[#F2ECEE] dark:divide-[#242024] overflow-hidden shadow-2xs">
-          {/* Notifications Toggle */}
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
-                <Bell size={16} />
-              </div>
-              <span className="text-xs font-medium text-[#343033] dark:text-white">
-                Уведомления
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={toggleNotification}
-              className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
-                settings.notifications ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
-                  settings.notifications ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Sound Toggle */}
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
-                <Volume2 size={16} />
-              </div>
-              <span className="text-xs font-medium text-[#343033] dark:text-white">
-                Звуки
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={toggleSounds}
-              className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
-                settings.sounds ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
-                  settings.sounds ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Haptic Toggle */}
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
-                <Smartphone size={16} />
-              </div>
-              <span className="text-xs font-medium text-[#343033] dark:text-white">
-                Тактильный отклик (Haptic)
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={toggleHaptic}
-              className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
-                settings.haptic ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
-                  settings.haptic ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
-
-          {/* Privacy */}
-          <div className="p-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
-                <Shield size={16} />
-              </div>
-              <div>
-                <span className="text-xs font-medium text-[#343033] dark:text-white block">
-                  Приватность
-                </span>
-                <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
-                  Доступно только вам двоим
-                </span>
-              </div>
-            </div>
-            <span className="text-xs font-semibold text-[#4A6B82] dark:text-[#88ADC8]">
-              Защищено
-            </span>
-          </div>
-
-          {/* Leave Pair Action */}
-          {onLeavePair && (couple.connected || couple.id) && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(true);
-                setIsLeaveModalOpen(true);
-              }}
-              className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#FAF0F2] dark:bg-[#201518] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6]">
-                  <UserMinus size={16} />
-                </div>
-                <div>
-                  <span className="text-xs font-medium text-[#343033] dark:text-white block">
-                    Покинуть пару
-                  </span>
-                  <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
-                    Перестать быть участником этой пары
-                  </span>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
-            </button>
-          )}
-
-          {/* Sign Out Action */}
-          {onSignOut && (
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic(true);
-                setIsSignOutModalOpen(true);
-              }}
-              className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
-                  <LogOut size={16} />
-                </div>
-                <div>
-                  <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] block">
-                    Выйти
-                  </span>
-                  <span className="text-[10px] text-[#A89CA1] dark:text-[#7A7176]">
-                    Завершить сессию на этом устройстве
-                  </span>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Legal & Privacy Policy Documents */}
-      <div className="space-y-2">
-        <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
-          Юридическая информация
-        </h3>
-
-        <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] divide-y divide-[#F2ECEE] dark:divide-[#242024] overflow-hidden shadow-2xs">
+        {/* Card 4: Отдельная плашка «Настройки» */}
+        <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] overflow-hidden shadow-2xs">
           <button
             type="button"
             onClick={() => {
-              triggerHaptic();
-              onOpenTerms?.();
+              triggerHaptic(settings.haptic);
+              playSoftChime('tap', settings.sounds);
+              setIsSettingsScreenOpen(true);
             }}
             className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
           >
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
-                <FileText size={16} />
+              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
+                <Settings size={16} />
               </div>
-              <span className="text-xs font-medium text-[#343033] dark:text-white truncate">
-                Пользовательское соглашение
-              </span>
-            </div>
-            <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              triggerHaptic();
-              onOpenPrivacy?.();
-            }}
-            className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
-                <Shield size={16} />
+              <div className="min-w-0">
+                <span className="text-xs font-medium text-[#343033] dark:text-white block truncate">
+                  Настройки
+                </span>
+                <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5] block truncate">
+                  Уведомления, звуки, приватность и аккаунт
+                </span>
               </div>
-              <span className="text-xs font-medium text-[#343033] dark:text-white truncate">
-                Политика конфиденциальности
-              </span>
             </div>
             <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
           </button>
@@ -676,12 +499,291 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </p>
       </div>
 
+      {/* Dedicated Screen: «Настройки» */}
+      {isSettingsScreenOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex flex-col bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] animate-sheet-enter overflow-hidden"
+            style={{
+              paddingTop: 'env(safe-area-inset-top, 0px)',
+              paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
+            {/* Top Navigation Bar */}
+            <header className="sticky top-0 z-10 bg-[#FFF9FA]/92 dark:bg-[#000000]/92 backdrop-blur-xl border-b border-[#000000]/6 dark:border-[#242024] px-4 h-[56px] flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic(settings.haptic);
+                  playSoftChime('tap', settings.sounds);
+                  setIsSettingsScreenOpen(false);
+                }}
+                className="flex items-center gap-1.5 py-1.5 px-3 -ml-2 rounded-full bg-white/80 dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] text-xs font-semibold text-[#343033] dark:text-white hover:bg-white dark:hover:bg-[#252225] active:scale-[0.97] transition-all cursor-pointer shadow-2xs"
+              >
+                <ChevronLeft size={16} className="text-[#E98787] dark:text-[#F0B9C6]" />
+                <span>Назад</span>
+              </button>
+
+              <div className="flex items-center gap-2 select-none">
+                <OursLogo size={32} className="shrink-0" />
+                <span className="font-display font-bold text-sm tracking-wide text-[#343033] dark:text-white">
+                  Настройки
+                </span>
+              </div>
+
+              <div className="w-16 flex justify-end">
+                <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
+                  <Settings size={16} />
+                </div>
+              </div>
+            </header>
+
+            {/* Scrollable Container */}
+            <main className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 max-w-md mx-auto w-full space-y-6">
+              {/* Header Title & Subtitle */}
+              <div className="space-y-1.5 text-left pt-1">
+                <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white tracking-tight">
+                  Настройки
+                </h2>
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+                  Управление уведомлениями, звуками, приватностью и аккаунтом.
+                </p>
+              </div>
+
+              {/* Group 1: Основные (Уведомления, Звуки, Тактильный отклик, Приватность) */}
+              <div className="space-y-2.5">
+                <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
+                  Основные
+                </h3>
+
+                <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] divide-y divide-[#F2ECEE] dark:divide-[#242024] overflow-hidden shadow-2xs">
+                  {/* Notifications Toggle */}
+                  <div className="p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
+                        <Bell size={16} />
+                      </div>
+                      <span className="text-xs font-medium text-[#343033] dark:text-white">
+                        Уведомления
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleNotification}
+                      className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
+                        settings.notifications ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
+                          settings.notifications ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Sound Toggle */}
+                  <div className="p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
+                        <Volume2 size={16} />
+                      </div>
+                      <span className="text-xs font-medium text-[#343033] dark:text-white">
+                        Звуки
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleSounds}
+                      className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
+                        settings.sounds ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
+                          settings.sounds ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Haptic Toggle */}
+                  <div className="p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
+                        <Smartphone size={16} />
+                      </div>
+                      <span className="text-xs font-medium text-[#343033] dark:text-white">
+                        Тактильный отклик (Haptic)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleHaptic}
+                      className={`w-12 h-7 rounded-full transition-colors duration-160 ease-in-out relative cursor-pointer active:scale-[0.97] ${
+                        settings.haptic ? 'bg-[#E98787]' : 'bg-[#E5DFE1] dark:bg-[#2A262A]'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow-[0_2px_4px_rgba(0,0,0,0.14)] transition-transform duration-160 cubic-bezier(0.25,1,0.5,1) ${
+                          settings.haptic ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Privacy */}
+                  <div className="p-4 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
+                        <Shield size={16} />
+                      </div>
+                      <div>
+                        <span className="text-xs font-medium text-[#343033] dark:text-white block">
+                          Приватность
+                        </span>
+                        <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
+                          Доступно только вам двоим
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-[#4A6B82] dark:text-[#88ADC8]">
+                      Защищено
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group 2: Управление сессией (Покинуть пару, Выйти) */}
+              <div className="space-y-2.5">
+                <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
+                  Аккаунт и сессия
+                </h3>
+
+                <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] divide-y divide-[#F2ECEE] dark:divide-[#242024] overflow-hidden shadow-2xs">
+                  {/* Leave Pair Action */}
+                  {onLeavePair && (couple.connected || couple.id) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(true);
+                        setIsLeaveModalOpen(true);
+                      }}
+                      className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#FAF0F2] dark:bg-[#201518] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6]">
+                          <UserMinus size={16} />
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-[#343033] dark:text-white block">
+                            Покинуть пару
+                          </span>
+                          <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
+                            Перестать быть участником этой пары
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+                    </button>
+                  )}
+
+                  {/* Sign Out Action */}
+                  {onSignOut && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        triggerHaptic(true);
+                        setIsSignOutModalOpen(true);
+                      }}
+                      className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5]">
+                          <LogOut size={16} />
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] block">
+                            Выйти
+                          </span>
+                          <span className="text-[10px] text-[#A89CA1] dark:text-[#7A7176]">
+                            Завершить сессию на этом устройстве
+                          </span>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Group 3: Юридическая информация */}
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase px-1">
+                  Юридическая информация
+                </h3>
+
+                <div className="rounded-[20px] bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] divide-y divide-[#F2ECEE] dark:divide-[#242024] overflow-hidden shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic();
+                      onOpenTerms?.();
+                    }}
+                    className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
+                        <FileText size={16} />
+                      </div>
+                      <span className="text-xs font-medium text-[#343033] dark:text-white truncate">
+                        Пользовательское соглашение
+                      </span>
+                    </div>
+                    <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic();
+                      onOpenPrivacy?.();
+                    }}
+                    className="w-full p-4 flex items-center justify-between gap-3 text-left hover:bg-[#FAF5F7] dark:hover:bg-[#181618] transition-colors cursor-pointer active:scale-[0.99]"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF5F7] dark:bg-[#181618] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shrink-0">
+                        <Shield size={16} />
+                      </div>
+                      <span className="text-xs font-medium text-[#343033] dark:text-white truncate">
+                        Политика конфиденциальности
+                      </span>
+                    </div>
+                    <ChevronRight size={16} className="text-[#A89CA1] dark:text-[#7A7176] shrink-0" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Footer copyright in settings */}
+              <div className="pt-2 pb-6 text-center select-none">
+                <p className="text-[11px] text-[#A89CA1] dark:text-[#6E676C]">
+                  OURS © 2026. Шмыга М. А.
+                </p>
+              </div>
+            </main>
+          </div>,
+          document.body
+        )}
+
       {/* Confirmation Modal: Покинуть пару */}
       {isLeaveModalOpen &&
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
             onClick={() => !isProcessing && setIsLeaveModalOpen(false)}
             role="dialog"
             aria-modal="true"
@@ -743,7 +845,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-[#000000]/60 backdrop-blur-[6px] animate-in fade-in duration-200 ease-out"
             onClick={() => !isProcessing && setIsSignOutModalOpen(false)}
             role="dialog"
             aria-modal="true"

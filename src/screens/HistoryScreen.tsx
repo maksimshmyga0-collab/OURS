@@ -427,7 +427,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                       handlePhotoClick(dPhoto, m.prompt || 'Свидание');
                     }
                   }}
-                  className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
+                  className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
                     isDateM && dPhoto ? 'cursor-pointer hover:border-[#E98787]/40' : ''
                   }`}
                 >
@@ -586,7 +586,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                               handlePhotoClick(dPhoto, m.prompt || 'Свидание');
                             }
                           }}
-                          className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white/95 dark:bg-[#141215]/95 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
+                          className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
                             isDateM && dPhoto ? 'cursor-pointer hover:border-[#E98787]/40' : ''
                           }`}
                         >

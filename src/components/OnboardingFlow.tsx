@@ -13,6 +13,7 @@ import {
   KeyRound,
 } from 'lucide-react';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
+import { copyToClipboard } from '../services/device/clipboard';
 import { OursLogo } from './OursLogo';
 
 export interface OnboardingCompleteResult {
@@ -871,9 +872,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 <div className="flex items-center justify-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       if (createdInviteCode) {
-                        navigator.clipboard.writeText(createdInviteCode);
+                        try {
+                          await copyToClipboard(createdInviteCode);
+                        } catch {}
                         showToast('Код скопирован в буфер ✨');
                       }
                     }}
