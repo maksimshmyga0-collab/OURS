@@ -400,36 +400,52 @@ export const dateInvitationService = {
   ): DateInvitation | null {
     try {
       const stored = appStorage.getItem(STORAGE_KEY);
-      if (typeof stored === 'string') {
-        const parsed = JSON.parse(stored) as DateInvitation;
-        if (parsed && (parsed.id === id || !id || parsed.id)) {
-          const nowIso = new Date().toISOString();
-          const updated: DateInvitation = {
-            ...parsed,
-            status: 'completed',
-            photoUrl,
-            momentId,
-            completedAt: nowIso,
-            read: true,
-          };
-          appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-
-          // Record accepted calendar day key into history ONLY AFTER confirmed photo
-          try {
-            const d = new Date(nowIso);
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
-            const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
-            if (!list.includes(key)) {
-              list.push(key);
-              appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
-            }
-          } catch {}
-
-          notifyListeners(updated);
-          return updated;
-        }
+      let parsed: DateInvitation | null = null;
+      if (typeof stored === 'string' && stored) {
+        try {
+          parsed = JSON.parse(stored) as DateInvitation;
+        } catch {}
       }
+
+      const nowIso = new Date().toISOString();
+      const updated: DateInvitation = {
+        id: parsed?.id || id || `inv-${Date.now()}`,
+        pairId: pairId || parsed?.pairId,
+        senderUserId: parsed?.senderUserId,
+        senderId: parsed?.senderId || 'user',
+        senderName: parsed?.senderName || 'Ты',
+        recipientName: parsed?.recipientName || 'Партнёр',
+        idea: parsed?.idea || {
+          id: 'date-idea',
+          title: 'Свидание',
+          description: 'Романтический момент вдвоём',
+          tag: 'Романтика',
+        },
+        status: 'completed',
+        photoUrl,
+        momentId,
+        createdAt: parsed?.createdAt || nowIso,
+        respondedAt: parsed?.respondedAt || nowIso,
+        completedAt: nowIso,
+        read: true,
+      };
+
+      appStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+      // Record accepted calendar day key into history ONLY AFTER confirmed photo
+      try {
+        const d = new Date(nowIso);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
+        const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
+        if (!list.includes(key)) {
+          list.push(key);
+          appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
+        }
+      } catch {}
+
+      notifyListeners(updated);
+      return updated;
     } catch (e) {
       console.error('[DateInvitationService] CompleteWithPhoto error:', e);
     }

@@ -49,6 +49,97 @@ const TabLoadingFallback = () => (
   <div className="w-full flex-1 min-h-[300px] flex items-center justify-center bg-transparent" />
 );
 
+/**
+ * Helper: Merges server moments into previous local appState moments monotonically.
+ * Guarantees zero flickering, zero visual regression, and preserves local photos/status on page refresh or poll.
+ */
+function mergeMomentsMonotonic(srvMoments: Moment[] | undefined, prevMoments: Moment[]): Moment[] {
+  if (!srvMoments || srvMoments.length === 0) return prevMoments;
+  if (!prevMoments || prevMoments.length === 0) return srvMoments;
+
+  const sanitizePhoto = (u: string | null | undefined): string | null => {
+    if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
+    return u;
+  };
+
+  return srvMoments.map((srvM) => {
+    const prevM = prevMoments.find((pm) => pm.id === srvM.id || pm.order === srvM.order);
+    if (!prevM) return srvM;
+
+    const userPhoto = sanitizePhoto(srvM.userPhoto) || sanitizePhoto(prevM.userPhoto) || null;
+    const partnerPhoto = sanitizePhoto(srvM.partnerPhoto) || sanitizePhoto(prevM.partnerPhoto) || null;
+    const hasBoth = Boolean(userPhoto && partnerPhoto);
+
+    const userReaction = srvM.userReaction || prevM.userReaction || null;
+    const partnerReaction = srvM.partnerReaction || prevM.partnerReaction || null;
+
+    const photos = (srvM.photos && srvM.photos.length > 0)
+      ? srvM.photos
+      : (prevM.photos && prevM.photos.length > 0)
+      ? prevM.photos
+      : [];
+
+    const statusRank: Record<string, number> = {
+      EMPTY: 0,
+      USER_UPLOADED: 1,
+      BOTH_UPLOADED: 2,
+      REVEALED: 3,
+      REACTED: 3,
+      COMPLETED: 4,
+    };
+
+    let calculatedStatus: MomentStatus;
+    if (hasBoth) {
+      if (userReaction || prevM.status === 'COMPLETED' || srvM.status === 'COMPLETED') {
+        calculatedStatus = 'COMPLETED';
+      } else if (
+        prevM.status === 'REVEALED' ||
+        srvM.status === 'REVEALED' ||
+        prevM.status === 'REACTED' ||
+        srvM.status === 'REACTED'
+      ) {
+        calculatedStatus = 'REVEALED';
+      } else {
+        calculatedStatus = 'BOTH_UPLOADED';
+      }
+    } else if (userPhoto) {
+      calculatedStatus = 'USER_UPLOADED';
+    } else {
+      calculatedStatus = 'EMPTY';
+    }
+
+    const prevRank = statusRank[prevM.status] || 0;
+    const srvRank = statusRank[srvM.status] || 0;
+    const calcRank = statusRank[calculatedStatus] || 0;
+
+    let finalStatus: MomentStatus = calculatedStatus;
+
+    if (prevRank > calcRank && prevRank >= srvRank) {
+      if ((prevM.status === 'COMPLETED' || prevM.status === 'REVEALED' || prevM.status === 'REACTED') && hasBoth) {
+        finalStatus = prevM.status as MomentStatus;
+      } else if (prevM.status === 'BOTH_UPLOADED' && hasBoth) {
+        finalStatus = 'BOTH_UPLOADED';
+      } else if (prevM.status === 'USER_UPLOADED' && userPhoto) {
+        finalStatus = 'USER_UPLOADED';
+      }
+    }
+
+    return {
+      ...prevM,
+      ...srvM,
+      id: srvM.id || prevM.id,
+      userPhoto,
+      partnerPhoto,
+      photos,
+      status: finalStatus,
+      userReaction,
+      partnerReaction,
+      completedTimestamp: srvM.completedTimestamp || prevM.completedTimestamp,
+      completedAt: srvM.completedAt || prevM.completedAt,
+    };
+  });
+}
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
   const [activeTab, setActiveTab] = useState<NavigationTab>('today');
@@ -73,9 +164,25 @@ export default function App() {
 
   // Listen for photos synced in background queue
   useEffect(() => {
+    const handleDatePhotoUpdated = () => {
+      const pairId = appState.couple?.id;
+      if (pairId) {
+        apiClient.fetchHistory(pairId, true).then((history) => {
+          if (history && history.length > 0) {
+            setAppState((prev) => {
+              const nextState: AppState = { ...prev, history };
+              saveAppState(nextState);
+              return nextState;
+            });
+          }
+        }).catch(() => {});
+      }
+    };
+
     const handlePhotoSynced = (e: Event) => {
       const customEvent = e as CustomEvent;
       const detail = customEvent.detail;
+
       if (detail && detail.type === 'moment' && detail.momentId && detail.photoUrl) {
         setAppState((prev) => {
           const nextState: AppState = {
@@ -101,14 +208,18 @@ export default function App() {
           saveAppState(nextState);
           return nextState;
         });
+      } else if (detail && detail.type === 'date') {
+        handleDatePhotoUpdated();
       }
     };
 
     window.addEventListener('ours-photo-synced', handlePhotoSynced);
+    window.addEventListener('ours-date-photo-updated', handleDatePhotoUpdated);
     return () => {
       window.removeEventListener('ours-photo-synced', handlePhotoSynced);
+      window.removeEventListener('ours-date-photo-updated', handleDatePhotoUpdated);
     };
-  }, []);
+  }, [appState.couple?.id]);
 
   // 1. Initialize anonymous session and restore multi-device state in background
   useEffect(() => {
@@ -137,6 +248,8 @@ export default function App() {
 
             const partnerAvatar = session.pair!.partner.avatarUrl || prev.couple.partner.avatarUrl || null;
 
+            const mergedMoments = mergeMomentsMonotonic(session.moments, prev.todayMoments);
+
             const nextState: AppState = {
               ...prev,
               hasCompletedOnboarding: true,
@@ -151,12 +264,9 @@ export default function App() {
                 subscription: isLovely ? 'premium' : (session.pair!.subscription || 'free'),
                 lovelyPurchasedAt: session.pair!.lovelyPurchasedAt || prev.couple.lovelyPurchasedAt,
               },
-              todayMoments:
-                session.moments && session.moments.length > 0
-                  ? session.moments
-                  : prev.todayMoments,
+              todayMoments: mergedMoments,
               activeMomentId: resolveAuthoritativeActiveMomentId(
-                session.moments && session.moments.length > 0 ? session.moments : prev.todayMoments,
+                mergedMoments,
                 getSynchronizedNow(),
                 prev.activeMomentId
               ),
@@ -283,49 +393,7 @@ export default function App() {
         const res = await apiClient.fetchPairState();
         if (res.success && res.pair) {
           setAppState((prev) => {
-            const moments = (res.moments && res.moments.length > 0 ? res.moments : prev.todayMoments).map((srvM) => {
-              const prevM = prev.todayMoments.find((pm) => pm.id === srvM.id || pm.order === srvM.order);
-              if (!prevM) return srvM;
-
-              const sanitizePhoto = (u: string | null | undefined): string | null => {
-                if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
-                return u;
-              };
-
-              const userPhoto = sanitizePhoto(srvM.userPhoto) || sanitizePhoto(prevM.userPhoto) || null;
-              const partnerPhoto = sanitizePhoto(srvM.partnerPhoto) || sanitizePhoto(prevM.partnerPhoto) || null;
-              const hasBoth = Boolean(userPhoto && partnerPhoto);
-
-              const userReaction = srvM.userReaction || prevM.userReaction || null;
-              const partnerReaction = srvM.partnerReaction || prevM.partnerReaction || null;
-
-              // Monotonic status progression strictly based on duo presence
-              let status: string;
-              if (hasBoth) {
-                if (userReaction) {
-                  status = 'COMPLETED';
-                } else if (prevM.status === 'REVEALED' || srvM.status === 'REVEALED') {
-                  status = 'REVEALED';
-                } else {
-                  status = 'BOTH_UPLOADED';
-                }
-              } else if (userPhoto) {
-                status = 'USER_UPLOADED';
-              } else {
-                status = 'EMPTY';
-              }
-
-              return {
-                ...prevM,
-                ...srvM,
-                id: srvM.id,
-                userPhoto,
-                partnerPhoto,
-                status: status as any,
-                userReaction,
-                partnerReaction,
-              };
-            });
+            const moments = mergeMomentsMonotonic(res.moments, prev.todayMoments);
 
             const validActiveId = resolveAuthoritativeActiveMomentId(
               moments,

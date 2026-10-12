@@ -59,6 +59,10 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
   // Incoming / Active Date Invitation State
   const [invitation, setInvitation] = useState<DateInvitation | null>(() => {
+    const stored = dateInvitationService.getInvitation(couple?.partner?.name || 'Партнёр', couple?.user?.name || 'Ты');
+    if (stored && stored.id && stored.id !== 'inv-init-1') {
+      return stored;
+    }
     if (DEV_PREVIEW_ACCEPTED_DATE) {
       return {
         id: 'dev-preview-accepted',
@@ -77,7 +81,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         read: true,
       };
     }
-    return dateInvitationService.getInvitation(couple?.partner?.name || 'Партнёр', couple?.user?.name || 'Ты');
+    return null;
   });
   const [isIncomingModalOpen, setIsIncomingModalOpen] = useState(false);
   const [isIncomingClosing, setIsIncomingClosing] = useState(false);
@@ -251,12 +255,24 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     });
 
     // Save locally immediately so date state & sky star persist even if network drops
-    dateInvitationService.completeDateWithPhoto(
+    const updatedInv = dateInvitationService.completeDateWithPhoto(
       invitation.id,
       photoUrl,
       momentId,
       targetPairId
     );
+    if (updatedInv) {
+      setInvitation(updatedInv);
+    }
+
+    // Dispatch custom event so App.tsx immediately updates history for HistoryScreen
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('ours-date-photo-updated', {
+          detail: { pairId: targetPairId, momentId, photoUrl },
+        })
+      );
+    }
 
     setIsUploadingPhoto(true);
 
@@ -272,12 +288,15 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       });
 
       if (res && res.success && res.photoUrl && res.photoUrl.startsWith('http')) {
-        dateInvitationService.completeDateWithPhoto(
+        const syncedInv = dateInvitationService.completeDateWithPhoto(
           invitation.id,
           res.photoUrl,
           momentId,
           targetPairId
         );
+        if (syncedInv) {
+          setInvitation(syncedInv);
+        }
 
         if (res?.photos && res.photos.length > 0) {
           setDatePhotos(res.photos);
@@ -336,7 +355,9 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   const handleOpenEnvelope = () => {
     if (isOpen || isModalOpen) return;
 
-    const hasCompletedDate = Boolean(invitation?.status === 'accepted' && datePhotos.length > 0);
+    const hasCompletedDate = Boolean(
+      (invitation?.status === 'accepted' || invitation?.status === 'completed') && datePhotos.length > 0
+    );
 
     if (hasCompletedDate) {
       hasUserAdvancedCycleRef.current = true;
