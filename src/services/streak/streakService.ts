@@ -96,12 +96,17 @@ export function calculateCoupleStreak(
     else if (list.length >= 3) daysWithThreeMoments++;
 
     for (const m of list) {
+      const hasBothPhotos = Boolean(
+        (m.userPhoto && m.partnerPhoto) ||
+        (m.photos && m.photos.length >= 2)
+      );
       const hasDuo =
-        m.status === 'COMPLETED' ||
+        hasBothPhotos ||
+        m.status === 'BOTH_UPLOADED' ||
         m.status === 'REVEALED' ||
-        m.status === 'REACTED' ||
-        (Boolean(m.userPhoto) && Boolean(m.partnerPhoto)) ||
-        (m.photos && m.photos.length >= 2);
+        (Boolean(m.userReaction) && Boolean(m.partnerReaction)) ||
+        ((m.status === 'COMPLETED' || m.status === 'REACTED') && hasBothPhotos);
+
       if (hasDuo) {
         duoMomentsCount++;
       } else {

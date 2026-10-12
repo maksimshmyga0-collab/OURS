@@ -18,7 +18,12 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+// Immediately request splash hide on initial render frame + safety fallback
 requestAnimationFrame(() => {
   hideNativeSplashScreen();
 });
+setTimeout(() => {
+  hideNativeSplashScreen();
+}, 100);
+
 

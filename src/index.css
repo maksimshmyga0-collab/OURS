@@ -789,17 +789,23 @@ html.dark .soft-card-shadow {
 
 .animate-fluid-blob-1 {
   animation: fluid-glow-blob-1 9s ease-in-out infinite alternate;
-  will-change: transform, border-radius;
+  will-change: transform;
 }
 
 .animate-fluid-blob-2 {
   animation: fluid-glow-blob-2 11.5s ease-in-out infinite alternate;
-  will-change: transform, border-radius;
+  will-change: transform;
 }
 
 .animate-fluid-pulse {
   animation: fluid-glow-pulse 6s ease-in-out infinite;
   will-change: transform, opacity;
+}
+
+/* Pause decorative CSS animations on hidden tabs to reduce CPU/GPU workload */
+.tab-hidden,
+.tab-hidden * {
+  animation-play-state: paused !important;
 }
 
 /* Accessibility: respect user preferences for reduced motion */

@@ -5,7 +5,7 @@ import {
   saveAppState,
   resetToOnboarding,
 } from './services/storage/appStateStorage';
-import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode } from './types';
+import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode, MomentStatus } from './types';
 import { apiClient } from './services/api/apiClient';
 import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
@@ -33,6 +33,7 @@ import {
 import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 import { LegalDocumentType } from './screens/LegalScreen';
 import { dateInvitationService } from './services/dates/dateInvitationService';
+import { photoSyncQueue } from './services/storage/photoSyncQueue';
 
 // Code-split non-critical screens and modals for fast budget-device startup
 const HistoryScreen = React.lazy(() => import('./screens/HistoryScreen').then(m => ({ default: m.HistoryScreen })));
@@ -68,6 +69,45 @@ export default function App() {
       );
     });
     return unsubscribe;
+  }, []);
+
+  // Listen for photos synced in background queue
+  useEffect(() => {
+    const handlePhotoSynced = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      if (detail && detail.type === 'moment' && detail.momentId && detail.photoUrl) {
+        setAppState((prev) => {
+          const nextState: AppState = {
+            ...prev,
+            todayMoments: prev.todayMoments.map((m) => {
+              if (m.id === detail.momentId) {
+                const currentUserId = prev.couple?.user?.id;
+                const isCurrentUser = !currentUserId || currentUserId === detail.userId;
+                const userPhoto = isCurrentUser ? detail.photoUrl : m.userPhoto;
+                const partnerPhoto = !isCurrentUser ? detail.photoUrl : m.partnerPhoto;
+                return {
+                  ...m,
+                  userPhoto,
+                  partnerPhoto,
+                  photos: (m.photos || []).map((p) =>
+                    p.userId === detail.userId ? { ...p, imageUrl: detail.photoUrl } : p
+                  ),
+                };
+              }
+              return m;
+            }),
+          };
+          saveAppState(nextState);
+          return nextState;
+        });
+      }
+    };
+
+    window.addEventListener('ours-photo-synced', handlePhotoSynced);
+    return () => {
+      window.removeEventListener('ours-photo-synced', handlePhotoSynced);
+    };
   }, []);
 
   // 1. Initialize anonymous session and restore multi-device state in background
@@ -259,14 +299,16 @@ export default function App() {
               const userReaction = srvM.userReaction || prevM.userReaction || null;
               const partnerReaction = srvM.partnerReaction || prevM.partnerReaction || null;
 
-              // Monotonic status progression strictly based on CURRENT USER's own interaction state
+              // Monotonic status progression strictly based on duo presence
               let status: string;
-              if (userReaction) {
-                // If current user has selected their reaction, status is COMPLETED
-                status = 'COMPLETED';
-              } else if (hasBoth) {
-                // If THIS user has already revealed locally in this session, or server confirmed THIS user revealed:
-                status = (prevM.status === 'REVEALED' || srvM.status === 'REVEALED') ? 'REVEALED' : 'BOTH_UPLOADED';
+              if (hasBoth) {
+                if (userReaction) {
+                  status = 'COMPLETED';
+                } else if (prevM.status === 'REVEALED' || srvM.status === 'REVEALED') {
+                  status = 'REVEALED';
+                } else {
+                  status = 'BOTH_UPLOADED';
+                }
               } else if (userPhoto) {
                 status = 'USER_UPLOADED';
               } else {
@@ -770,13 +812,12 @@ export default function App() {
         }
       } else if (updated.userPhoto) {
         const res = await apiClient.uploadPhoto(updated.id, updated.userPhoto);
-        if (res.success && res.moment) {
+        if (res.success && res.moment && res.moment.userPhoto && res.moment.userPhoto.startsWith('http')) {
           const uploadedM = res.moment;
           setAppState((prev) => ({
             ...prev,
             todayMoments: prev.todayMoments.map((m) => {
               if (m.id === uploadedM.id || m.order === updated.order) {
-                // Strictly preserve existing photos: never overwrite an existing photo with null or local blob
                 const sanitizePhoto = (u: string | null | undefined): string | null => {
                   if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
                   return u;
@@ -802,37 +843,72 @@ export default function App() {
                   ],
                 };
               }
-            return m;
-          }),
-        }));
-      } else {
-        // Revert optimistic photo if upload failed so user does not see false success
-        console.warn('[OURS] Photo upload failed, reverting state');
-        setAppState((prev) => ({
-          ...prev,
-          todayMoments: prev.todayMoments.map((m) =>
-            m.id === updated.id || m.order === updated.order
-              ? { ...m, userPhoto: null, status: 'EMPTY' }
-              : m
-          ),
-        }));
+              return m;
+            }),
+          }));
+        } else {
+          // Server upload did not return permanent HTTP URL -> preserve local photo & queue for background retry
+          console.warn('[OURS] Photo upload fallback to background queue: photo preserved locally in appState');
+          setAppState((prev) => {
+            const nextState: AppState = {
+              ...prev,
+              todayMoments: prev.todayMoments.map((m) =>
+                m.id === updated.id || m.order === updated.order
+                  ? {
+                      ...m,
+                      userPhoto: updated.userPhoto || m.userPhoto,
+                      status: (m.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED') as MomentStatus,
+                    }
+                  : m
+              ),
+            };
+            saveAppState(nextState);
+            return nextState;
+          });
+
+          if (updated.userPhoto && updated.userPhoto.startsWith('data:')) {
+            photoSyncQueue.enqueue({
+              type: 'moment',
+              momentId: updated.id,
+              pairId: appState.couple?.id || '',
+              userId: appState.couple?.user?.id || '',
+              photoData: updated.userPhoto,
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[OURS] Failed to sync moment update, preserving local photo and queueing retry:', err);
+      if (updated.userPhoto) {
+        setAppState((prev) => {
+          const nextState: AppState = {
+            ...prev,
+            todayMoments: prev.todayMoments.map((m) =>
+              m.id === updated.id || m.order === updated.order
+                ? {
+                    ...m,
+                    userPhoto: updated.userPhoto,
+                    status: (m.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED') as MomentStatus,
+                  }
+                : m
+            ),
+          };
+          saveAppState(nextState);
+          return nextState;
+        });
+
+        if (updated.userPhoto.startsWith('data:')) {
+          photoSyncQueue.enqueue({
+            type: 'moment',
+            momentId: updated.id,
+            pairId: appState.couple?.id || '',
+            userId: appState.couple?.user?.id || '',
+            photoData: updated.userPhoto,
+          });
+        }
       }
     }
-  } catch (err) {
-    console.error('[OURS] Failed to sync moment update:', err);
-    // Revert optimistic photo on network error
-    if (updated.userPhoto) {
-      setAppState((prev) => ({
-        ...prev,
-        todayMoments: prev.todayMoments.map((m) =>
-          m.id === updated.id || m.order === updated.order
-            ? { ...m, userPhoto: null, status: 'EMPTY' }
-            : m
-        ),
-      }));
-    }
-  }
-};
+  };
 
   // Switch active moment
   const handleSelectActiveMoment = useCallback((momentId: string) => {
@@ -1007,6 +1083,7 @@ export default function App() {
                         couple={appState.couple}
                         soundEnabled={appState.settings.sounds}
                         hapticEnabled={appState.settings.haptic}
+                        isActive={activeTab === 'date'}
                       />
                     </React.Suspense>
                   ),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { CoupleState, CoupleStreakInfo, AppSettings, Moment, HistoryDay } from '../types';
 import { PastelCard } from '../components/PastelCard';
@@ -175,7 +175,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     triggerHaptic(nextState);
   };
 
-  const coupleLevel = getCoupleLevel(streakInfo.totalMoments);
+  const coupleLevel = useMemo(
+    () => getCoupleLevel(streakInfo.totalMoments),
+    [streakInfo.totalMoments]
+  );
 
   return (
     <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">

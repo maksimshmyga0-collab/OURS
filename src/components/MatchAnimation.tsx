@@ -174,7 +174,9 @@ export const MatchAnimation: React.FC<MatchAnimationProps> = ({
       height = rect.height || window.innerHeight || 640;
       cx = width / 2;
       cy = height / 2 - VERTICAL_OFFSET;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const rawDpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+      const validDpr = typeof rawDpr === 'number' && Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1;
+      const dpr = Math.min(validDpr, 2.0);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvas.style.width = `${width}px`;

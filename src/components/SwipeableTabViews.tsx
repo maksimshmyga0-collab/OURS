@@ -488,7 +488,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         <div
           className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-2 pb-2 flex flex-col ${
             !isTabVisible(0)
-              ? 'h-0 overflow-hidden invisible pointer-events-none'
+              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
               : 'h-full opacity-100 visible overflow-visible'
           }`}
           aria-hidden={currentIndex !== 0}
@@ -500,7 +500,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         <div
           className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(1)
-              ? 'h-0 overflow-hidden invisible pointer-events-none'
+              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
               : 'min-h-full opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 1}
@@ -512,7 +512,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         <div
           className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(2)
-              ? 'h-0 overflow-hidden invisible pointer-events-none'
+              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
               : 'min-h-full opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 2}
@@ -524,7 +524,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         <div
           className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
             !isTabVisible(3)
-              ? 'h-0 overflow-hidden invisible pointer-events-none'
+              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
               : 'min-h-full opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 3}

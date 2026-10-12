@@ -27,17 +27,28 @@ export class AppStorageService implements IStorageService {
   }
 
   /**
-   * Helper: converts base64 Data URL to Blob
+   * Helper: converts base64 Data URL to Blob via fast native decoding
    */
-  private dataURItoBlob(dataURI: string): Blob {
-    const byteString = atob(dataURI.split(',')[1]);
-    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
+  private async dataURItoBlob(dataURI: string): Promise<Blob> {
+    try {
+      const resp = await fetch(dataURI);
+      if (resp.ok) {
+        return await resp.blob();
+      }
+    } catch {}
+
+    try {
+      const byteString = atob(dataURI.split(',')[1]);
+      const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([ab], { type: mimeString });
+    } catch {
+      return new Blob([], { type: 'image/jpeg' });
     }
-    return new Blob([ab], { type: mimeString });
   }
 
   /**
@@ -124,7 +135,7 @@ export class AppStorageService implements IStorageService {
     let ext = 'jpg';
 
     if (typeof targetSource === 'string' && targetSource.startsWith('data:')) {
-      blob = this.dataURItoBlob(targetSource);
+      blob = await this.dataURItoBlob(targetSource);
       if (targetSource.includes('image/png')) ext = 'png';
       if (targetSource.includes('image/webp')) ext = 'webp';
     } else if (targetSource instanceof Blob) {

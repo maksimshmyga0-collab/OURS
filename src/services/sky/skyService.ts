@@ -269,26 +269,29 @@ export function isMomentMatched(moment: Moment): boolean {
     if (hasPhoto) return true;
   }
 
-  // 2. If moment has completed status or recorded reactions: it is definitely an authentic match
-  const isMatchStatus =
-    moment.status === 'COMPLETED' ||
-    moment.status === 'REVEALED' ||
-    moment.status === 'REACTED' ||
-    moment.status === 'MATCH' ||
-    Boolean(moment.userReaction || moment.partnerReaction);
+  // 2. Regular moments MUST have both photos or explicit duo interaction from both partners
+  const hasBothPhotos = Boolean(
+    (moment.userPhoto && moment.partnerPhoto) ||
+    (moment.photos && moment.photos.length >= 2)
+  );
 
-  if (isMatchStatus) {
+  if (hasBothPhotos) {
     return true;
   }
 
-  // 3. In-progress / unfinalized moments count if both photos are present or both uploaded
-  const hasBoth = Boolean(
-    (moment.userPhoto && moment.partnerPhoto) ||
-    (moment.photos && moment.photos.length >= 2) ||
-    moment.status === 'BOTH_UPLOADED'
-  );
+  if (moment.status === 'BOTH_UPLOADED' || moment.status === 'REVEALED') {
+    return true;
+  }
 
-  return hasBoth;
+  if (Boolean(moment.userReaction) && Boolean(moment.partnerReaction)) {
+    return true;
+  }
+
+  if ((moment.status === 'COMPLETED' || moment.status === 'REACTED' || moment.status === 'MATCH') && hasBothPhotos) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -478,6 +481,9 @@ export function getCoupleStarEvents(
         title: 'Касание',
       };
       eventsMap.set(getSemanticKey(ev), ev);
+    } else if (Array.isArray(day.moments) && day.moments.length > 0) {
+      // Purge any previously stored invalid single-photo match star for this day
+      eventsMap.delete(`moment_${dayKey}`);
     }
 
     // B. Check for completed Date moments in this day:
@@ -533,20 +539,25 @@ export function getCoupleStarEvents(
       title: 'Касание',
     };
     eventsMap.set(getSemanticKey(ev), ev);
+  } else if (todayMoments && todayMoments.length > 0) {
+    eventsMap.delete(`moment_${todayKey}`);
   }
 
   // 4. Any completed date days recorded from invitation service
   for (const d of completedDateDays) {
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      const dateId = `date_inv_${d}`;
-      const ev: StarEvent = {
-        id: dateId,
-        dateKey: d,
-        starType: 'date',
-        title: 'Свидание',
-      };
-      const semKey = getSemanticKey(ev);
-      if (!eventsMap.has(semKey)) {
+      const hasDateStarForDay = Array.from(eventsMap.values()).some(
+        (existing) => existing.starType === 'date' && existing.dateKey === d
+      );
+      if (!hasDateStarForDay) {
+        const dateId = `date_inv_${d}`;
+        const ev: StarEvent = {
+          id: dateId,
+          dateKey: d,
+          starType: 'date',
+          title: 'Свидание',
+        };
+        const semKey = getSemanticKey(ev);
         eventsMap.set(semKey, ev);
       }
     }

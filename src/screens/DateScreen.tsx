@@ -27,11 +27,13 @@ import {
   DateInvitation,
 } from '../services/dates/dateInvitationService';
 import { apiClient } from '../services/api/apiClient';
+import { photoSyncQueue } from '../services/storage/photoSyncQueue';
 
 interface DateScreenProps {
   couple: CoupleState;
   soundEnabled?: boolean;
   hapticEnabled?: boolean;
+  isActive?: boolean;
 }
 
 function getRandomDateIdeaIndex(currentIndex = -1): number {
@@ -47,6 +49,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   couple,
   soundEnabled = true,
   hapticEnabled = true,
+  isActive = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -120,9 +123,9 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     }
   }, [couple?.id]);
 
-  // Load and sync date photos when invitation is accepted
+  // Load and sync date photos when invitation is accepted or completed
   useEffect(() => {
-    if (!invitation?.id || invitation.status !== 'accepted') {
+    if (!invitation?.id || (invitation.status !== 'accepted' && invitation.status !== 'completed')) {
       setDatePhotos([]);
       return;
     }
@@ -130,28 +133,91 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     const momentId = `date-${invitation.id}`;
     let isMounted = true;
 
+    // Hydrate local photo if present on invitation
+    if (invitation.photoUrl) {
+      const currentUserId = couple?.user?.id || apiClient.getCurrentUserId() || 'user';
+      const localPhoto: MomentPhoto = {
+        userId: currentUserId,
+        imageUrl: invitation.photoUrl,
+        createdAt: invitation.completedAt || invitation.createdAt || new Date().toISOString(),
+      };
+      setDatePhotos((prev) => {
+        if (!prev.some((p) => p.imageUrl === invitation.photoUrl)) {
+          return [...prev, localPhoto];
+        }
+        return prev;
+      });
+    }
+
     const loadDatePhotos = async () => {
       try {
         const photos = await apiClient.fetchDatePhotos(momentId);
-        if (isMounted && photos) {
-          setDatePhotos(photos);
+        if (isMounted) {
+          setDatePhotos((prev) => {
+            const merged = [...(Array.isArray(photos) ? photos : [])];
+            // Preserve local optimistic photos if server response doesn't contain user's photo yet
+            prev.forEach((localP) => {
+              if (localP && localP.userId && !merged.some((srvP) => srvP.userId === localP.userId)) {
+                merged.push(localP);
+              }
+            });
+            if (invitation.photoUrl && !merged.some((p) => p.imageUrl === invitation.photoUrl)) {
+              merged.push({
+                userId: couple?.user?.id || apiClient.getCurrentUserId() || 'user',
+                imageUrl: invitation.photoUrl,
+                createdAt: invitation.completedAt || invitation.createdAt || new Date().toISOString(),
+              });
+            }
+            return merged;
+          });
         }
       } catch {}
     };
 
-    loadDatePhotos();
+    if (isActive) {
+      loadDatePhotos();
 
-    const interval = setInterval(() => {
-      if (!document.hidden) {
-        loadDatePhotos();
-      }
-    }, 6000);
+      const interval = setInterval(() => {
+        if (!document.hidden) {
+          loadDatePhotos();
+        }
+      }, 6000);
+
+      return () => {
+        isMounted = false;
+        clearInterval(interval);
+      };
+    }
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
-  }, [invitation?.id, invitation?.status]);
+  }, [invitation?.id, invitation?.status, invitation?.photoUrl, couple?.user?.id, isActive]);
+
+  // Listen for date photos synced in background queue
+  useEffect(() => {
+    const handlePhotoSynced = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const detail = customEvent.detail;
+      if (detail && detail.type === 'date' && detail.photoUrl) {
+        if (invitation?.id && (detail.momentId === `date-${invitation.id}` || detail.momentId === invitation.momentId)) {
+          setDatePhotos((prev) => {
+            const exists = prev.some((p) => p.userId === detail.userId);
+            if (exists) {
+              return prev.map((p) => (p.userId === detail.userId ? { ...p, imageUrl: detail.photoUrl } : p));
+            } else {
+              return [...prev, { userId: detail.userId, imageUrl: detail.photoUrl, createdAt: new Date().toISOString() }];
+            }
+          });
+        }
+      }
+    };
+
+    window.addEventListener('ours-photo-synced', handlePhotoSynced);
+    return () => {
+      window.removeEventListener('ours-photo-synced', handlePhotoSynced);
+    };
+  }, [invitation?.id, invitation?.momentId]);
 
   const handleUploadPhotoClick = () => {
     triggerHaptic(hapticEnabled);
@@ -167,14 +233,35 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
     if (!invitation?.id) return;
     const momentId = `date-${invitation.id}`;
+    const currentUserId = couple?.user?.id || apiClient.getCurrentUserId() || 'user';
+    const partnerId = couple?.partner?.id || 'partner';
+    const targetUserId = uploadTargetPartner ? partnerId : currentUserId;
+    const targetPairId = couple?.id || invitation.pairId;
+
+    // 1. Immediate 0ms Optimistic UI Update & Local Storage Preservation
+    const optimisticPhoto: MomentPhoto = {
+      userId: targetUserId,
+      imageUrl: photoUrl,
+      createdAt: new Date().toISOString(),
+    };
+
+    setDatePhotos((prev) => {
+      const filtered = prev.filter((p) => p.userId !== targetUserId);
+      return [...filtered, optimisticPhoto];
+    });
+
+    // Save locally immediately so date state & sky star persist even if network drops
+    dateInvitationService.completeDateWithPhoto(
+      invitation.id,
+      photoUrl,
+      momentId,
+      targetPairId
+    );
+
     setIsUploadingPhoto(true);
 
+    // 2. Async Background Server Upload
     try {
-      const currentUserId = couple?.user?.id || apiClient.getCurrentUserId();
-      const partnerId = couple?.partner?.id || 'partner';
-      const targetUserId = uploadTargetPartner ? partnerId : currentUserId;
-      const targetPairId = couple?.id || invitation.pairId;
-
       const res = await apiClient.uploadDatePhoto({
         pairId: targetPairId,
         momentId,
@@ -184,25 +271,46 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         overrideUserId: targetUserId || undefined,
       });
 
-      if (res && res.success) {
-        // Mark date as completed with photo in dateInvitationService so star & state persist
+      if (res && res.success && res.photoUrl && res.photoUrl.startsWith('http')) {
         dateInvitationService.completeDateWithPhoto(
           invitation.id,
-          res.photoUrl || photoUrl,
+          res.photoUrl,
           momentId,
           targetPairId
         );
 
-        if (res?.photos) {
+        if (res?.photos && res.photos.length > 0) {
           setDatePhotos(res.photos);
         }
         triggerHaptic(hapticEnabled);
         playSoftChime('success', soundEnabled);
       } else {
-        console.warn('[OURS Date] Photo upload returned failure, not marking completed');
+        console.warn('[OURS Date] Server upload fallback: photo preserved locally & queued for background upload');
+        if (photoUrl && photoUrl.startsWith('data:')) {
+          photoSyncQueue.enqueue({
+            type: 'date',
+            momentId,
+            pairId: targetPairId || '',
+            userId: targetUserId || '',
+            photoData: photoUrl,
+            dateTitle: invitation.idea?.title,
+            dateDescription: invitation.idea?.description,
+          });
+        }
       }
     } catch (err) {
-      console.error('[OURS Date] Failed to upload date photo:', err);
+      console.error('[OURS Date] Error during server photo upload, queueing background retry:', err);
+      if (photoUrl && photoUrl.startsWith('data:')) {
+        photoSyncQueue.enqueue({
+          type: 'date',
+          momentId,
+          pairId: targetPairId || '',
+          userId: targetUserId || '',
+          photoData: photoUrl,
+          dateTitle: invitation.idea?.title,
+          dateDescription: invitation.idea?.description,
+        });
+      }
     } finally {
       setIsUploadingPhoto(false);
       setUploadTargetPartner(false);
