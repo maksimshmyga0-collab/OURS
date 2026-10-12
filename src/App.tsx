@@ -168,7 +168,7 @@ export default function App() {
       const pairId = appState.couple?.id;
       if (pairId) {
         apiClient.fetchHistory(pairId, true).then((history) => {
-          if (history && history.length > 0) {
+          if (history && Array.isArray(history)) {
             setAppState((prev) => {
               const nextState: AppState = { ...prev, history };
               saveAppState(nextState);

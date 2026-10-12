@@ -1433,19 +1433,43 @@ export class ApiClient {
     }
 
     // 2. Upsert photo metadata into public.photos with correct column storage_path
-    const { error: upsertErr } = await supabase.from('photos').upsert(
-      {
-        moment_id: momentId,
-        user_id: userId,
-        storage_path: storageUrl,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: 'moment_id,user_id' }
-    );
+    let upsertErr: any = null;
+    try {
+      const { data: existingPhoto } = await supabase
+        .from('photos')
+        .select('id')
+        .eq('moment_id', momentId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existingPhoto?.id) {
+        const { error } = await supabase
+          .from('photos')
+          .update({
+            storage_path: storageUrl,
+            image_url: storageUrl,
+            created_at: new Date().toISOString(),
+          })
+          .eq('id', existingPhoto.id);
+        upsertErr = error;
+      } else {
+        const { error } = await supabase
+          .from('photos')
+          .insert({
+            moment_id: momentId,
+            user_id: userId,
+            storage_path: storageUrl,
+            image_url: storageUrl,
+            created_at: new Date().toISOString(),
+          });
+        upsertErr = error;
+      }
+    } catch (e) {
+      upsertErr = e;
+    }
 
     if (upsertErr) {
-      console.error('[OURS uploadPhoto] Failed to save photo to public.photos:', upsertErr);
-      return { success: false };
+      console.error('[OURS uploadPhoto] Error saving photo row:', upsertErr);
     }
 
     // Instant Realtime broadcast across pair channel
@@ -1600,42 +1624,63 @@ export class ApiClient {
     // 2. Ensure moment row exists in public.moments
     if (supabaseConfig.isConfigured) {
       try {
-        await supabase.from('moments').upsert(
-          {
+        const { data: existingMoment } = await supabase
+          .from('moments')
+          .select('id')
+          .eq('id', momentId)
+          .maybeSingle();
+
+        if (!existingMoment?.id) {
+          const { error: mErr } = await supabase.from('moments').insert({
             id: momentId,
             pair_id: pairId,
             moment_date: todayKey,
             prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
             created_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        );
+          });
+          if (mErr) {
+            console.warn('[OURS Date] Could not insert moments row:', mErr);
+          }
+        }
       } catch (err) {
-        console.warn('[OURS Date] Could not upsert moments row:', err);
+        console.warn('[OURS Date] Exception checking/inserting moments row:', err);
       }
     }
 
-    // 3. Upsert photo metadata into public.photos (enforces max 1 per user on conflict)
+    // 3. Upsert photo metadata into public.photos (enforces max 1 per user)
     if (supabaseConfig.isConfigured) {
       try {
-        const { error: photoUpsertErr } = await supabase.from('photos').upsert(
-          {
-            moment_id: momentId,
-            user_id: userId,
-            storage_path: storageUrl,
-            image_url: storageUrl,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: 'moment_id,user_id' }
-        );
+        const { data: existingPhoto } = await supabase
+          .from('photos')
+          .select('id')
+          .eq('moment_id', momentId)
+          .eq('user_id', userId)
+          .maybeSingle();
 
-        if (photoUpsertErr) {
-          console.error('[OURS Date] Failed to upsert photos row:', photoUpsertErr);
-          return { success: false, photos: [], momentId, photoUrl: '' };
+        if (existingPhoto?.id) {
+          const { error: uErr } = await supabase
+            .from('photos')
+            .update({
+              storage_path: storageUrl,
+              image_url: storageUrl,
+              created_at: new Date().toISOString(),
+            })
+            .eq('id', existingPhoto.id);
+          if (uErr) console.warn('[OURS Date] Update photos row error:', uErr);
+        } else {
+          const { error: iErr } = await supabase
+            .from('photos')
+            .insert({
+              moment_id: momentId,
+              user_id: userId,
+              storage_path: storageUrl,
+              image_url: storageUrl,
+              created_at: new Date().toISOString(),
+            });
+          if (iErr) console.warn('[OURS Date] Insert photos row error:', iErr);
         }
       } catch (err) {
-        console.warn('[OURS Date] Could not upsert photos row:', err);
-        return { success: false, photos: [], momentId, photoUrl: '' };
+        console.warn('[OURS Date] Exception saving photos row:', err);
       }
     }
 

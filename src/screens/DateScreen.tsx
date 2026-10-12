@@ -13,7 +13,7 @@ import { CoupleState, MomentPhoto } from '../types';
  * of «Принятое свидание» and the «Загрузить фото» button under the envelope.
  * Minimal dev-only preview flag.
  */
-const DEV_PREVIEW_ACCEPTED_DATE = true;
+const DEV_PREVIEW_ACCEPTED_DATE = false;
 import {
   playEnvelopeOpenSound,
   playCardSlideSound,
@@ -60,26 +60,8 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   // Incoming / Active Date Invitation State
   const [invitation, setInvitation] = useState<DateInvitation | null>(() => {
     const stored = dateInvitationService.getInvitation(couple?.partner?.name || 'Партнёр', couple?.user?.name || 'Ты');
-    if (stored && stored.id && stored.id !== 'inv-init-1') {
+    if (stored && stored.id && stored.id !== 'inv-init-1' && stored.id !== 'inv-test-accepted-1' && stored.id !== 'dev-preview-accepted') {
       return stored;
-    }
-    if (DEV_PREVIEW_ACCEPTED_DATE) {
-      return {
-        id: 'dev-preview-accepted',
-        senderId: 'user',
-        senderName: couple?.user?.name || 'Ты',
-        recipientName: couple?.partner?.name || 'Партнёр',
-        idea: {
-          id: 'date-picnic-sunset',
-          title: 'Пикник на закате',
-          description: 'Возьмите плед, любимые фрукты и проводите солнце под тёплый чай из термоса.',
-          tag: 'Романтика',
-        },
-        status: 'accepted',
-        createdAt: new Date().toISOString(),
-        respondedAt: new Date().toISOString(),
-        read: true,
-      };
     }
     return null;
   });
@@ -98,7 +80,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     const unsub = dateInvitationService.subscribe((updated) => {
       if (updated) {
         setInvitation(updated);
-      } else if (!DEV_PREVIEW_ACCEPTED_DATE || hasUserAdvancedCycleRef.current) {
+      } else {
         setInvitation(null);
       }
     });

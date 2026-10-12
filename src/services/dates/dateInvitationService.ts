@@ -87,14 +87,16 @@ export const dateInvitationService = {
 
   /**
    * Get currently active date invitation from storage.
-   * If none exists or if it was in initial test state, returns partner-accepted state for testing.
+  /**
+   * Get currently active date invitation from storage.
+   * Returns null if no date invitation has been created yet.
    */
   getInvitation(_partnerName = 'Партнёр', _userName = 'Ты'): DateInvitation | null {
     try {
       const stored = appStorage.getItem(STORAGE_KEY);
       if (typeof stored === 'string') {
         const parsed = JSON.parse(stored) as DateInvitation;
-        if (parsed && parsed.id && parsed.status && parsed.id !== 'inv-init-1') {
+        if (parsed && parsed.id && parsed.status && parsed.id !== 'inv-init-1' && parsed.id !== 'inv-test-accepted-1') {
           if (typeof parsed.read === 'undefined') {
             parsed.read = false;
           }
@@ -105,29 +107,7 @@ export const dateInvitationService = {
       // fallback
     }
 
-    // Default test state: partner accepted user's invitation
-    const testAccepted: DateInvitation = {
-      id: 'inv-test-accepted-1',
-      senderId: 'user',
-      senderName: _userName || 'Ты',
-      recipientName: _partnerName || 'Партнёр',
-      idea: {
-        id: 'idea-board-games',
-        title: 'Вечер настольных игр при свечах',
-        description: 'Уютный вечер вдвоём: тёплый чай, любимые настолки и мерцание свечей.',
-        tag: 'Уют',
-      },
-      status: 'accepted',
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-      respondedAt: new Date().toISOString(),
-      read: true,
-    };
-
-    try {
-      appStorage.setItem(STORAGE_KEY, JSON.stringify(testAccepted));
-    } catch {}
-
-    return testAccepted;
+    return null;
   },
 
   /**
