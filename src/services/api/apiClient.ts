@@ -795,7 +795,25 @@ export class ApiClient {
               localMoments.forEach((lm) => {
                 const dKey = lm.dateKey || todayKey;
                 const existingList = dayMap.get(dKey) || [];
-                if (!existingList.some((m) => m.id === lm.id)) {
+                const existingIdx = existingList.findIndex((m) => m.id === lm.id);
+                if (existingIdx >= 0) {
+                  const existingM = existingList[existingIdx];
+                  const mergedPhotos = [...(existingM.photos || [])];
+                  (lm.photos || []).forEach((lp) => {
+                    if (lp && lp.imageUrl && !mergedPhotos.some((cp) => cp.userId === lp.userId || cp.imageUrl === lp.imageUrl)) {
+                      mergedPhotos.push(lp);
+                    }
+                  });
+                  const uP = mergedPhotos.find((p) => p.userId === userId)?.imageUrl || existingM.userPhoto || lm.userPhoto;
+                  const pP = mergedPhotos.find((p) => p.userId !== userId)?.imageUrl || existingM.partnerPhoto || lm.partnerPhoto;
+                  existingList[existingIdx] = {
+                    ...existingM,
+                    userPhoto: uP,
+                    partnerPhoto: pP,
+                    photos: mergedPhotos,
+                    imageUrl: uP || pP || existingM.imageUrl,
+                  };
+                } else {
                   existingList.push(lm);
                   dayMap.set(dKey, existingList);
                 }
@@ -960,6 +978,29 @@ export class ApiClient {
           .maybeSingle(),
       ]);
 
+      if (membershipRes.error) {
+        console.warn('[OURS Session] Error querying pair membership:', membershipRes.error.message);
+        const userSession: UserSessionData = {
+          id: userId,
+          displayName: profile.displayName,
+          avatarUrl: profile.avatarUrl,
+          avatarColor: profile.avatarColor,
+          currentPairId: this.currentPairId || null,
+          createdAt: new Date().toISOString(),
+        };
+        return {
+          success: false,
+          user: userSession,
+          token: userId,
+          isNewUser: false,
+          hasCompletedOnboarding: false,
+          pair: null,
+          moments: [],
+          history: [],
+          error: membershipRes.error.message || 'Error querying pair membership',
+        };
+      }
+
       const membership = membershipRes.data;
       const userSession: UserSessionData = {
         id: userId,
@@ -970,7 +1011,7 @@ export class ApiClient {
         createdAt: new Date().toISOString(),
       };
 
-      if (membership?.pair_id && !membershipRes.error) {
+      if (membership?.pair_id) {
         this.currentPairId = membership.pair_id;
 
         // Startup fast-path: assemble today's data without blocking on full historical photos
@@ -987,6 +1028,7 @@ export class ApiClient {
         };
       }
 
+      // Explicit server confirmation: query succeeded with zero errors, and user has no pair
       return {
         success: true,
         user: userSession,
@@ -997,25 +1039,25 @@ export class ApiClient {
         moments: [],
         history: [],
       };
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[OURS Session] Exception checking pair membership:', err);
-      const profile = await this.getOrCreateProfile(userId);
       return {
-        success: true,
+        success: false,
         user: {
           id: userId,
-          displayName: profile.displayName,
-          avatarUrl: profile.avatarUrl,
-          avatarColor: profile.avatarColor,
-          currentPairId: null,
+          displayName: '',
+          avatarUrl: null,
+          avatarColor: '#F6DCE1',
+          currentPairId: this.currentPairId || null,
           createdAt: new Date().toISOString(),
         },
         token: userId,
-        isNewUser: !profile.displayName,
+        isNewUser: false,
         hasCompletedOnboarding: false,
         pair: null,
         moments: [],
         history: [],
+        error: err?.message || 'Exception checking pair membership',
       };
     }
   }

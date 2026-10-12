@@ -121,7 +121,10 @@ html {
   color: #FFFFFF !important;
   color-scheme: dark !important;
   -webkit-tap-highlight-color: transparent;
-  scrollbar-gutter: stable;
+  overflow-x: hidden;
+  max-width: 100vw;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -140,12 +143,14 @@ body {
   min-height: 100dvh;
   background-color: #000000 !important;
   color: #FFFFFF !important;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   color-scheme: dark !important;
   user-select: none;
   -webkit-user-select: none;
-  -webkit-font-smoothing: antialiased;
 }
 
 html body,
@@ -160,6 +165,9 @@ html[data-theme="dark"] body {
   min-height: 100dvh;
   background-color: #000000 !important;
   color: #FFFFFF !important;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
 }
 
 html #root,
@@ -167,6 +175,31 @@ html.dark #root,
 html[data-theme="dark"] #root {
   background-color: #000000 !important;
   color: #FFFFFF !important;
+}
+
+/* Hide native scrollbars visually across WebKit, Blink & Gecko engines while preserving 100% touch/wheel scrolling */
+html,
+body,
+#root,
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Strict requirement 9: NEVER filter, invert, or darken user photos (except partner blurred preview) */
