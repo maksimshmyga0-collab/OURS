@@ -181,7 +181,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   );
 
   return (
-    <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
+    <div className="flex-1 h-full w-full flex flex-col space-y-6 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
       {/* Profile Header Card with signature OURS matte surface and atmospheric backlight aura */}
       <div className="relative overflow-visible isolate rounded-[28px] p-6 space-y-4 border border-[#E8DFE1] dark:border-[#242024] bg-white dark:bg-[#111111] main-moment-card-shadow flex flex-col items-center text-center transition-all duration-300">
         {/* Inner Glowing Aura System illuminating from within behind avatars & names */}

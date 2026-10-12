@@ -386,7 +386,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     const isDayUnlocked = !selectedDay.isLocked || isUnlockedGlobally;
 
     return (
-      <div className="flex-1 flex flex-col space-y-5 pb-8 min-h-full animate-in fade-in duration-200">
+      <div className="flex-1 h-full w-full flex flex-col space-y-5 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1 animate-in fade-in duration-200">
         {/* Detail Top Header */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3">
@@ -476,9 +476,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     );
   }
 
-  // Main History View
   return (
-    <div className="flex-1 flex flex-col space-y-5 pb-8 min-h-full">
+    <div className="flex-1 h-full w-full flex flex-col space-y-5 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
       {/* Top Header & Quiet Couple Metadata */}
       <div className="space-y-2 pt-1">
         <div className="flex items-end justify-between gap-2">

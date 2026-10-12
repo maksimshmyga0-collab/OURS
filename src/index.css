@@ -117,14 +117,13 @@ textarea {
 }
 
 html {
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
   background-color: #000000 !important;
   color: #FFFFFF !important;
   color-scheme: dark !important;
   -webkit-tap-highlight-color: transparent;
-  overflow-x: hidden;
-  max-width: 100vw;
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -139,13 +138,13 @@ html[data-theme="dark"] {
 body {
   margin: 0;
   padding: 0;
-  min-height: 100vh;
-  min-height: 100dvh;
-  background-color: #000000 !important;
-  color: #FFFFFF !important;
-  overflow-x: hidden;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
   width: 100%;
   max-width: 100vw;
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   color-scheme: dark !important;
@@ -161,13 +160,13 @@ html[data-theme="dark"] body {
 }
 
 #root {
-  min-height: 100vh;
-  min-height: 100dvh;
-  background-color: #000000 !important;
-  color: #FFFFFF !important;
-  overflow-x: hidden;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
   width: 100%;
   max-width: 100vw;
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
 }
 
 html #root,
@@ -177,29 +176,30 @@ html[data-theme="dark"] #root {
   color: #FFFFFF !important;
 }
 
-/* Hide native scrollbars visually across WebKit, Blink & Gecko engines while preserving 100% touch/wheel scrolling */
-html,
-body,
-#root,
+/* Hide native scrollbars visually across WebKit, Blink, Android WebView & Firefox while preserving 100% touch/wheel scrolling */
 * {
   scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
   -ms-overflow-style: none !important;
 }
 
-::-webkit-scrollbar {
+*::-webkit-scrollbar {
   width: 0px !important;
   height: 0px !important;
   background: transparent !important;
   display: none !important;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent !important;
-}
-
-::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-track {
   background: transparent !important;
   border: none !important;
+  box-shadow: none !important;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* Strict requirement 9: NEVER filter, invert, or darken user photos (except partner blurred preview) */

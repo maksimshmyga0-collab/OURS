@@ -38,7 +38,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
 
   return (
     <nav
-      className="sticky bottom-0 z-40 bg-[#FFF9FA]/92 dark:bg-black/92 backdrop-blur-xl border-t border-[#000000]/6 dark:border-[#242024] px-4 pt-1.5 transition-colors"
+      className="shrink-0 z-40 bg-[#FFF9FA]/92 dark:bg-black/92 backdrop-blur-xl border-t border-[#000000]/6 dark:border-[#242024] px-4 pt-1.5 transition-colors"
       style={{
         paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
       }}

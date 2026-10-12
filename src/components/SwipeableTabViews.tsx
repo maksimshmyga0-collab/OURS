@@ -470,12 +470,12 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     <div
       ref={containerRef}
       onMouseDown={handleMouseDown}
-      className="w-full flex-1 flex flex-col overflow-hidden relative select-none min-h-full"
+      className="w-full flex-1 min-h-0 h-full flex flex-col overflow-hidden relative select-none"
       style={{ touchAction: 'pan-y' }}
     >
       <div
         ref={trackRef}
-        className="flex w-full flex-1 min-h-full"
+        className="flex w-full flex-1 min-h-0 h-full"
         style={{
           transform: `translate3d(-${currentIndex * 100}%, 0, 0)`,
           transition: isDragging
@@ -486,10 +486,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       >
         {/* Slide 0: Date */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-2 pb-2 flex flex-col ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-2 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
             !isTabVisible(0)
-              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
-              : 'h-full opacity-100 visible overflow-visible'
+              ? 'invisible pointer-events-none tab-hidden'
+              : 'opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 0}
         >
@@ -498,10 +498,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 1: Today */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
             !isTabVisible(1)
-              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
-              : 'min-h-full opacity-100 visible'
+              ? 'invisible pointer-events-none tab-hidden'
+              : 'opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 1}
         >
@@ -510,10 +510,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 2: History */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
             !isTabVisible(2)
-              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
-              : 'min-h-full opacity-100 visible'
+              ? 'invisible pointer-events-none tab-hidden'
+              : 'opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 2}
         >
@@ -522,10 +522,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 3: Profile */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col min-h-full ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
             !isTabVisible(3)
-              ? 'h-0 overflow-hidden invisible pointer-events-none tab-hidden'
-              : 'min-h-full opacity-100 visible'
+              ? 'invisible pointer-events-none tab-hidden'
+              : 'opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 3}
         >

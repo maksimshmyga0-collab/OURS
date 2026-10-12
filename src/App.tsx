@@ -1113,10 +1113,10 @@ export default function App() {
           />
         </React.Suspense>
       ) : (
-        <div className="min-h-screen bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] flex flex-col justify-between selection:bg-[#F6DCE1]">
+        <div className="h-screen h-[100dvh] w-full bg-[#FFF9FA] dark:bg-[#000000] text-[#343033] dark:text-[#FFFFFF] flex flex-col overflow-hidden selection:bg-[#F6DCE1]">
           {/* Mobile-first centered frame container with soft depth */}
-          <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative bg-[#FFF9FA] dark:bg-[#000000] sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70 dark:sm:border-[#242024]">
-            {/* Sticky Header with couple names and avatar pair */}
+          <div className="w-full max-w-md mx-auto flex flex-col h-full h-[100dvh] relative bg-[#FFF9FA] dark:bg-[#000000] overflow-hidden sm:shadow-[0_0_40px_-10px_rgba(52,48,51,0.07)] sm:border-x sm:border-[#F0E6E8]/70 dark:sm:border-[#242024]">
+            {/* Header with couple names and avatar pair */}
             <CoupleHeader
               couple={appState.couple}
               onOpenProfile={() => {
@@ -1132,7 +1132,7 @@ export default function App() {
             />
 
             {/* Scrollable Main Viewport with Horizontal Tab Swipe Navigation */}
-            <main className="flex-1 flex flex-col overflow-x-hidden min-h-0">
+            <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative w-full">
               <SwipeableTabViews
                 activeTab={activeTab}
                 onTabChange={(tab) => {

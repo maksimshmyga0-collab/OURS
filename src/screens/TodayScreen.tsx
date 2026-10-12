@@ -281,7 +281,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col space-y-6 pb-8 min-h-full">
+    <div className="flex-1 h-full w-full flex flex-col space-y-6 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
       {/* Day Status Header */}
       <div className="flex items-center justify-between px-1">
         <div>
