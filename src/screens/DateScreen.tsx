@@ -520,7 +520,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       {/* Main Envelope Stage Card (Signature OURS Matte Grey Card & Burgundy Glow) */}
       <div className="w-full relative overflow-visible">
         {/* The Signature Matte Grey Card of OURS */}
-        <div className={`w-full rounded-[28px] bg-white dark:bg-[#111111] border border-[#E8DFE1] dark:border-[#242024] main-moment-card-shadow p-4.5 sm:p-5.5 relative overflow-visible flex flex-col items-center transition-all duration-300 animate-card-enter ${invitation?.status === 'pending' ? 'pb-4 sm:pb-4.5' : 'pb-5 sm:pb-6'}`}>
+        <div className={`w-full rounded-[28px] bg-white dark:bg-[#111111] border border-[#E8DFE1] dark:border-[#242024] main-moment-card-shadow p-4.5 sm:p-5.5 relative overflow-visible flex flex-col items-center transition-all duration-300 animate-card-enter ${invitation?.status === 'pending' ? 'pb-4.5 sm:pb-5' : 'pb-5 sm:pb-6'}`}>
           {/* Top Delicate Luminous Highlight Rim */}
           <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-[#E98787]/25 dark:via-[#F0B9C6]/20 to-transparent pointer-events-none rounded-t-[28px]" />
 
@@ -1040,7 +1040,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               </div>
             ) : (
               /* STATE C: Sent pending or declined invitation */
-              <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-1.5 sm:mt-2 relative group">
+              <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-3 sm:mt-3.5 relative group">
                 {/* Soft ambient mist UNDER the card */}
                 <div
                   className="absolute -inset-3 rounded-[32px] bg-gradient-to-b from-[#FAD4DF]/25 via-[#F7CAD6]/15 to-transparent dark:from-[#3D222E]/30 dark:via-[#2F1A24]/15 dark:to-transparent blur-xl pointer-events-none -z-10"
