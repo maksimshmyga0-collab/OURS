@@ -572,7 +572,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
       {/* «Наше небо» — Живое интерактивное окно в общее небо пары */}
       {(onOpenStreak || onOpenSky) && (
-        <div className="-mt-1 sm:-mt-1.5 relative z-10">
+        <div className="mt-0.5 sm:mt-1 relative z-10">
           <OurSkyPreview
             couple={couple}
             todayMoments={moments}

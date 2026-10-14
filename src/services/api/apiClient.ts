@@ -691,11 +691,12 @@ export class ApiClient {
 
         const allMomentIds = allPairMoments.map((m: any) => m.id);
 
-        // Fetch photos, reactions, and pair plan in parallel
-        const [photosRes, reactionsRes, pairRes] = await Promise.all([
+        // Fetch photos, reactions, pair plan, and date invitations in parallel
+        const [photosRes, reactionsRes, pairRes, dateInvsRes] = await Promise.all([
           supabase.from('photos').select('*').in('moment_id', allMomentIds),
           supabase.from('reactions').select('*').in('moment_id', allMomentIds),
           supabase.from('pairs').select('is_lovely, subscription').eq('id', targetPairId).maybeSingle(),
+          supabase.from('date_invitations').select('*').eq('pair_id', targetPairId).eq('status', 'completed'),
         ]);
 
         const allPhotos = photosRes.data || [];
@@ -787,6 +788,56 @@ export class ApiClient {
             dayMap.set(dKey, list);
           }
         });
+
+        // Merge date invitation photo reports directly from date_invitations table
+        if (dateInvsRes.data && Array.isArray(dateInvsRes.data)) {
+          dateInvsRes.data.forEach((dInv: any) => {
+            const photoUrl = dInv.photo_url || dInv.photoUrl;
+            if (photoUrl && typeof photoUrl === 'string' && !photoUrl.startsWith('blob:')) {
+              const dateIso = dInv.completed_at || dInv.updated_at || dInv.created_at || new Date().toISOString();
+              const dKey = dateIso.split('T')[0] || todayKey;
+              const dMomentId = `date-${dInv.id}`;
+
+              const existingList = dayMap.get(dKey) || [];
+              const existingIdx = existingList.findIndex(
+                (m) => m.id === dMomentId || (m.isDate && (m.imageUrl === photoUrl || m.userPhoto === photoUrl || m.partnerPhoto === photoUrl))
+              );
+
+              if (existingIdx < 0) {
+                const dateMoment: Moment = {
+                  id: dMomentId,
+                  pairId: targetPairId,
+                  createdBy: dInv.creator_user_id || userId,
+                  createdAt: dateIso,
+                  dateKey: dKey,
+                  imageUrl: photoUrl,
+                  caption: null,
+                  order: 1,
+                  label: 'СВИДАНИЕ',
+                  prompt: dInv.idea?.title ? `Свидание: ${dInv.idea.title}` : 'Свидание',
+                  subtext: dInv.idea?.description || 'Воспоминание свидания',
+                  status: 'COMPLETED',
+                  themeColor: 'pink',
+                  userPhoto: photoUrl,
+                  partnerPhoto: null,
+                  photos: [
+                    {
+                      userId: dInv.creator_user_id || userId,
+                      imageUrl: photoUrl,
+                      createdAt: dateIso,
+                    },
+                  ],
+                  userReaction: null,
+                  partnerReaction: null,
+                  completedAt: dateIso,
+                  isDate: true,
+                };
+                existingList.push(dateMoment);
+                dayMap.set(dKey, existingList);
+              }
+            }
+          });
+        }
 
         // Merge offline / locally persisted date moments if any
         try {
@@ -1631,23 +1682,31 @@ export class ApiClient {
     // 2. Ensure moment row exists in public.moments
     if (supabaseConfig.isConfigured) {
       try {
-        const { data: existingMoment } = await supabase
-          .from('moments')
-          .select('id')
-          .eq('id', momentId)
-          .maybeSingle();
+        const momentRow = {
+          id: momentId,
+          pair_id: pairId,
+          creator_user_id: userId,
+          moment_date: todayKey,
+          prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
+          status: 'COMPLETED',
+          is_date: true,
+          created_at: new Date().toISOString(),
+        };
 
-        if (!existingMoment?.id) {
-          const { error: mErr } = await supabase.from('moments').insert({
+        const { error: mErr } = await supabase
+          .from('moments')
+          .upsert(momentRow, { onConflict: 'id' });
+
+        if (mErr) {
+          console.warn('[OURS Date] Upsert moments row error, trying insert:', mErr);
+          await supabase.from('moments').insert({
             id: momentId,
             pair_id: pairId,
+            creator_user_id: userId,
             moment_date: todayKey,
             prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
             created_at: new Date().toISOString(),
           });
-          if (mErr) {
-            console.warn('[OURS Date] Could not insert moments row:', mErr);
-          }
         }
       } catch (err) {
         console.warn('[OURS Date] Exception checking/inserting moments row:', err);
@@ -1657,37 +1716,59 @@ export class ApiClient {
     // 3. Upsert photo metadata into public.photos (enforces max 1 per user)
     if (supabaseConfig.isConfigured) {
       try {
-        const { data: existingPhoto } = await supabase
-          .from('photos')
-          .select('id')
-          .eq('moment_id', momentId)
-          .eq('user_id', userId)
-          .maybeSingle();
+        const photoRow = {
+          moment_id: momentId,
+          user_id: userId,
+          storage_path: storageUrl,
+          image_url: storageUrl,
+          created_at: new Date().toISOString(),
+        };
 
-        if (existingPhoto?.id) {
-          const { error: uErr } = await supabase
+        const { error: pErr } = await supabase
+          .from('photos')
+          .upsert(photoRow, { onConflict: 'moment_id,user_id' });
+
+        if (pErr) {
+          console.warn('[OURS Date] Upsert photos error, trying fallback update/insert:', pErr);
+          const { data: existingPhoto } = await supabase
             .from('photos')
-            .update({
-              storage_path: storageUrl,
-              image_url: storageUrl,
-              created_at: new Date().toISOString(),
-            })
-            .eq('id', existingPhoto.id);
-          if (uErr) console.warn('[OURS Date] Update photos row error:', uErr);
-        } else {
-          const { error: iErr } = await supabase
-            .from('photos')
-            .insert({
-              moment_id: momentId,
-              user_id: userId,
-              storage_path: storageUrl,
-              image_url: storageUrl,
-              created_at: new Date().toISOString(),
-            });
-          if (iErr) console.warn('[OURS Date] Insert photos row error:', iErr);
+            .select('id')
+            .eq('moment_id', momentId)
+            .eq('user_id', userId)
+            .maybeSingle();
+
+          if (existingPhoto?.id) {
+            await supabase
+              .from('photos')
+              .update({
+                storage_path: storageUrl,
+                image_url: storageUrl,
+                created_at: new Date().toISOString(),
+              })
+              .eq('id', existingPhoto.id);
+          } else {
+            await supabase.from('photos').insert(photoRow);
+          }
         }
       } catch (err) {
         console.warn('[OURS Date] Exception saving photos row:', err);
+      }
+    }
+
+    // 4. Persist completed status and photo_url directly on date_invitations table in Supabase
+    if (supabaseConfig.isConfigured) {
+      try {
+        await supabase
+          .from('date_invitations')
+          .update({
+            status: 'completed',
+            photo_url: storageUrl,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('pair_id', pairId);
+      } catch (err) {
+        console.warn('[OURS Date] Could not update date_invitations status:', err);
       }
     }
 
@@ -2105,6 +2186,8 @@ export class ApiClient {
           readByRecipient: data.read_by_recipient,
           createdAt: data.created_at,
           respondedAt: data.responded_at,
+          completedAt: data.completed_at || data.completedAt,
+          photoUrl: data.photo_url || data.photoUrl,
         };
       }
     } catch {

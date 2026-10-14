@@ -195,36 +195,37 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
     const dx = touch.clientX - touchState.current.startX;
     const dy = touch.clientY - touchState.current.startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
 
     if (!touchState.current.isDetermined) {
-      const absX = Math.abs(dx);
-      const absY = Math.abs(dy);
-
-      // Require at least 10px movement before determining gesture axis
-      if (absX < 10 && absY < 10) {
-        return;
-      }
-
-      touchState.current.isDetermined = true;
-
-      // If vertical movement is dominant or comparable -> native vertical scroll
-      if (absY >= absX * 0.8) {
-        touchState.current.isScrolling = true;
+      // Wait for at least 8px displacement before evaluating gesture axis
+      if (absX < 8 && absY < 8) {
         return;
       }
 
       // Check boundary conditions:
       // Tab 0 ('date'): cannot swipe right (dx > 0)
       // Tab 3 ('profile'): cannot swipe left (dx < 0)
-      if (
+      const isBoundaryBlocked =
         (currentIndexRef.current === 0 && dx > 0) ||
-        (currentIndexRef.current === 3 && dx < 0)
-      ) {
+        (currentIndexRef.current === 3 && dx < 0);
+
+      // Lock into vertical scrolling if:
+      // 1. Vertical movement is greater than horizontal
+      // 2. Vertical movement reached 6px and horizontal is not strictly dominant
+      // 3. Horizontal movement is less than 14px or not strictly horizontal (absX < absY * 2.2)
+      // 4. Attempting to swipe past outer boundaries
+      const isVerticalDominant = absY >= absX || absY >= 6 || absX < 14 || absX < absY * 2.2;
+
+      if (isVerticalDominant || isBoundaryBlocked) {
+        touchState.current.isDetermined = true;
         touchState.current.isScrolling = true;
         return;
       }
 
-      // Horizontal swipe navigation confirmed
+      // Strict horizontal tab swipe confirmed
+      touchState.current.isDetermined = true;
       touchState.current.isSwiping = true;
       if (!isDraggingRef.current) {
         isDraggingRef.current = true;
@@ -239,9 +240,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         e.preventDefault();
       }
 
-      // Enforce tab boundaries:
-      // Tab 0: cannot drag right beyond 0
-      // Tab 3: cannot drag left beyond 0
+      // Enforce tab boundaries
       let clampedDx = dx;
       if (currentIndexRef.current === 0 && dx > 0) {
         clampedDx = 0;
@@ -261,6 +260,11 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     if (!touchState.current.isSwiping) {
       touchState.current.isDetermined = false;
       touchState.current.isScrolling = false;
+      dragOffsetRef.current = 0;
+      if (trackRef.current) {
+        trackRef.current.style.transition = 'transform 200ms cubic-bezier(0.22, 1, 0.36, 1)';
+        trackRef.current.style.transform = `translate3d(-${currentIndexRef.current * 100}%, 0, 0)`;
+      }
       return;
     }
 
@@ -374,9 +378,11 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
       const dx = e.clientX - mouseState.current.startX;
       const dy = e.clientY - mouseState.current.startY;
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
 
       if (!mouseState.current.isSwiping) {
-        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+        if (absX >= 14 && absX >= absY * 2.2) {
           if (
             (currentIndexRef.current === 0 && dx > 0) ||
             (currentIndexRef.current === 3 && dx < 0)
@@ -389,6 +395,9 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
             setIsDragging(true);
           }
           setIsAnimating(false);
+        } else if (absY >= 8) {
+          mouseState.current.isDown = false;
+          return;
         }
       }
 
@@ -450,6 +459,12 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         setTimeout(() => {
           setIsAnimating(false);
         }, 240);
+      } else {
+        dragOffsetRef.current = 0;
+        if (trackRef.current) {
+          trackRef.current.style.transition = 'transform 200ms cubic-bezier(0.22, 1, 0.36, 1)';
+          trackRef.current.style.transform = `translate3d(-${currentIndexRef.current * 100}%, 0, 0)`;
+        }
       }
     };
 
