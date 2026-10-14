@@ -42,53 +42,72 @@ export function getInitialAppState(): AppState {
     const stored = appStorage.getItem(STORAGE_KEY);
     if (stored && typeof stored === 'string') {
       const parsed = JSON.parse(stored);
-      if (
-        parsed &&
-        Array.isArray(parsed.todayMoments) &&
-        parsed.couple &&
-        parsed.couple.user
-      ) {
-        if (!parsed.settings) {
-          parsed.settings = { notifications: true, sounds: true, haptic: true, theme: 'dark' };
-        } else {
-          parsed.settings.theme = 'dark';
-        }
-        if (!parsed.couple.pairSeed) {
-          parsed.couple.pairSeed = `${parsed.couple.inviteCode || 'OURS'}-${parsed.couple.user?.name || 'user'}-${parsed.couple.partner?.name || 'partner'}`.toLowerCase().replace(/\s+/g, '-');
-        }
-        if (parsed.couple.isLovely === undefined) {
-          parsed.couple.isLovely = parsed.couple.subscription === 'premium';
-        }
+      if (parsed && typeof parsed === 'object') {
+        const cleanUser = {
+          id: parsed.couple?.user?.id || '',
+          name: parsed.couple?.user?.name || '',
+          avatarUrl: parsed.couple?.user?.avatarUrl || null,
+          avatarColor: parsed.couple?.user?.avatarColor || '#F6DCE1',
+        };
 
-        // Clean out test mock history
-        if (Array.isArray(parsed.history)) {
-          parsed.history = parsed.history.filter(
-            (d: HistoryDay) => d && d.id && !d.id.startsWith('day-hist-') && !d.id.startsWith('hist-')
-          );
-        } else {
-          parsed.history = [];
-        }
+        const cleanPartner = {
+          id: parsed.couple?.partner?.id || '',
+          name: parsed.couple?.partner?.name || 'Партнёр',
+          avatarUrl: parsed.couple?.partner?.avatarUrl || null,
+          avatarColor: parsed.couple?.partner?.avatarColor || '#DDEAF7',
+        };
 
-        // Clean out test photos from today's moments
-        if (parsed.todayMoments[0]) {
-          if (
-            (parsed.todayMoments[0].userPhoto && parsed.todayMoments[0].userPhoto.includes('photo-1517841905240')) ||
-            (parsed.todayMoments[0].partnerPhoto && (parsed.todayMoments[0].partnerPhoto.includes('photo-1539571696357') || parsed.todayMoments[0].partnerPhoto.includes('photo-1534528741775')))
-          ) {
-            parsed.todayMoments[0].userPhoto = null;
-            parsed.todayMoments[0].partnerPhoto = null;
-            parsed.todayMoments[0].photos = [];
-            parsed.todayMoments[0].status = 'EMPTY';
-            parsed.todayMoments[0].userReaction = null;
-            parsed.todayMoments[0].partnerReaction = null;
-          }
-        }
+        const cleanCouple: CoupleState = {
+          id: parsed.couple?.id || '',
+          pairSeed: parsed.couple?.pairSeed || `${parsed.couple?.inviteCode || 'OURS'}-${cleanUser.name || 'user'}-${cleanPartner.name || 'partner'}`.toLowerCase().replace(/\s+/g, '-'),
+          user: cleanUser,
+          partner: cleanPartner,
+          inviteCode: parsed.couple?.inviteCode || '',
+          connected: Boolean(parsed.couple?.connected),
+          startDate: parsed.couple?.startDate || '',
+          daysTogether: parsed.couple?.daysTogether || 1,
+          isLovely: Boolean(parsed.couple?.isLovely || parsed.couple?.subscription === 'premium'),
+          lovelyPurchasedAt: parsed.couple?.lovelyPurchasedAt,
+          subscription: parsed.couple?.subscription || 'free',
+        };
 
-        return syncAppStateForDate(parsed);
+        const cleanMoments: Moment[] = Array.isArray(parsed.todayMoments)
+          ? parsed.todayMoments.filter(Boolean).map((m: any) => ({
+              ...m,
+              photos: Array.isArray(m.photos) ? m.photos.filter(Boolean) : [],
+            }))
+          : JSON.parse(JSON.stringify(DEFAULT_TODAY_MOMENTS));
+
+        const cleanHistory: HistoryDay[] = Array.isArray(parsed.history)
+          ? parsed.history
+              .filter((d: any) => d && d.id && !d.id.startsWith('day-hist-') && !d.id.startsWith('hist-'))
+              .map((d: any) => ({
+                ...d,
+                moments: Array.isArray(d.moments) ? d.moments.filter(Boolean) : [],
+              }))
+          : [];
+
+        const cleanSettings: AppSettings = {
+          notifications: parsed.settings?.notifications ?? true,
+          sounds: parsed.settings?.sounds ?? true,
+          haptic: parsed.settings?.haptic ?? true,
+          theme: 'dark',
+        };
+
+        const sanitizedState: AppState = {
+          hasCompletedOnboarding: Boolean(parsed.hasCompletedOnboarding && cleanCouple.id),
+          couple: cleanCouple,
+          todayMoments: cleanMoments.length > 0 ? cleanMoments : JSON.parse(JSON.stringify(DEFAULT_TODAY_MOMENTS)),
+          activeMomentId: parsed.activeMomentId || cleanMoments[0]?.id || 'moment-today-1',
+          history: cleanHistory,
+          settings: cleanSettings,
+        };
+
+        return syncAppStateForDate(sanitizedState);
       }
     }
-  } catch {
-    // ignore
+  } catch (err) {
+    console.warn('[OURS Storage] Failed to parse cached app state:', err);
   }
 
   return {

@@ -26,6 +26,7 @@ import {
   StarEvent,
   isMomentMatched,
 } from '../sky/skyService';
+import { bootDiagnostics } from '../device/bootDiagnostics';
 
 let lastClockSync = 0;
 async function syncServerClock(): Promise<void> {
@@ -262,6 +263,7 @@ export class ApiClient {
 
       if (user?.id) {
         this.currentUserId = user.id;
+        bootDiagnostics.logStage('AUTH_READY', 'Supabase anonymous user authenticated');
         return user.id;
       }
 
@@ -1013,9 +1015,11 @@ export class ApiClient {
 
       if (membership?.pair_id) {
         this.currentPairId = membership.pair_id;
+        bootDiagnostics.logStage('PAIR_RESOLVED', 'Pair membership resolved');
 
         // Startup fast-path: assemble today's data without blocking on full historical photos
         const assembled = await this.assemblePairData(membership.pair_id, userId, { includeHistory: false });
+        bootDiagnostics.logStage('STATE_LOADED', 'Couple state and moments assembled');
         return {
           success: true,
           user: userSession,
@@ -1029,6 +1033,8 @@ export class ApiClient {
       }
 
       // Explicit server confirmation: query succeeded with zero errors, and user has no pair
+      bootDiagnostics.logStage('PAIR_RESOLVED', 'No active pair membership');
+      bootDiagnostics.logStage('STATE_LOADED', 'Onboarding state ready');
       return {
         success: true,
         user: userSession,
@@ -1040,6 +1046,7 @@ export class ApiClient {
         history: [],
       };
     } catch (err: any) {
+      bootDiagnostics.logError('STATE_LOADED', err);
       console.warn('[OURS Session] Exception checking pair membership:', err);
       return {
         success: false,

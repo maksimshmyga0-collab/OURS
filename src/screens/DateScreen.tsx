@@ -493,9 +493,9 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   const isClosed = !isOpen && !isModalOpen && !isClosingModal;
 
   return (
-    <div className="flex-1 h-full w-full max-w-md mx-auto flex flex-col space-y-4 pb-12 select-none relative overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
+    <div className="flex-1 h-full w-full max-w-md mx-auto flex flex-col space-y-2.5 sm:space-y-3 pb-8 select-none relative overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
       {/* Top Header */}
-      <header className="w-full flex items-center justify-between px-1 shrink-0 pt-1">
+      <header className="w-full flex items-center justify-between px-1 shrink-0 pt-0.5 sm:pt-1">
         <div>
           <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white">
             Свидание

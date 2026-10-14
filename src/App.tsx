@@ -34,6 +34,8 @@ import { getCoupleSeed } from './services/fingerprint/fingerprintHistory';
 import { LegalDocumentType } from './screens/LegalScreen';
 import { dateInvitationService } from './services/dates/dateInvitationService';
 import { photoSyncQueue } from './services/storage/photoSyncQueue';
+import { bootDiagnostics } from './services/device/bootDiagnostics';
+import { AppBootFallback } from './components/AppBootFallback';
 
 // Code-split non-critical screens and modals for fast budget-device startup
 const HistoryScreen = React.lazy(() => import('./screens/HistoryScreen').then(m => ({ default: m.HistoryScreen })));
@@ -233,36 +235,40 @@ export default function App() {
         if (session.success && session.hasCompletedOnboarding && session.pair) {
           setAppState((prev) => {
             const isLovely = Boolean(
-              session.pair!.isLovely ||
-              session.pair!.subscription === 'premium' ||
-              prev.couple.isLovely ||
-              prev.couple.subscription === 'premium'
+              session.pair?.isLovely ||
+              session.pair?.subscription === 'premium' ||
+              prev.couple?.isLovely ||
+              prev.couple?.subscription === 'premium'
             );
 
+            const pairUser = session.pair?.user || prev.couple?.user || { id: '', name: '', avatarColor: '#F6DCE1' };
+            const pairPartner = session.pair?.partner || prev.couple?.partner || { id: '', name: 'Партнёр', avatarColor: '#DDEAF7' };
+
             // Partner name preservation: avoid degrading known partner name to fallback 'Партнёр'
-            const partnerName = (session.pair!.partner.name && session.pair!.partner.name !== 'Партнёр')
-              ? session.pair!.partner.name
-              : (prev.couple.partner.name && prev.couple.partner.name !== 'Партнёр')
+            const partnerName = (pairPartner.name && pairPartner.name !== 'Партнёр')
+              ? pairPartner.name
+              : (prev.couple?.partner?.name && prev.couple.partner.name !== 'Партнёр')
                 ? prev.couple.partner.name
-                : (session.pair!.partner.name || 'Партнёр');
+                : (pairPartner.name || 'Партнёр');
 
-            const partnerAvatar = session.pair!.partner.avatarUrl || prev.couple.partner.avatarUrl || null;
+            const partnerAvatar = pairPartner.avatarUrl || prev.couple?.partner?.avatarUrl || null;
 
-            const mergedMoments = mergeMomentsMonotonic(session.moments, prev.todayMoments);
+            const mergedMoments = mergeMomentsMonotonic(session.moments, prev.todayMoments || []);
 
             const nextState: AppState = {
               ...prev,
               hasCompletedOnboarding: true,
               couple: {
                 ...session.pair!,
+                user: pairUser,
                 partner: {
-                  ...session.pair!.partner,
+                  ...pairPartner,
                   name: partnerName,
                   avatarUrl: partnerAvatar,
                 },
                 isLovely,
-                subscription: isLovely ? 'premium' : (session.pair!.subscription || 'free'),
-                lovelyPurchasedAt: session.pair!.lovelyPurchasedAt || prev.couple.lovelyPurchasedAt,
+                subscription: isLovely ? 'premium' : (session.pair?.subscription || 'free'),
+                lovelyPurchasedAt: session.pair?.lovelyPurchasedAt || prev.couple?.lovelyPurchasedAt,
               },
               todayMoments: mergedMoments,
               activeMomentId: resolveAuthoritativeActiveMomentId(
@@ -273,7 +279,7 @@ export default function App() {
               history:
                 session.history && session.history.length > 0
                   ? session.history
-                  : prev.history,
+                  : (prev.history || []),
             };
             saveAppState(nextState);
             return nextState;
@@ -305,10 +311,12 @@ export default function App() {
           console.log('[OURS] Session initialization running with local/cached state');
         }
       } catch (err) {
+        bootDiagnostics.logError('STATE_LOADED', err);
         console.error('[OURS] Failed to initialize session:', err);
       } finally {
         if (isMounted) {
           setIsInitialSessionReady(true);
+          bootDiagnostics.logStage('UI_READY', 'Initial session ready, rendering UI');
         }
       }
     }
@@ -402,31 +410,34 @@ export default function App() {
             );
 
             const isLovelyActive = Boolean(
-              res.pair!.isLovely ||
-              res.pair!.subscription === 'premium' ||
-              (prev.couple.isLovely && !res.pair!.isLovely && prev.couple.lovelyPurchasedAt ? true : res.pair!.isLovely)
+              res.pair?.isLovely ||
+              res.pair?.subscription === 'premium' ||
+              (prev.couple?.isLovely && !res.pair?.isLovely && prev.couple?.lovelyPurchasedAt ? true : res.pair?.isLovely)
             );
 
-            const resolvedPartnerName = (res.pair!.partner.name && res.pair!.partner.name !== 'Партнёр')
-              ? res.pair!.partner.name
-              : (prev.couple.partner.name && prev.couple.partner.name !== 'Партнёр')
-                ? prev.couple.partner.name
-                : (res.pair!.partner.name || 'Партнёр');
+            const pairPartner = res.pair?.partner || prev.couple?.partner || { id: '', name: 'Партнёр', avatarColor: '#DDEAF7' };
+            const pairUser = res.pair?.user || prev.couple?.user || { id: '', name: '', avatarColor: '#F6DCE1' };
 
-            const resolvedPartnerAvatar = res.pair!.partner.avatarUrl || prev.couple.partner.avatarUrl || null;
-            const resolvedUserAvatar = res.pair!.user.avatarUrl || prev.couple.user.avatarUrl || null;
-            const prevUserAvatar = prev.couple.user.avatarUrl || null;
-            const prevPartnerAvatar = prev.couple.partner.avatarUrl || null;
+            const resolvedPartnerName = (pairPartner.name && pairPartner.name !== 'Партнёр')
+              ? pairPartner.name
+              : (prev.couple?.partner?.name && prev.couple.partner.name !== 'Партнёр')
+                ? prev.couple.partner.name
+                : (pairPartner.name || 'Партнёр');
+
+            const resolvedPartnerAvatar = pairPartner.avatarUrl || prev.couple?.partner?.avatarUrl || null;
+            const resolvedUserAvatar = pairUser.avatarUrl || prev.couple?.user?.avatarUrl || null;
+            const prevUserAvatar = prev.couple?.user?.avatarUrl || null;
+            const prevPartnerAvatar = prev.couple?.partner?.avatarUrl || null;
 
             const coupleChanged =
-              prev.couple.connected !== res.pair!.connected ||
-              prev.couple.isLovely !== isLovelyActive ||
-              prev.couple.subscription !== (isLovelyActive ? 'premium' : (res.pair!.subscription || 'free')) ||
-              (prev.couple.user.name || '') !== (res.pair!.user.name || '') ||
+              prev.couple?.connected !== res.pair?.connected ||
+              prev.couple?.isLovely !== isLovelyActive ||
+              prev.couple?.subscription !== (isLovelyActive ? 'premium' : (res.pair?.subscription || 'free')) ||
+              (prev.couple?.user?.name || '') !== (pairUser.name || '') ||
               prevUserAvatar !== resolvedUserAvatar ||
-              prev.couple.partner.name !== resolvedPartnerName ||
+              prev.couple?.partner?.name !== resolvedPartnerName ||
               prevPartnerAvatar !== resolvedPartnerAvatar ||
-              prev.couple.daysTogether !== res.pair!.daysTogether;
+              prev.couple?.daysTogether !== res.pair?.daysTogether;
 
             const momentsChanged =
               moments.length !== prev.todayMoments.length ||
@@ -1106,7 +1117,7 @@ export default function App() {
       onThemePersist={handleUpdateTheme}
     >
       {!appState.hasCompletedOnboarding ? (
-        <React.Suspense fallback={<div className="min-h-screen bg-[#000000]" />}>
+        <React.Suspense fallback={<AppBootFallback onRetry={() => window.location.reload()} onClearCache={() => resetToOnboarding()} />}>
           <OnboardingFlow
             onComplete={handleOnboardingComplete}
             onFinish={handleFinishOnboarding}

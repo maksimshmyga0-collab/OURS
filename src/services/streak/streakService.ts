@@ -65,15 +65,16 @@ export function calculateCoupleStreak(
 
   // 1. Process today's moments
   const todayKey = formatDateKey(referenceDate);
-  for (const m of todayMoments) {
-    addMomentIfUnique(m, todayKey);
+  for (const m of (todayMoments || [])) {
+    if (m) addMomentIfUnique(m, todayKey);
   }
 
   // 2. Process history moments
-  for (const day of history) {
+  for (const day of (history || [])) {
+    if (!day) continue;
     const dayKey = day.dateKey || todayKey;
-    for (const moment of day.moments) {
-      addMomentIfUnique(moment, dayKey);
+    for (const moment of (day.moments || [])) {
+      if (moment) addMomentIfUnique(moment, dayKey);
     }
   }
 

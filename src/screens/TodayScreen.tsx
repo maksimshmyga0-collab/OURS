@@ -281,7 +281,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 h-full w-full flex flex-col space-y-4 sm:space-y-5 pb-5 sm:pb-6 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-0.5">
+    <div className="flex-1 h-full w-full flex flex-col space-y-2.5 sm:space-y-3 pb-3 sm:pb-3.5 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-0.5">
       {/* Day Status Header */}
       <div className="flex items-center justify-between px-1">
         <div>
@@ -572,16 +572,18 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
       {/* «Наше небо» — Живое интерактивное окно в общее небо пары */}
       {(onOpenStreak || onOpenSky) && (
-        <OurSkyPreview
-          couple={couple}
-          todayMoments={moments}
-          history={history}
-          pairSeed={pairSeed}
-          streakInfo={streakInfo}
-          soundEnabled={soundEnabled}
-          hapticEnabled={hapticEnabled}
-          onOpenSky={onOpenStreak || onOpenSky || (() => {})}
-        />
+        <div className="-mt-3 sm:-mt-3.5 relative z-10">
+          <OurSkyPreview
+            couple={couple}
+            todayMoments={moments}
+            history={history}
+            pairSeed={pairSeed}
+            streakInfo={streakInfo}
+            soundEnabled={soundEnabled}
+            hapticEnabled={hapticEnabled}
+            onOpenSky={onOpenStreak || onOpenSky || (() => {})}
+          />
+        </div>
       )}
 
 

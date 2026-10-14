@@ -432,7 +432,8 @@ export function getCoupleStarEvents(
   }
 
   // 2. Extract authentic events from real history days
-  for (const day of history) {
+  for (const day of (history || [])) {
+    if (!day) continue;
     let dayKey: string | null = null;
     if (day.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(day.dateKey)) {
       dayKey = day.dateKey;
