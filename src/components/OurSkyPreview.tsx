@@ -107,8 +107,8 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
       }}
       className={`group relative w-full select-none overflow-hidden cursor-pointer transition-all duration-200 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] ${
         isCompact
-          ? 'min-h-[72px] sm:min-h-[80px] rounded-[20px] p-3 sm:p-3.5'
-          : 'min-h-[76px] sm:min-h-[88px] rounded-[22px] p-3 sm:p-4'
+          ? 'min-h-[76px] sm:min-h-[82px] rounded-[20px] p-3 sm:p-3.5'
+          : 'min-h-[82px] sm:min-h-[90px] rounded-[22px] p-3.5 sm:p-4'
       } ${className}`}
       style={{
         backgroundColor: '#0A0A14',

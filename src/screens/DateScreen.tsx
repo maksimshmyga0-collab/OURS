@@ -1040,7 +1040,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
               </div>
             ) : (
               /* STATE C: Sent pending or declined invitation */
-              <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-3 sm:mt-3.5 relative group">
+              <div className="w-full max-w-[360px] xs:max-w-[392px] sm:max-w-[416px] mx-auto mt-1.5 sm:mt-2 relative group">
                 {/* Soft ambient mist UNDER the card */}
                 <div
                   className="absolute -inset-3 rounded-[32px] bg-gradient-to-b from-[#FAD4DF]/25 via-[#F7CAD6]/15 to-transparent dark:from-[#3D222E]/30 dark:via-[#2F1A24]/15 dark:to-transparent blur-xl pointer-events-none -z-10"
