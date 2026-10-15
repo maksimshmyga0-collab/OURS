@@ -107,8 +107,8 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
       }}
       className={`group relative w-full select-none overflow-hidden cursor-pointer transition-all duration-200 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] ${
         isCompact
-          ? 'min-h-[72px] sm:min-h-[80px] rounded-[20px] p-2.5 sm:p-3'
-          : 'min-h-[76px] sm:min-h-[86px] rounded-[20px] sm:rounded-[22px] p-3 sm:p-3.5'
+          ? 'min-h-[78px] sm:min-h-[84px] rounded-[20px] sm:rounded-[22px] p-3 sm:p-3.5'
+          : 'min-h-[82px] sm:min-h-[92px] rounded-[22px] sm:rounded-[24px] p-3.5 sm:p-4'
       } ${className}`}
       style={{
         backgroundColor: '#0A0A14',
@@ -160,18 +160,18 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
       <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/18 to-transparent pointer-events-none" />
 
       {/* 3. Card Content */}
-      <div className="relative z-10 h-full w-full flex items-center justify-between gap-3 pointer-events-none">
-        <div className="flex flex-col min-w-0 flex-1">
+      <div className="relative z-10 h-full w-full flex items-center justify-between gap-3 pt-1 sm:pt-1.5 pointer-events-none">
+        <div className="flex flex-col min-w-0 flex-1 justify-center my-auto">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display font-bold text-[15px] sm:text-[16px] text-white tracking-tight leading-tight">
+            <span className="font-display font-bold text-[16px] sm:text-[17px] text-white tracking-tight leading-tight">
               Наше небо
             </span>
-            <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-white/10 text-[#F0B9C6] border border-white/12 shadow-2xs">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-white/10 text-[#F0B9C6] border border-white/12 shadow-2xs">
               {sky.monthName}
             </span>
           </div>
 
-          <p className="text-[12px] sm:text-[12.5px] text-[#A9A1B8] mt-1 tracking-tight line-clamp-1 font-medium">
+          <p className="text-[12.5px] sm:text-[13px] text-[#A9A1B8] mt-1 sm:mt-1.5 tracking-tight line-clamp-1 font-medium">
             {starsCount === 0 ? (
               <span>Каждый MATCH зажигает звезду в небе</span>
             ) : (

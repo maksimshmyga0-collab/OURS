@@ -476,28 +476,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             </div>
           )}
 
-          {/* State 1: Main CTA «Касание готово» (EMPTY or waiting for user's photo) */}
-          {!activeMoment.userPhoto &&
-            !isMatching &&
-            activeMoment.status !== 'COMPLETED' &&
-            activeMoment.status !== 'REVEALED' &&
-            activeMoment.status !== 'REACTED' &&
-            !isCurrentMomentWaiting && (
-              <div className="pt-1.5 animate-in fade-in duration-300 ease-out">
-                <TouchReadyButton
-                  onClick={() => setIsPhotoPickerOpen(true)}
-                  onPhotoSelected={handlePhotoSelected}
-                  text="Касание готово"
-                  subtext={
-                    isPartnerUploadedOnly
-                      ? `${couple.partner.name} уже отправил(а) фото · Ваш черёд ♡`
-                      : undefined
-                  }
-                  soundEnabled={soundEnabled}
-                  hapticEnabled={hapticEnabled}
-                />
-              </div>
-            )}
+
 
 
 
@@ -572,7 +551,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
       {/* «Наше небо» — Живое интерактивное окно в общее небо пары */}
       {(onOpenStreak || onOpenSky) && (
-        <div className="-mt-1 sm:-mt-1.5 relative z-10">
+        <div className="mt-0.5 sm:mt-1 relative z-10">
           <OurSkyPreview
             couple={couple}
             todayMoments={moments}
