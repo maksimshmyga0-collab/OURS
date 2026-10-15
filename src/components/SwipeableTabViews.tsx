@@ -513,7 +513,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 1: Today */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-2.5 sm:pt-3 pb-1.5 flex flex-col h-full min-h-0 overflow-hidden ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2.5 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${
             !isTabVisible(1)
               ? 'invisible pointer-events-none tab-hidden'
               : 'opacity-100 visible'

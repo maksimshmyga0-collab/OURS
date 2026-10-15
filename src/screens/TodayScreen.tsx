@@ -281,14 +281,14 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 h-full w-full flex flex-col space-y-3 sm:space-y-3.5 pb-3.5 sm:pb-4 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-0.5">
+    <div className="flex-1 h-full w-full flex flex-col space-y-2.5 sm:space-y-3 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-0.5">
       {/* Day Status Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h1 className="font-display text-2xl font-bold text-[#343033] dark:text-white">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white">
             Сегодня
           </h1>
-          <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
+          <p className="text-[11px] sm:text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
             {availability.completedCount} из 3 касаний
           </p>
         </div>
@@ -312,10 +312,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         <PastelCard
           key={activeMoment.id}
           color={getThemeCardColor(activeMoment)}
-          className="p-3.5 sm:p-5 pb-4 sm:pb-5 relative overflow-visible transition-all duration-300 ease-out animate-card-enter"
+          className="p-3 sm:p-4.5 pb-3.5 sm:pb-4.5 relative overflow-visible transition-all duration-300 ease-out animate-card-enter"
         >
         {/* Card Header info */}
-        <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+        <div className="flex items-center justify-between mb-2 sm:mb-2.5">
           <span className="text-[11px] font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase transition-colors duration-200">
             {isCurrentMomentWaiting
               ? `${activeMoment.label} · ПАУЗА`
@@ -351,10 +351,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </div>
 
         {/* Prompt Header */}
-        <div className="mb-3.5 sm:mb-4.5 transition-all duration-200">
+        <div className="mb-2.5 sm:mb-3.5 transition-all duration-200">
           {isCurrentMomentWaiting ? (
             <div className="space-y-1 animate-in fade-in duration-250 ease-out">
-              <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
+              <h2 className="font-display text-lg xs:text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
                 {activeMoment.prompt}
               </h2>
               <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] pt-0.5">
@@ -363,7 +363,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             </div>
           ) : (
             <div className="space-y-1">
-              <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
+              <h2 className="font-display text-lg xs:text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
                 {activeMoment.prompt}
               </h2>
               <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">
@@ -378,7 +378,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </div>
 
         {/* Photo Slots Section - Living Diptych Composition */}
-        <div className="relative mb-3.5 sm:mb-4 px-0.5 sm:px-1 overflow-visible">
+        <div className="relative mb-2.5 sm:mb-3.5 px-0.5 sm:px-1 overflow-visible">
           {/* 1. Atmospheric Ambient Backlight Aura embracing both photos as a unified diptych */}
           <AtmosphericGlow />
 
@@ -410,7 +410,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             </div>
           )}
 
-          <div className="relative grid grid-cols-2 items-start gap-2.5 sm:gap-3.5">
+          <div className="relative grid grid-cols-2 items-start gap-2 sm:gap-3">
             {isCurrentMomentWaiting ? (
               // Calm waiting placeholders during cooldown with living cherry-burgundy cloud glow
               <div className="col-span-2 w-full relative overflow-visible my-1">
@@ -465,7 +465,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </div>
 
         {/* State Machine Action Areas */}
-        <div className="pt-2">
+        <div className="pt-1 sm:pt-1.5">
           {/* While matching animation is in progress */}
           {isMatching && (
             <div className="rounded-[20px] bg-white/80 dark:bg-[#141214]/80 border border-[#F0B9C6]/60 dark:border-[#382329] p-3.5 text-center space-y-1 shadow-2xs animate-in fade-in duration-200">

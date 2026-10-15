@@ -432,6 +432,13 @@ html.dark .liquid-glass-header {
   border-color: #242024 !important;
 }
 
+html.dark nav[aria-label="Нижняя навигация"],
+html.dark nav {
+  background-color: #000000 !important;
+  border-bottom: none !important;
+  outline: none !important;
+}
+
 html.dark .liquid-glass-pill {
   background: rgba(26, 24, 26, 0.88) !important;
   border-color: #242024 !important;

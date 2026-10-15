@@ -38,7 +38,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
 
   return (
     <nav
-      className="shrink-0 z-40 bg-[#FFF9FA]/92 dark:bg-black/92 backdrop-blur-xl border-t border-[#000000]/6 dark:border-[#242024] px-4 pt-1.5 transition-colors"
+      className="shrink-0 z-40 relative bg-[#FFF9FA] dark:bg-[#000000] border-t border-[#000000]/6 dark:border-[#242024] border-b-0 outline-none px-4 pt-1.5 transition-colors after:content-[''] after:absolute after:top-full after:left-0 after:right-0 after:h-24 after:bg-[#FFF9FA] dark:after:bg-[#000000] after:pointer-events-none"
       style={{
         paddingBottom: 'calc(0.5rem + env(safe-area-inset-bottom, 0px))',
       }}
