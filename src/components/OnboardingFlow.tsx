@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { PrimaryButton } from './PrimaryButton';
 import {
   ChevronLeft,
@@ -46,6 +46,8 @@ interface OnboardingFlowProps {
 
 type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join' | 'restore' | 'created-code';
 
+const ONBOARDING_SLIDES: OnboardingView[] = ['slide-1', 'slide-2', 'slide-3', 'slide-4'];
+
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onComplete,
   onFinish,
@@ -61,6 +63,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [shakeField, setShakeField] = useState<'create-name' | 'join-name' | 'join-code' | 'restore-code' | null>(null);
+
+  // Touch gesture state for horizontal slide swipes
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // Helper for toasts with auto-dismiss
   const showToast = (message: string) => {
@@ -97,6 +102,53 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     triggerHaptic(true);
     playSoftChime('tap', true);
     setView(prev);
+  };
+
+  // Touch swipe gesture handlers for switching slides cleanly
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!ONBOARDING_SLIDES.includes(view) || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+    };
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!ONBOARDING_SLIDES.includes(view) || !touchStartRef.current) return;
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+
+    if (e.changedTouches.length !== 1) return;
+    const touch = e.changedTouches[0];
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    const timeElapsed = Date.now() - start.time;
+
+    // Thresholds: min 45px, horizontal dominance (> 1.25x vertical), max 800ms
+    const MIN_DISTANCE = 45;
+    const MAX_TIME = 800;
+
+    if (absX >= MIN_DISTANCE && absX > absY * 1.25 && timeElapsed <= MAX_TIME) {
+      const currentIdx = ONBOARDING_SLIDES.indexOf(view);
+      if (currentIdx === -1) return;
+
+      if (deltaX < 0) {
+        // Swipe Left -> Next slide
+        if (currentIdx < ONBOARDING_SLIDES.length - 1) {
+          handleNextSlide(ONBOARDING_SLIDES[currentIdx + 1]);
+        }
+      } else {
+        // Swipe Right -> Previous slide
+        if (currentIdx > 0) {
+          handleBack(ONBOARDING_SLIDES[currentIdx - 1]);
+        }
+      }
+    }
   };
 
   // Create couple submission
@@ -201,7 +253,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       )}
 
       {/* Frame Container */}
-      <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative p-6 sm:px-8 justify-between">
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="w-full max-w-md mx-auto flex flex-col min-h-screen relative p-6 sm:px-8 justify-between touch-pan-y select-none"
+      >
         {/* ========================================================= */}
         {/* ========================================================= */}
         {/* SLIDE 1 — «СВИДАНИЕ» 💌                                  */}
