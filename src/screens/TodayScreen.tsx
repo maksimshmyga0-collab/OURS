@@ -283,13 +283,11 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           color={getThemeCardColor(activeMoment)}
           className="p-2 sm:p-3 pb-3 sm:pb-3.5 relative overflow-visible transition-all duration-300 ease-out animate-card-enter"
         >
-        {/* Card Header info */}
-        <div className="flex items-center justify-between mb-2 sm:mb-2.5 px-0.5">
-          <span className="text-[11px] font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase transition-colors duration-200">
-            {isCurrentMomentWaiting
-              ? 'КАСАНИЕ · ПАУЗА'
-              : (activeMoment.label ? activeMoment.label.replace(/\s*\d+$/, '') : 'КАСАНИЕ')}
-          </span>
+        {/* Card Header info — Explicitly elevated above photo glow layers */}
+        <div className="relative z-20 flex items-center justify-between mb-1.5 sm:mb-2 px-0.5 min-h-[28px]">
+          <h2 className="font-display text-xl xs:text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white leading-none tracking-tight">
+            Касание
+          </h2>
 
           {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) ? (
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#2B7348] dark:text-[#52B778] animate-in fade-in duration-200">
@@ -319,35 +317,21 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           ) : null}
         </div>
 
-        {/* Clean Moment Header */}
-        <div className="mb-2 sm:mb-3 px-0.5 transition-all duration-200">
-          {isCurrentMomentWaiting ? (
-            <div className="space-y-1 animate-in fade-in duration-250 ease-out">
-              <h2 className="font-display text-lg xs:text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
-                Касание
-              </h2>
-              <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] pt-0.5">
-                Следующее касание через {formatRemainingTime(availability.remainingCooldownMs)}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <h2 className="font-display text-lg xs:text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
-                Касание
-              </h2>
-              {(activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) || isPartnerUploadedOnly) && (
-                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">
-                  {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)
-                    ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
-                    : `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Subtitle Status text below title */}
+        {isCurrentMomentWaiting ? (
+          <p className="relative z-20 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] px-0.5 mb-2.5 sm:mb-3">
+            Следующее касание через {formatRemainingTime(availability.remainingCooldownMs)}
+          </p>
+        ) : (activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) || isPartnerUploadedOnly) ? (
+          <p className="relative z-20 text-xs text-[#777277] dark:text-[#B8B2B5] px-0.5 mb-2.5 sm:mb-3 leading-relaxed">
+            {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)
+              ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
+              : `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`}
+          </p>
+        ) : null}
 
         {/* Photo Slots Section - Living Diptych Composition */}
-        <div className="relative mt-2 sm:mt-2.5 mb-2 sm:mb-2.5 px-0 overflow-visible">
+        <div className="relative z-10 mt-1 sm:mt-1.5 mb-2 sm:mb-2.5 px-0 overflow-visible">
           {/* 1. Atmospheric Ambient Backlight Aura embracing both photos as a unified diptych */}
           <AtmosphericGlow />
 

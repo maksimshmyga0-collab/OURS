@@ -393,21 +393,21 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/40 via-white to-[#DDEAF7]/30 dark:from-[#221518]/50 dark:via-transparent dark:to-[#151D26]/30 blur-lg pointer-events-none" />
 
                 {/* Diptych Container */}
-                <div className="relative p-3.5 rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs flex flex-col gap-2.5">
-                  {/* Top Badge */}
-                  <div className="flex items-center justify-between px-1">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[10px] font-semibold tracking-wide uppercase">
-                      <Sparkles size={11} />
+                <div className="relative rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs p-4 flex flex-col gap-3">
+                  {/* NEW Independent Header Container for 'Касание' Title */}
+                  <div className="flex items-center justify-between px-0.5 relative z-20">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide">
+                      <Sparkles size={13} />
                       <span>Касание</span>
                     </span>
-                    <span className="text-[10px] font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center gap-1">
-                      <Sparkles size={11} />
+                    <span className="text-[11px] font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center gap-1">
+                      <Sparkles size={12} />
                       <span>Оба готовы</span>
                     </span>
                   </div>
 
-                  {/* Two Diptych Slots Stage */}
-                  <div className="relative grid grid-cols-2 gap-2">
+                  {/* Two Diptych Slots Stage (Frames Layer) */}
+                  <div className="relative grid grid-cols-2 gap-2 mt-3">
                     {/* User Slot */}
                     <div className="aspect-[4/4.8] rounded-[20px] bg-gradient-to-tr from-[#FAF0ED] via-[#F6DCE1] to-[#EED7DC] dark:from-[#201518] dark:via-[#2A181C] dark:to-[#1C1417] border border-[#EBE3E5] dark:border-[#352126] shadow-2xs flex flex-col items-center justify-center p-2 relative overflow-hidden">
                       <div className="w-8 h-8 rounded-xl bg-white/90 dark:bg-[#2A181E] flex items-center justify-center text-[#E98787] shadow-xs mb-1">
