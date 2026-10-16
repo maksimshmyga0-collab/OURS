@@ -601,19 +601,19 @@ export const DateScreen: React.FC<DateScreenProps> = ({
                 style={{ zIndex: 8 }}
               >
                 {/* Core warm radiant glow aura */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-4 w-44 h-28 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.45)_0%,_rgba(253,225,232,0.25)_45%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.32)_0%,_rgba(128,28,52,0.18)_45%,_transparent_75%)] blur-xl animate-[aura-glow_0.75s_ease-out_forwards]" />
+                <div className="absolute left-1/2 -translate-x-1/2 top-4 w-44 h-28 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.45)_0%,_rgba(253,225,232,0.25)_45%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.34)_0%,_rgba(168,38,68,0.16)_45%,_transparent_75%)] blur-xl animate-[aura-glow_0.75s_ease-out_forwards]" />
 
                 {/* Secondary expansive soft warm light */}
-                <div className="absolute left-1/2 -translate-x-1/2 -top-2 w-60 h-36 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.42)_0%,_rgba(253,225,232,0.20)_50%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.28)_0%,_rgba(128,28,52,0.12)_50%,_transparent_75%)] blur-2xl animate-[aura-glow_0.9s_ease-out_forwards]" />
+                <div className="absolute left-1/2 -translate-x-1/2 -top-2 w-60 h-36 rounded-full bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.42)_0%,_rgba(253,225,232,0.20)_50%,_transparent_75%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.30)_0%,_rgba(168,38,68,0.14)_50%,_transparent_75%)] blur-2xl animate-[aura-glow_0.9s_ease-out_forwards]" />
 
                 {/* Left ethereal mist wisp */}
-                <div className="absolute left-[16%] top-6 w-24 h-24 rounded-full bg-[radial-gradient(circle,_rgba(253,225,232,0.55)_0%,_rgba(235,168,184,0.25)_40%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(198,58,86,0.22)_0%,_rgba(128,28,52,0.08)_40%,_transparent_70%)] blur-lg animate-[mist-rise-left_0.8s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
+                <div className="absolute left-[16%] top-6 w-24 h-24 rounded-full bg-[radial-gradient(circle,_rgba(253,225,232,0.50)_0%,_rgba(235,168,184,0.22)_40%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(215,68,98,0.24)_0%,_rgba(168,38,68,0.10)_40%,_transparent_70%)] blur-lg animate-[mist-rise-left_0.8s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
 
                 {/* Right ethereal mist wisp */}
-                <div className="absolute right-[16%] top-6 w-28 h-28 rounded-full bg-[radial-gradient(circle,_rgba(253,225,232,0.55)_0%,_rgba(235,168,184,0.25)_40%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(198,58,86,0.22)_0%,_rgba(128,28,52,0.08)_40%,_transparent_70%)] blur-lg animate-[mist-rise-right_0.85s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
+                <div className="absolute right-[16%] top-6 w-28 h-28 rounded-full bg-[radial-gradient(circle,_rgba(253,225,232,0.50)_0%,_rgba(235,168,184,0.22)_40%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(215,68,98,0.24)_0%,_rgba(168,38,68,0.10)_40%,_transparent_70%)] blur-lg animate-[mist-rise-right_0.85s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
 
                 {/* Center ethereal mist column */}
-                <div className="absolute left-1/2 -translate-x-1/2 top-8 w-32 h-32 rounded-full bg-[radial-gradient(circle,_rgba(255,255,255,0.6)_0%,_rgba(253,225,232,0.3)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(255,255,255,0.15)_0%,_rgba(198,58,86,0.10)_45%,_transparent_70%)] blur-xl animate-[mist-rise-center_0.9s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
+                <div className="absolute left-1/2 -translate-x-1/2 top-8 w-32 h-32 rounded-full bg-[radial-gradient(circle,_rgba(255,255,255,0.5)_0%,_rgba(253,225,232,0.25)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(255,255,255,0.12)_0%,_rgba(215,68,98,0.08)_45%,_transparent_70%)] blur-xl animate-[mist-rise-center_0.9s_cubic-bezier(0.2,0.8,0.3,1)_forwards]" />
 
                 {/* Subtle soft sparkles escaping with the mist */}
                 <span
@@ -1116,7 +1116,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         >
           {/* Ambient soft card glow behind modal */}
           <div
-            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.25)_0%,_rgba(128,28,52,0.10)_45%,_transparent_70%)] blur-2xl"
+            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.22)_0%,_rgba(168,38,68,0.08)_45%,_transparent_70%)] blur-2xl"
           />
 
           <div
@@ -1280,12 +1280,12 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
           {/* 1. Atmospheric Soft Radiant Glow */}
           <div
-            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(198,58,86,0.25)_0%,_rgba(128,28,52,0.10)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
+            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.22)_0%,_rgba(168,38,68,0.08)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
           {/* 2. Soft Floating Mist Veil */}
           <div
-            className="absolute w-96 xs:w-[440px] h-72 rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(circle,_rgba(255,255,255,0.7)_0%,_rgba(253,225,232,0.35)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(255,255,255,0.15)_0%,_rgba(198,58,86,0.10)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-mist-veil_750ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
+            className="absolute w-96 xs:w-[440px] h-72 rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(circle,_rgba(255,255,255,0.6)_0%,_rgba(253,225,232,0.30)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(255,255,255,0.12)_0%,_rgba(215,68,98,0.08)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-mist-veil_750ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
           {/* Main Incoming Invitation Card — Exact same styling, radius, border, and depth */}

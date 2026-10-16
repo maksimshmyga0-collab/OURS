@@ -3,7 +3,7 @@
  * Caches UI preferences and active state.
  */
 
-import { CoupleState, HistoryDay, Moment, AppSettings, ThemeMode } from '../../types';
+import { CoupleState, HistoryDay, Moment, AppSettings, ThemeMode, OurDayPhoto } from '../../types';
 import { appStorage } from './keyValueStorage';
 import {
   syncAppStateForDate,
@@ -19,6 +19,7 @@ export interface AppState {
   todayMoments: Moment[];
   activeMomentId: string;
   history: HistoryDay[];
+  ourDayPhotos: OurDayPhoto[];
   settings: AppSettings;
 }
 
@@ -87,6 +88,8 @@ export function getInitialAppState(): AppState {
               }))
           : [];
 
+        const cleanOurDayPhotos: OurDayPhoto[] = [];
+
         const cleanSettings: AppSettings = {
           notifications: parsed.settings?.notifications ?? true,
           sounds: parsed.settings?.sounds ?? true,
@@ -100,6 +103,7 @@ export function getInitialAppState(): AppState {
           todayMoments: cleanMoments.length > 0 ? cleanMoments : JSON.parse(JSON.stringify(DEFAULT_TODAY_MOMENTS)),
           activeMomentId: parsed.activeMomentId || cleanMoments[0]?.id || 'moment-today-1',
           history: cleanHistory,
+          ourDayPhotos: cleanOurDayPhotos,
           settings: cleanSettings,
         };
 
@@ -128,6 +132,7 @@ export function getInitialAppState(): AppState {
     todayMoments: JSON.parse(JSON.stringify(DEFAULT_TODAY_MOMENTS)),
     activeMomentId: DEFAULT_TODAY_MOMENTS[0]?.id || 'moment-today-1',
     history: JSON.parse(JSON.stringify(DEFAULT_HISTORY)),
+    ourDayPhotos: [],
     settings: {
       notifications: true,
       sounds: true,

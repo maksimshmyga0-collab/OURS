@@ -50,6 +50,7 @@ export interface ProfileScreenProps {
   onOpenPrivacy?: () => void;
   onLeavePair?: () => Promise<void> | void;
   onSignOut?: () => Promise<void> | void;
+  onBack?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -71,6 +72,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenPrivacy,
   onLeavePair,
   onSignOut,
+  onBack,
 }) => {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
@@ -182,6 +184,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
   return (
     <div className="flex-1 h-full w-full flex flex-col space-y-6 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
+      {/* Top Back Navigation Button */}
+      {onBack && (
+        <div className="flex items-center justify-between px-1 pt-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              triggerHaptic(settings.haptic);
+              playSoftChime('tap', settings.sounds);
+              onBack();
+            }}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white/80 dark:bg-[#1E1C1E]/80 backdrop-blur-md border border-[#EBE3E5] dark:border-[#282126] text-xs font-semibold text-[#343033] dark:text-white hover:bg-white dark:hover:bg-[#252225] transition-all cursor-pointer active:scale-95 shadow-2xs"
+          >
+            <ChevronLeft size={16} />
+            <span>Назад</span>
+          </button>
+        </div>
+      )}
+
       {/* Profile Header Card with signature OURS matte surface and atmospheric backlight aura */}
       <div className="relative overflow-visible isolate rounded-[28px] p-6 space-y-4 border border-[#E8DFE1] dark:border-[#242024] bg-white dark:bg-[#111111] main-moment-card-shadow flex flex-col items-center text-center transition-all duration-300">
         {/* Inner Glowing Aura System illuminating from within behind avatars & names */}

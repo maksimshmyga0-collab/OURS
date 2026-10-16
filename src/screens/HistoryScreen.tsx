@@ -1,15 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { HistoryDay, Moment, CoupleState, ReactionEmoji } from '../types';
-import { Lock, ArrowLeft, Sparkles, Heart, Calendar, Layers, Image as ImageIcon, Mail } from 'lucide-react';
+import { HistoryDay, Moment, CoupleState, ReactionEmoji, OurDayPhoto } from '../types';
+import { Lock, ArrowLeft, Sparkles, Heart, Calendar, Layers, Image as ImageIcon, Mail, Images, Camera } from 'lucide-react';
 import { ReactionIcon } from '../components/ReactionIcon';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
-import { formatMatchCardTimestamp } from '../services/moments/momentTiming';
+import { formatMatchCardTimestamp, formatRussianDate, getLocalDateKey } from '../services/moments/momentTiming';
 
 interface HistoryScreenProps {
   history: HistoryDay[];
   todayMoments: Moment[];
+  ourDayPhotos?: OurDayPhoto[];
   couple: CoupleState;
   onOpenPremium?: () => void;
   onOpenLovely?: () => void;
@@ -52,6 +53,26 @@ function getPluralMoments(count: number): string {
   return 'моментов';
 }
 
+
+function getYesterdayDateKey(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return getLocalDateKey(d);
+}
+
+function formatRussianShortDate(dateKey: string): string {
+  try {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+    });
+  } catch {
+    return dateKey;
+  }
+}
+
 function getPluralDays(count: number): string {
   const mod10 = count % 10;
   const mod100 = count % 100;
@@ -60,13 +81,10 @@ function getPluralDays(count: number): string {
   return 'дней';
 }
 
-
-
-
-
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   history,
   todayMoments,
+  ourDayPhotos = [],
   couple,
   onOpenPremium,
   onOpenLovely,
@@ -77,10 +95,10 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
 
-  // Only real couple history
+    // Only real couple history
   const cleanHistory = useMemo(() => {
     return (history || []).filter(
-      (d) => d && d.id && !d.id.startsWith('day-hist-') && !d.id.startsWith('hist-')
+      (d) => d && d.id && !d.id.startsWith("day-hist-") && !d.id.startsWith("hist-today-dynamic")
     );
   }, [history]);
 
@@ -88,33 +106,216 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   const completedTodayMoments = useMemo(() => {
     return todayMoments.filter(
       (m) =>
-        (m.status === 'COMPLETED' || m.status === 'REVEALED' || m.status === 'REACTED') &&
+        (m.status === "COMPLETED" || m.status === "REVEALED" || m.status === "REACTED") &&
         Boolean(m.userPhoto || m.partnerPhoto)
     );
   }, [todayMoments]);
 
-  // Combined history list: renders real history if available, otherwise empty
+  // Master Unified Chronological History Generator
   const displayHistory = useMemo((): HistoryDay[] => {
-    const hasTodayInHistory = cleanHistory.some((d) => d.dateKey === 'today' || d.title === 'Сегодня');
-    const hasRealContent = cleanHistory.length > 0 || completedTodayMoments.length > 0;
-    if (!hasRealContent) return [];
+    const todayKey = getLocalDateKey();
+    const yesterdayKey = getYesterdayDateKey();
 
-    return [
-      ...(!hasTodayInHistory && completedTodayMoments.length > 0
-        ? [
-            {
-              id: 'hist-today-dynamic',
-              title: 'Сегодня',
-              subtitle: `${completedTodayMoments.length} ${getPluralMoments(completedTodayMoments.length)}`,
-              dateStr: 'Сегодня',
-              isLocked: false,
-              moments: completedTodayMoments,
-            },
-          ]
-        : []),
-      ...cleanHistory,
-    ];
-  }, [cleanHistory, completedTodayMoments]);
+    // Map of dateKey -> day bucket
+    const dayBuckets = new Map<
+      string,
+      {
+        id: string;
+        dateKey: string;
+        title: string;
+        dateStr: string;
+        isLocked: boolean;
+        moments: Moment[];
+      }
+    >();
+
+    // Helper to get or initialize bucket for a given dateKey
+    const getOrCreateBucket = (dKey: string, initialTitle?: string, initialDateStr?: string, initialLocked?: boolean) => {
+      const canonicalKey = (dKey === "today" || dKey === "Сегодня") ? todayKey : dKey;
+      let bucket = dayBuckets.get(canonicalKey);
+      if (!bucket) {
+        let title = initialTitle;
+        let dateStr = initialDateStr;
+
+        if (!title || title === "Сегодня") {
+          if (canonicalKey === todayKey) {
+            title = "Сегодня";
+            dateStr = "Сегодня";
+          } else if (canonicalKey === yesterdayKey) {
+            title = "Вчера";
+            dateStr = "Вчера";
+          } else {
+            title = formatRussianDate(canonicalKey);
+            dateStr = formatRussianShortDate(canonicalKey);
+          }
+        }
+
+        if (!dateStr) {
+          dateStr = canonicalKey === todayKey ? "Сегодня" : canonicalKey === yesterdayKey ? "Вчера" : formatRussianShortDate(canonicalKey);
+        }
+
+        // Calculate lock status if not provided (older than 7 days)
+        let isLocked = initialLocked;
+        if (isLocked === undefined) {
+          try {
+            const [y, m, d] = canonicalKey.split("-").map(Number);
+            const momentDate = new Date(y, m - 1, d);
+            const now = new Date();
+            const diffDays = Math.floor((now.getTime() - momentDate.getTime()) / (1000 * 60 * 60 * 24));
+            isLocked = diffDays > 7;
+          } catch {
+            isLocked = false;
+          }
+        }
+
+        bucket = {
+          id: `hist-${canonicalKey}`,
+          dateKey: canonicalKey,
+          title: title,
+          dateStr: dateStr,
+          isLocked: isLocked,
+          moments: [],
+        };
+        dayBuckets.set(canonicalKey, bucket);
+      }
+      return bucket;
+    };
+
+    // 1. Ingest existing clean history days
+    cleanHistory.forEach((day) => {
+      if (!day) return;
+      const dKey =
+        day.dateKey ||
+        (typeof day.id === "string" && day.id.startsWith("hist-") ? day.id.replace("hist-", "") : null) ||
+        day.moments?.[0]?.dateKey ||
+        todayKey;
+
+      const bucket = getOrCreateBucket(dKey, day.title, day.dateStr, day.isLocked);
+      if (Array.isArray(day.moments)) {
+        day.moments.forEach((m) => {
+          if (!m) return;
+          if (!bucket.moments.some((existing) => existing.id === m.id)) {
+            bucket.moments.push(m);
+          }
+        });
+      }
+    });
+
+    // 2. Ingest completed today moments
+    completedTodayMoments.forEach((m) => {
+      const dKey = m.dateKey || todayKey;
+      const bucket = getOrCreateBucket(dKey);
+      if (!bucket.moments.some((existing) => existing.id === m.id)) {
+        bucket.moments.push(m);
+      }
+    });
+
+    // 3. Group and ingest Our Day photos
+    if (ourDayPhotos && ourDayPhotos.length > 0) {
+      const photosByDate = new Map<string, OurDayPhoto[]>();
+      ourDayPhotos.forEach((photo) => {
+        if (!photo || !photo.imageUrl) return;
+        let canonicalKey = todayKey;
+        if (photo.createdAt) {
+          try {
+            const d = new Date(photo.createdAt);
+            if (!isNaN(d.getTime())) {
+              canonicalKey = getLocalDateKey(d);
+            } else {
+              const rawKey = photo.createdAt.substring(0, 10);
+              if (/^\d{4}-\d{2}-\d{2}$/.test(rawKey)) canonicalKey = rawKey;
+            }
+          } catch {
+            const rawKey = photo.createdAt.substring(0, 10);
+            if (/^\d{4}-\d{2}-\d{2}$/.test(rawKey)) canonicalKey = rawKey;
+          }
+        }
+        if (!photosByDate.has(canonicalKey)) {
+          photosByDate.set(canonicalKey, []);
+        }
+        photosByDate.get(canonicalKey)!.push(photo);
+      });
+
+      photosByDate.forEach((photos, dKey) => {
+        const validPhotos = photos.filter((p) => p && p.imageUrl);
+        if (validPhotos.length === 0) return;
+
+        const userP = validPhotos.find(
+          (p) => p.authorId === couple.user.id || p.authorName === couple.user.name
+        );
+
+        const partnerP = validPhotos.find(
+          (p) => p.authorId !== couple.user.id && p.authorName !== couple.user.name
+        );
+
+        const finalUserPhoto = userP?.imageUrl || null;
+        const finalPartnerPhoto = partnerP?.imageUrl || null;
+
+        if (!finalUserPhoto && !finalPartnerPhoto) return;
+
+        const firstP = validPhotos[0];
+        const latestCreatedAt = validPhotos.reduce((latest, p) => {
+          return p.createdAt && p.createdAt > latest ? p.createdAt : latest;
+        }, firstP.createdAt || new Date().toISOString());
+
+        const ourDayMoment: Moment = {
+          id: `ourday-group-${dKey}`,
+          pairId: firstP.pairId || couple.id || "pair_default",
+          createdBy: firstP.authorId || "",
+          createdAt: latestCreatedAt,
+          dateKey: dKey,
+          imageUrl: finalUserPhoto || finalPartnerPhoto || firstP.imageUrl,
+          caption: firstP.caption || null,
+          order: 1,
+          label: "НАШ ДЕНЬ",
+          prompt: "Наш день",
+          subtext: "Кадр повседневности",
+          status: "COMPLETED",
+          themeColor: "pink",
+          userPhoto: finalUserPhoto,
+          partnerPhoto: finalPartnerPhoto,
+          userReaction: null,
+          partnerReaction: null,
+          completedAt: latestCreatedAt
+            ? new Date(latestCreatedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+            : "12:00",
+        };
+
+        const bucket = getOrCreateBucket(dKey);
+        const existingIdx = bucket.moments.findIndex(
+          (m) => m.id === ourDayMoment.id || m.label === "НАШ ДЕНЬ" || m.prompt === "Наш день"
+        );
+
+        if (existingIdx >= 0) {
+          bucket.moments[existingIdx] = {
+            ...bucket.moments[existingIdx],
+            userPhoto: finalUserPhoto || bucket.moments[existingIdx].userPhoto,
+            partnerPhoto: finalPartnerPhoto || bucket.moments[existingIdx].partnerPhoto,
+            imageUrl: finalUserPhoto || finalPartnerPhoto || bucket.moments[existingIdx].imageUrl,
+          };
+        } else {
+          bucket.moments.push(ourDayMoment);
+        }
+      });
+    }
+
+    // 4. Convert dayBuckets map to array and sort descending by dateKey
+    const sortedDays = Array.from(dayBuckets.values())
+      .filter((bucket) => bucket.moments.length > 0)
+      .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+
+    // 5. Update subtitles with pluralized moment counts
+    return sortedDays.map((day) => ({
+      ...day,
+      subtitle: `${day.moments.length} ${getPluralMoments(day.moments.length)}`,
+    }));
+  }, [cleanHistory, completedTodayMoments, ourDayPhotos, couple]);
+
+
+
+
+
+
 
   const totalMomentsCount = useMemo(() => {
     return displayHistory.reduce((acc, day) => acc + day.moments.length, 0);
@@ -178,36 +379,50 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       (typeof moment.id === 'string' && moment.id.startsWith('date-')) ||
       moment.label === 'СВИДАНИЕ'
     );
-    const singleDatePhoto = userPhoto || partnerPhoto || (moment.photos && moment.photos[0]?.imageUrl);
 
-    // For a completed date moment with a single joint photo, display it as a unified full-width card
-    if (isDateMoment && (!hasBoth || (moment.photos && moment.photos.length <= 1))) {
+    const isOurDayMoment = Boolean(
+      moment.label === 'НАШ ДЕНЬ' ||
+      moment.prompt === 'Наш день' ||
+      (typeof moment.id === 'string' && moment.id.startsWith('ourday-'))
+    );
+
+    const singlePhoto = userPhoto || partnerPhoto || (moment.photos && moment.photos[0]?.imageUrl) || moment.imageUrl;
+
+    // For a completed date moment or OurDay moment with a single photo, display it as a unified full-width card
+    if ((isDateMoment || isOurDayMoment) && (!hasBoth || (moment.photos && moment.photos.length <= 1))) {
+      const authorLabel = isOurDayMoment
+        ? (userPhoto ? (couple.user.name || 'Ты') : (couple.partner.name || 'Партнёр'))
+        : 'Совместное фото';
+
       return (
         <div className="space-y-2">
           <div
             onClick={(e) => {
               e.stopPropagation();
-              if (singleDatePhoto) {
-                handlePhotoClick(singleDatePhoto, moment.prompt || 'Свидание');
+              if (singlePhoto) {
+                handlePhotoClick(
+                  singlePhoto,
+                  isOurDayMoment ? `Фото от ${authorLabel}` : (moment.prompt || 'Свидание')
+                );
               }
             }}
             className="relative aspect-[16/10] xs:aspect-[16/9.5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
             role="button"
             tabIndex={0}
-            aria-label="Открыть фото свидания"
+            aria-label={isOurDayMoment ? `Открыть фото ${authorLabel}` : 'Открыть фото свидания'}
           >
-            {singleDatePhoto ? (
+            {singlePhoto ? (
               <>
                 <img
-                  src={singleDatePhoto}
-                  alt="Фото свидания"
+                  src={singlePhoto}
+                  alt={isOurDayMoment ? `Фото от ${authorLabel}` : 'Фото свидания'}
                   loading="lazy"
                   decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
                 />
                 <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
-                  Совместное фото
+                  {authorLabel}
                 </div>
                 <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-white text-[10px] font-medium tracking-tight pointer-events-none shadow-xs">
                   Смотреть
@@ -215,7 +430,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-[#777277] text-xs">
-                Фото свидания
+                {isOurDayMoment ? 'Фото Нашего дня' : 'Фото свидания'}
               </div>
             )}
           </div>
@@ -416,6 +631,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         <div className="space-y-4">
           {selectedDay.moments.map((m, idx) => {
             const isDateM = Boolean(m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) || m.label === 'СВИДАНИЕ');
+                    const isOurDayM = Boolean(m.label === 'НАШ ДЕНЬ' || m.prompt === 'Наш день' || (typeof m.id === 'string' && m.id.startsWith('ourday-')));
             const dPhoto = m.imageUrl || m.userPhoto || m.partnerPhoto || (m.photos && m.photos[0]?.imageUrl);
 
             return (
@@ -443,11 +659,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                       <span>
                         {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-'))
                           ? 'СВИДАНИЕ'
-                          : (m.label || `МОМЕНТ ${m.order || idx + 1}`)}
+                          : isOurDayM
+                          ? 'НАШ ДЕНЬ'
+                          : 'КАСАНИЕ'}
                       </span>
                     </div>
                     <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
-                      {m.prompt}
+                      {m.prompt ? m.prompt.replace(/\s*\d+$/, '') : 'Касание'}
                     </h3>
                   </div>
                   {formatMatchCardTimestamp(m) && (
@@ -574,6 +792,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 <div className="space-y-4">
                   {day.moments.map((m, mIdx) => {
                     const isDateM = Boolean(m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) || m.label === 'СВИДАНИЕ');
+                    const isOurDayM = Boolean(m.label === 'НАШ ДЕНЬ' || m.prompt === 'Наш день' || (typeof m.id === 'string' && m.id.startsWith('ourday-')));
                     const dPhoto = m.imageUrl || m.userPhoto || m.partnerPhoto || (m.photos && m.photos[0]?.imageUrl);
 
                     return (
@@ -601,11 +820,13 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                               <span>
                                 {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-'))
                                   ? 'СВИДАНИЕ'
-                                  : (m.label || `МОМЕНТ ${m.order || mIdx + 1}`)}
+                                  : isOurDayM
+                                  ? 'НАШ ДЕНЬ'
+                                  : 'КАСАНИЕ'}
                               </span>
                             </div>
                             <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
-                              {m.prompt}
+                              {m.prompt ? m.prompt.replace(/\s*\d+$/, '') : 'Касание'}
                             </h3>
                           </div>
                           {formatMatchCardTimestamp(m) && (

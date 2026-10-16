@@ -36,6 +36,8 @@ import { dateInvitationService } from './services/dates/dateInvitationService';
 import { photoSyncQueue } from './services/storage/photoSyncQueue';
 import { bootDiagnostics } from './services/device/bootDiagnostics';
 import { AppBootFallback } from './components/AppBootFallback';
+import { OurDayScreen } from './screens/OurDayScreen';
+import { ourDayService } from './services/ourDay/ourDayService';
 
 // Code-split non-critical screens and modals for fast budget-device startup
 const HistoryScreen = React.lazy(() => import('./screens/HistoryScreen').then(m => ({ default: m.HistoryScreen })));
@@ -486,6 +488,20 @@ export default function App() {
         }
 
         // Live sync active Date invitation for this pair across devices
+        ourDayService.fetchRemotePhotos(pairId).then((remotePhotos) => {
+          if (remotePhotos && remotePhotos.length > 0) {
+            setAppState((prev) => {
+              const existingIds = new Set((prev.ourDayPhotos || []).map((p) => p.id));
+              const newItems = remotePhotos.filter((p) => p && p.id && !existingIds.has(p.id));
+              if (newItems.length === 0) return prev;
+              const updatedPhotos = [...newItems, ...(prev.ourDayPhotos || [])];
+              const nextState = { ...prev, ourDayPhotos: updatedPhotos };
+              saveAppState(nextState);
+              return nextState;
+            });
+          }
+        }).catch(() => {});
+
         apiClient.fetchDateInvitation(pairId).then((srvInv) => {
           dateInvitationService.syncFromServer(
             srvInv,
@@ -829,6 +845,98 @@ export default function App() {
     saveAppState(cleanState);
     setActiveTab('today');
   };
+
+  const handleAddOurDayPhotos = useCallback(async (imageUrls: string[]) => {
+    if (!imageUrls || imageUrls.length === 0) return;
+    const pairId = appState.couple.id || 'pair_default';
+    const authorId = appState.couple.user.id || 'user_1';
+    const authorName = appState.couple.user.name || 'Пользователь';
+    const imageUrl = imageUrls[0];
+
+    const todayKey = getLocalDateKey();
+
+    // Check if user already uploaded a photo today
+    const existingUserPhotoToday = (appState.ourDayPhotos || []).find((p) => {
+      if (!p || !p.createdAt) return false;
+      const isUser = p.authorId === authorId || p.authorName === authorName;
+      let photoKey = todayKey;
+      try {
+        const d = new Date(p.createdAt);
+        if (!isNaN(d.getTime())) photoKey = getLocalDateKey(d);
+      } catch {
+        photoKey = p.createdAt.substring(0, 10);
+      }
+      return isUser && photoKey === todayKey;
+    });
+
+    if (existingUserPhotoToday) {
+      // Replace scenario
+      await ourDayService.deletePhoto(existingUserPhotoToday.id, pairId);
+      const updatedPhoto = await ourDayService.addPhoto(
+        pairId,
+        authorId,
+        authorName,
+        imageUrl
+      );
+
+      setAppState((prev) => {
+        const filtered = (prev.ourDayPhotos || []).filter((p) => p.id !== existingUserPhotoToday.id);
+        const updated = {
+          ...prev,
+          ourDayPhotos: [updatedPhoto, ...filtered],
+        };
+        saveAppState(updated);
+        return updated;
+      });
+    } else {
+      // New photo for today scenario
+      const newPhoto = await ourDayService.addPhoto(
+        pairId,
+        authorId,
+        authorName,
+        imageUrl
+      );
+
+      setAppState((prev) => {
+        const updated = {
+          ...prev,
+          ourDayPhotos: [newPhoto, ...(prev.ourDayPhotos || [])],
+        };
+        saveAppState(updated);
+        return updated;
+      });
+    }
+  }, [appState.couple, appState.ourDayPhotos]);
+
+  const handleDeleteOurDayPhoto = useCallback(async (photoId: string) => {
+    const pairId = appState.couple.id || 'pair_default';
+    await ourDayService.deletePhoto(photoId, pairId);
+
+    setAppState((prev) => {
+      const updated = {
+        ...prev,
+        ourDayPhotos: (prev.ourDayPhotos || []).filter((p) => p.id !== photoId),
+      };
+      saveAppState(updated);
+      return updated;
+    });
+  }, [appState.couple]);
+
+  const handleClearAllOurDayPhotos = useCallback(async () => {
+    const pairId = appState.couple.id || 'pair_default';
+    for (const p of appState.ourDayPhotos || []) {
+      await ourDayService.deletePhoto(p.id, pairId);
+    }
+
+    setAppState((prev) => {
+      const updated = {
+        ...prev,
+        ourDayPhotos: [],
+      };
+      saveAppState(updated);
+      return updated;
+    });
+  }, [appState.couple, appState.ourDayPhotos]);
 
   // Update a moment in today's moments list with server synchronization
   const handleUpdateMoment = async (updated: Moment) => {
@@ -1182,11 +1290,23 @@ export default function App() {
                       isActive={activeTab === 'today'}
                     />
                   ),
+                  our_day: (
+                    <OurDayScreen
+                      photos={appState.ourDayPhotos || []}
+                      couple={appState.couple}
+                      onAddPhotos={handleAddOurDayPhotos}
+                      onDeletePhoto={handleDeleteOurDayPhoto}
+                      onClearAllPhotos={handleClearAllOurDayPhotos}
+                      soundEnabled={appState.settings.sounds}
+                      hapticEnabled={appState.settings.haptic}
+                    />
+                  ),
                   history: () => (
                     <React.Suspense fallback={<TabLoadingFallback />}>
                       <HistoryScreen
                         history={appState.history}
                         todayMoments={appState.todayMoments}
+                        ourDayPhotos={appState.ourDayPhotos || []}
                         couple={appState.couple}
                         onOpenLovely={() => setIsLovelyModalOpen(true)}
                         onOpenPremium={() => setIsLovelyModalOpen(true)}

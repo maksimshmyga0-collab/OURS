@@ -17,6 +17,13 @@ export type PairStatus = 'pending' | 'active' | 'archived';
 
 export type SubscriptionTier = 'free' | 'premium';
 
+export interface AppSettings {
+  notifications: boolean;
+  sounds: boolean;
+  haptic: boolean;
+  theme?: 'light' | 'dark' | 'system';
+}
+
 /**
  * Individual photo inside a joint Moment Duo
  */
@@ -137,11 +144,17 @@ export type ResolvedTheme = 'light' | 'dark';
 /**
  * App Settings
  */
-export interface AppSettings {
-  notifications: boolean;
-  sounds: boolean;
-  haptic: boolean;
-  theme?: ThemeMode;
+/**
+ * Individual photo saved in "Наш день" (free everyday photo log)
+ */
+export interface OurDayPhoto {
+  id: string;
+  pairId: string;
+  authorId: string;
+  authorName: string;
+  imageUrl: string;
+  createdAt: string; // ISO date string or timestamp
+  caption?: string | null;
 }
 
-export type NavigationTab = 'date' | 'today' | 'history' | 'profile';
+export type NavigationTab = 'date' | 'today' | 'our_day' | 'history' | 'profile';

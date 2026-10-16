@@ -381,177 +381,19 @@ export function resolveAuthoritativeActiveMomentId(
 /**
  * Natural, open, warm prompts that inspire a photo without feeling like a chore
  */
-export const DAILY_PROMPTS_POOL: Array<{
-  prompt: string;
-  subtext: string;
-  themeColor: 'peach' | 'pink' | 'blue';
-}> = [
-  {
-    prompt: 'Покажи, что сейчас рядом с тобой',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Что сейчас перед твоими глазами?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Покажи маленькую часть своего дня',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Что сегодня вызвало у тебя улыбку?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Покажи место, где ты прямо сейчас',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Твой любимый вид или ракурс сегодня',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Что сейчас у тебя в руках или на столе?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Покажи кусочек неба над тобой',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Что прямо сейчас создаёт твоё настроение?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Покажи то, на что тебе приятно смотреть',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Чашка кофе, чай или твой перерыв',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Наш момент',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'То, что напомнило тебе обо мне сегодня',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Что окружает тебя прямо сейчас?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Твоя дорога или вид из окна',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Маленькая деталь, которую никто не заметил',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Твой уютный уголок сегодня',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Что ты видишь, если поднимешь взгляд?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Твой любимый предмет прямо сейчас',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Как выглядит твой текущий момент?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Покажи то, что согревает тебя сегодня',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'То, что лежит перед тобой',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Твоё пространство в эту минуту',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Маленькая радость сегодняшнего дня',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Что-то красивое, попавшееся на пути',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Снимок прямо сейчас — без подготовки',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Что хочется сохранить в памяти сегодня?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  },
-  {
-    prompt: 'Оставь кусочек своего дня для нас',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue',
-  },
-  {
-    prompt: 'Покажи свой сегодняшний момент',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink',
-  },
-  {
-    prompt: 'Что хочется разделить со мной прямо сейчас?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach',
-  }
-];
+const TOUCH_THEME_COLORS: Array<'peach' | 'pink' | 'blue'> = ['pink', 'blue', 'peach'];
 
-export function getPromptForPairMoment(pairId: string, dateKey: string, order: 1 | 2 | 3): {
+export function getPromptForPairMoment(_pairId: string, _dateKey: string, order: 1 | 2 | 3): {
   prompt: string;
   subtext: string;
   themeColor: 'peach' | 'pink' | 'blue';
 } {
-  let hash = 0;
-  const seed = `${pairId || 'ours'}_${dateKey || 'today'}`;
-  for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-    hash |= 0;
-  }
-  const baseIndex = Math.abs(hash);
-  const promptIdx = (baseIndex + (order - 1) * 7) % DAILY_PROMPTS_POOL.length;
-  return DAILY_PROMPTS_POOL[promptIdx];
+  const themeColor = TOUCH_THEME_COLORS[(order - 1) % 3];
+  return {
+    prompt: 'Касание',
+    subtext: '',
+    themeColor,
+  };
 }
 
 export function createFreshDayMoments(pairId: string, dateKey: string, currentUserId: string = ''): Moment[] {
@@ -567,7 +409,7 @@ export function createFreshDayMoments(pairId: string, dateKey: string, currentUs
       imageUrl: null,
       caption: null,
       order,
-      label: `МОМЕНТ ${order}`,
+      label: 'КАСАНИЕ',
       prompt: promptData.prompt,
       subtext: promptData.subtext,
       status: 'EMPTY',

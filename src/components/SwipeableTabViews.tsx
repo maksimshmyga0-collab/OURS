@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { NavigationTab } from '../types';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 
-const TABS: NavigationTab[] = ['date', 'today', 'history', 'profile'];
+const TABS: NavigationTab[] = ['date', 'today', 'our_day', 'history', 'profile'];
 
 export type TabContentNode = React.ReactNode | (() => React.ReactNode);
 
@@ -15,6 +15,7 @@ interface SwipeableTabViewsProps {
   children: {
     date: TabContentNode;
     today: TabContentNode;
+    our_day: TabContentNode;
     history: TabContentNode;
     profile: TabContentNode;
   };
@@ -90,7 +91,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         next.add(idx - 1);
         changed = true;
       }
-      if (idx < 3 && !next.has(idx + 1)) {
+      if (idx < 4 && !next.has(idx + 1)) {
         next.add(idx + 1);
         changed = true;
       }
@@ -209,7 +210,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       // Tab 3 ('profile'): cannot swipe left (dx < 0)
       const isBoundaryBlocked =
         (currentIndexRef.current === 0 && dx > 0) ||
-        (currentIndexRef.current === 3 && dx < 0);
+        (currentIndexRef.current === TABS.length - 1 && dx < 0);
 
       // Lock into vertical scrolling if:
       // 1. Vertical movement is greater than horizontal
@@ -244,7 +245,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       let clampedDx = dx;
       if (currentIndexRef.current === 0 && dx > 0) {
         clampedDx = 0;
-      } else if (currentIndexRef.current === 3 && dx < 0) {
+      } else if (currentIndexRef.current === TABS.length - 1 && dx < 0) {
         clampedDx = 0;
       }
 
@@ -279,7 +280,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     let targetIndex = currentIndexRef.current;
 
     // Single tab advance per swipe
-    if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < 3) {
+    if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < TABS.length - 1) {
       targetIndex = currentIndexRef.current + 1;
     } else if ((dx > threshold || (dx > 35 && isFlick)) && currentIndexRef.current > 0) {
       targetIndex = currentIndexRef.current - 1;
@@ -523,19 +524,19 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           {mountedTabs.has(1) ? renderTabContent(children.today) : null}
         </div>
 
-        {/* Slide 2: History */}
+        {/* Slide 2: Our Day */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${
             !isTabVisible(2)
               ? 'invisible pointer-events-none tab-hidden'
               : 'opacity-100 visible'
           }`}
           aria-hidden={currentIndex !== 2}
         >
-          {mountedTabs.has(2) ? renderTabContent(children.history) : null}
+          {mountedTabs.has(2) ? renderTabContent(children.our_day) : null}
         </div>
 
-        {/* Slide 3: Profile */}
+        {/* Slide 3: History */}
         <div
           className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
             !isTabVisible(3)
@@ -544,7 +545,19 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           }`}
           aria-hidden={currentIndex !== 3}
         >
-          {mountedTabs.has(3) ? renderTabContent(children.profile) : null}
+          {mountedTabs.has(3) ? renderTabContent(children.history) : null}
+        </div>
+
+        {/* Slide 4: Profile */}
+        <div
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
+            !isTabVisible(4)
+              ? 'invisible pointer-events-none tab-hidden'
+              : 'opacity-100 visible'
+          }`}
+          aria-hidden={currentIndex !== 4}
+        >
+          {mountedTabs.has(4) ? renderTabContent(children.profile) : null}
         </div>
       </div>
     </div>

@@ -56,24 +56,24 @@ export function getTodayDateKey(): string {
 export const INITIAL_TODAY_PROMPTS = [
   {
     order: 1 as const,
-    label: 'МОМЕНТ 1',
-    prompt: 'Покажи, что сейчас рядом с тобой',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'peach' as const,
+    label: "КАСАНИЕ",
+    prompt: "Касание",
+    subtext: "",
+    themeColor: "pink" as const,
   },
   {
     order: 2 as const,
-    label: 'МОМЕНТ 2',
-    prompt: 'Что сейчас перед твоими глазами?',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'pink' as const,
+    label: "КАСАНИЕ",
+    prompt: "Касание",
+    subtext: "",
+    themeColor: "blue" as const,
   },
   {
     order: 3 as const,
-    label: 'МОМЕНТ 3',
-    prompt: 'Покажи маленькую часть своего дня',
-    subtext: 'Сделайте по одному фото и откройте их вместе.',
-    themeColor: 'blue' as const,
+    label: "КАСАНИЕ",
+    prompt: "Касание",
+    subtext: "",
+    themeColor: "peach" as const,
   },
 ];
 

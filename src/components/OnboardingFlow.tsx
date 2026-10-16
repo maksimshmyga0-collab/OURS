@@ -301,10 +301,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                     </div>
                     <div>
                       <p className="font-display font-semibold text-xs text-[#343033] dark:text-white">
-                        Покажи, что сейчас рядом с тобой
+                        Касание 1
                       </p>
                       <p className="text-[10px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-                        Тёплый кусочек твоего дня
+                        Касание с любимым человеком
                       </p>
                     </div>
                   </div>

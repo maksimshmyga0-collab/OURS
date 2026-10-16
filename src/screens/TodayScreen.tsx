@@ -10,7 +10,6 @@ import { PhotoPickerModal } from '../components/PhotoPickerModal';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
 import { OurSkyPreview } from '../components/OurSkyPreview';
 import { MatchButton } from '../components/MatchButton';
-import { TouchReadyButton } from '../components/TouchReadyButton';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { WaitingCloudGlow } from '../components/WaitingCloudGlow';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
@@ -196,37 +195,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
     setIsPhotoPickerOpen(false);
   };
 
-  const handleTouchReadyPhotoSelected = (photoUrl: string, targetMomentId?: string) => {
-    triggerHaptic(hapticEnabled);
-    playSoftChime('tap', soundEnabled);
 
-    const target = (targetMomentId ? moments.find((m) => m.id === targetMomentId) : null) || activeMoment;
-    const nowIso = new Date().toISOString();
-    const partnerPhotoItem: MomentPhoto[] = target.partnerPhoto
-      ? [
-          {
-            userId: couple.partner.id || '',
-            imageUrl: target.partnerPhoto,
-            createdAt: nowIso,
-          },
-        ]
-      : [];
-    const userPhotoItem: MomentPhoto = {
-      userId: couple.user.id || '',
-      imageUrl: photoUrl,
-      createdAt: nowIso,
-    };
-
-    const newPhotos = [userPhotoItem, ...partnerPhotoItem];
-    const newStatus = target.partnerPhoto ? 'BOTH_UPLOADED' : 'USER_UPLOADED';
-
-    onUpdateMoment({
-      ...target,
-      userPhoto: photoUrl,
-      photos: newPhotos,
-      status: newStatus,
-    });
-  };
 
   // Keep activeMoment in a ref to always have latest state for async callbacks
   const activeMomentRef = useRef(activeMoment);
@@ -312,14 +281,14 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         <PastelCard
           key={activeMoment.id}
           color={getThemeCardColor(activeMoment)}
-          className="p-3 sm:p-4.5 pb-3.5 sm:pb-4.5 relative overflow-visible transition-all duration-300 ease-out animate-card-enter"
+          className="p-2 sm:p-3 pb-3 sm:pb-3.5 relative overflow-visible transition-all duration-300 ease-out animate-card-enter"
         >
         {/* Card Header info */}
-        <div className="flex items-center justify-between mb-2 sm:mb-2.5">
+        <div className="flex items-center justify-between mb-2 sm:mb-2.5 px-0.5">
           <span className="text-[11px] font-bold tracking-wider text-[#777277] dark:text-[#B8B2B5] uppercase transition-colors duration-200">
             {isCurrentMomentWaiting
-              ? `${activeMoment.label} · ПАУЗА`
-              : activeMoment.label}
+              ? 'КАСАНИЕ · ПАУЗА'
+              : (activeMoment.label ? activeMoment.label.replace(/\s*\d+$/, '') : 'КАСАНИЕ')}
           </span>
 
           {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) ? (
@@ -350,12 +319,12 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           ) : null}
         </div>
 
-        {/* Prompt Header */}
-        <div className="mb-2.5 sm:mb-3.5 transition-all duration-200">
+        {/* Clean Moment Header */}
+        <div className="mb-2 sm:mb-3 px-0.5 transition-all duration-200">
           {isCurrentMomentWaiting ? (
             <div className="space-y-1 animate-in fade-in duration-250 ease-out">
               <h2 className="font-display text-lg xs:text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
-                {activeMoment.prompt}
+                Касание
               </h2>
               <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] pt-0.5">
                 Следующее касание через {formatRemainingTime(availability.remainingCooldownMs)}
@@ -364,21 +333,21 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           ) : (
             <div className="space-y-1">
               <h2 className="font-display text-lg xs:text-xl sm:text-2xl font-bold text-[#343033] dark:text-white leading-snug">
-                {activeMoment.prompt}
+                Касание
               </h2>
-              <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">
-                {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)
-                  ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
-                  : isPartnerUploadedOnly
-                  ? `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`
-                  : activeMoment.subtext}
-              </p>
+              {(activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) || isPartnerUploadedOnly) && (
+                <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-1 leading-relaxed">
+                  {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)
+                    ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
+                    : `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`}
+                </p>
+              )}
             </div>
           )}
         </div>
 
         {/* Photo Slots Section - Living Diptych Composition */}
-        <div className="relative mb-2.5 sm:mb-3.5 px-0.5 sm:px-1 overflow-visible">
+        <div className="relative mt-2 sm:mt-2.5 mb-2 sm:mb-2.5 px-0 overflow-visible">
           {/* 1. Atmospheric Ambient Backlight Aura embracing both photos as a unified diptych */}
           <AtmosphericGlow />
 
@@ -410,7 +379,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             </div>
           )}
 
-          <div className="relative grid grid-cols-2 items-start gap-2 sm:gap-3">
+          <div className="relative grid grid-cols-2 items-start gap-1.5 sm:gap-2">
             {isCurrentMomentWaiting ? (
               // Calm waiting placeholders during cooldown with living cherry-burgundy cloud glow
               <div className="col-span-2 w-full relative overflow-visible my-1">
@@ -531,7 +500,6 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
                     <span className="font-medium text-[#2B7348] dark:text-[#52B778] flex items-center gap-1">
                       <Check size={13} /> Касание сохранено
                     </span>
-                    <span>{activeMoment.order} из 3</span>
                   </div>
 
                   {availability.isWaitingForNext && (
