@@ -21,24 +21,6 @@ interface SwipeableTabViewsProps {
   };
 }
 
-/**
- * SwipeableTabViews:
- * Smooth horizontal swipe navigation between the four main OURS tabs:
- * 0. 'date'    ("Свидание")
- * 1. 'today'   ("Касание")
- * 2. 'history' ("История")
- * 3. 'profile' ("Профиль")
- * 
- * Guarantees:
- * - Content directly follows finger during swipe (interactive gesture).
- * - Soft spring-less 350ms ease-out transitions.
- * - Direction lock: vertical scrolling is 100% native and never triggers tab swipe.
- * - Boundaries: cannot swipe right on tab 1; cannot swipe left on tab 3.
- * - Maximum one tab switch per swipe.
- * - Fullscreen photo viewer & modal protection: gestures ignored when dialog/viewer is open.
- * - Taps on PhotoSlot, buttons, and reactions are completely unaffected.
- * - Bidirectional synchronization with BottomTabBar.
- */
 function renderTabContent(nodeOrFn: TabContentNode) {
   if (typeof nodeOrFn === 'function') {
     return (nodeOrFn as () => React.ReactNode)();
@@ -91,7 +73,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         next.add(idx - 1);
         changed = true;
       }
-      if (idx < 4 && !next.has(idx + 1)) {
+      if (idx < TABS.length - 1 && !next.has(idx + 1)) {
         next.add(idx + 1);
         changed = true;
       }
@@ -146,21 +128,27 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   const isBlocked = useCallback(() => {
     if (disabled) return true;
     if (typeof document === 'undefined') return false;
+    const dialog = document.querySelector('[role="dialog"], [aria-modal="true"]');
+    if (dialog && (dialog as HTMLElement).offsetParent !== null) {
+      return true;
+    }
     return Boolean(
-      document.querySelector('[role="dialog"]') ||
-      document.querySelector('[aria-modal="true"]') ||
-      document.querySelector('.fixed.z-\\[9999\\]') ||
-      document.querySelector('.fixed.z-50')
+      document.querySelector('.fixed.z-\\[9999\\]')
     );
   }, [disabled]);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (isBlocked()) return;
 
-    // Do not interfere with horizontal inner scrolls (e.g. history thumbnails) or inputs
+    if (e.touches.length > 1) {
+      touchState.current.isScrolling = true;
+      return;
+    }
+
+    // Do not interfere with horizontal inner scrolls (e.g. history thumbnails), inputs, sliders or modal buttons
     const target = e.target as HTMLElement | null;
     if (
-      target?.closest('input, textarea, select, [data-no-swipe], .overflow-x-auto, .overflow-x-scroll')
+      target?.closest('input, textarea, select, button, [data-no-swipe], .overflow-x-auto, .overflow-x-scroll')
     ) {
       touchState.current.isScrolling = true;
       return;
@@ -179,15 +167,25 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       isSwiping: false,
       isScrolling: false,
     };
-  }, [isBlocked]);
+    dragOffsetRef.current = 0;
+  }, [isBlocked, ensureAdjacentMounted]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (touchState.current.isScrolling) {
       return;
     }
 
-    if (isBlocked()) {
+    if (e.touches.length > 1 || isBlocked()) {
       touchState.current.isScrolling = true;
+      if (touchState.current.isSwiping) {
+        touchState.current.isSwiping = false;
+        isDraggingRef.current = false;
+        setIsDragging(false);
+        if (trackRef.current) {
+          trackRef.current.style.transition = 'transform 200ms cubic-bezier(0.22, 1, 0.36, 1)';
+          trackRef.current.style.transform = `translate3d(-${currentIndexRef.current * 100}%, 0, 0)`;
+        }
+      }
       return;
     }
 
@@ -200,26 +198,21 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     const absY = Math.abs(dy);
 
     if (!touchState.current.isDetermined) {
-      // Wait for at least 8px displacement before evaluating gesture axis
-      if (absX < 8 && absY < 8) {
+      // Require at least 10px displacement before evaluating gesture angle
+      const totalDist = Math.hypot(dx, dy);
+      if (totalDist < 10) {
         return;
       }
 
+      // Check if horizontal movement is strictly dominant over vertical (angle < ~38.6°)
+      const isHorizontal = absX > absY * 1.25;
+
       // Check boundary conditions:
-      // Tab 0 ('date'): cannot swipe right (dx > 0)
-      // Tab 3 ('profile'): cannot swipe left (dx < 0)
       const isBoundaryBlocked =
         (currentIndexRef.current === 0 && dx > 0) ||
         (currentIndexRef.current === TABS.length - 1 && dx < 0);
 
-      // Lock into vertical scrolling if:
-      // 1. Vertical movement is greater than horizontal
-      // 2. Vertical movement reached 6px and horizontal is not strictly dominant
-      // 3. Horizontal movement is less than 14px or not strictly horizontal (absX < absY * 2.2)
-      // 4. Attempting to swipe past outer boundaries
-      const isVerticalDominant = absY >= absX || absY >= 6 || absX < 14 || absX < absY * 2.2;
-
-      if (isVerticalDominant || isBoundaryBlocked) {
+      if (!isHorizontal || isBoundaryBlocked) {
         touchState.current.isDetermined = true;
         touchState.current.isScrolling = true;
         return;
@@ -241,12 +234,12 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         e.preventDefault();
       }
 
-      // Enforce tab boundaries
+      // Enforce tab boundaries with subtle elastic resistance
       let clampedDx = dx;
       if (currentIndexRef.current === 0 && dx > 0) {
-        clampedDx = 0;
+        clampedDx = dx * 0.2;
       } else if (currentIndexRef.current === TABS.length - 1 && dx < 0) {
-        clampedDx = 0;
+        clampedDx = dx * 0.2;
       }
 
       dragOffsetRef.current = clampedDx;
@@ -262,9 +255,9 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       touchState.current.isDetermined = false;
       touchState.current.isScrolling = false;
       dragOffsetRef.current = 0;
-      if (trackRef.current) {
-        trackRef.current.style.transition = 'transform 200ms cubic-bezier(0.22, 1, 0.36, 1)';
-        trackRef.current.style.transform = `translate3d(-${currentIndexRef.current * 100}%, 0, 0)`;
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        setIsDragging(false);
       }
       return;
     }
@@ -274,15 +267,15 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     const velocity = Math.abs(dx) / elapsed; // px/ms
 
     const containerWidth = containerRef.current?.offsetWidth || window.innerWidth || 360;
-    const threshold = Math.max(50, containerWidth * 0.22);
-    const isFlick = Math.abs(dx) > 35 && velocity > 0.32;
+    const threshold = Math.max(60, containerWidth * 0.20);
+    const isFlick = Math.abs(dx) > 30 && velocity > 0.28;
 
     let targetIndex = currentIndexRef.current;
 
     // Single tab advance per swipe
-    if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < TABS.length - 1) {
+    if ((dx < -threshold || (dx < -30 && isFlick)) && currentIndexRef.current < TABS.length - 1) {
       targetIndex = currentIndexRef.current + 1;
-    } else if ((dx > threshold || (dx > 35 && isFlick)) && currentIndexRef.current > 0) {
+    } else if ((dx > threshold || (dx > 30 && isFlick)) && currentIndexRef.current > 0) {
       targetIndex = currentIndexRef.current - 1;
     }
 
@@ -302,7 +295,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     setIsAnimating(true);
 
     if (trackRef.current) {
-      trackRef.current.style.transition = 'transform 230ms cubic-bezier(0.22, 1, 0.36, 1)';
+      trackRef.current.style.transition = 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)';
       trackRef.current.style.transform = `translate3d(-${targetIndex * 100}%, 0, 0)`;
     }
 
@@ -315,7 +308,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
     setTimeout(() => {
       setIsAnimating(false);
-    }, 240);
+    }, 230);
   }, [onTabChange, soundEnabled, hapticEnabled]);
 
   // Attach non-passive touch listeners to container for responsive gesture control
@@ -355,6 +348,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       target.closest('textarea') ||
       target.closest('select') ||
       target.closest('[role="dialog"]') ||
+      target.closest('[aria-modal="true"]') ||
       target.closest('[data-no-swipe]') ||
       target.closest('.overflow-x-auto') ||
       target.closest('.overflow-x-scroll')
@@ -383,10 +377,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       const absY = Math.abs(dy);
 
       if (!mouseState.current.isSwiping) {
-        if (absX >= 14 && absX >= absY * 2.2) {
+        if (absX >= 12 && absX > absY * 1.35) {
           if (
             (currentIndexRef.current === 0 && dx > 0) ||
-            (currentIndexRef.current === 3 && dx < 0)
+            (currentIndexRef.current === TABS.length - 1 && dx < 0)
           ) {
             return;
           }
@@ -405,9 +399,9 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       if (mouseState.current.isSwiping) {
         let clampedDx = dx;
         if (currentIndexRef.current === 0 && dx > 0) {
-          clampedDx = 0;
-        } else if (currentIndexRef.current === 3 && dx < 0) {
-          clampedDx = 0;
+          clampedDx = dx * 0.2;
+        } else if (currentIndexRef.current === TABS.length - 1 && dx < 0) {
+          clampedDx = dx * 0.2;
         }
         dragOffsetRef.current = clampedDx;
         if (trackRef.current) {
@@ -430,13 +424,13 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
       if (isSwiping) {
         const containerWidth = containerRef.current?.offsetWidth || window.innerWidth || 360;
-        const threshold = Math.max(50, containerWidth * 0.22);
-        const isFlick = Math.abs(dx) > 35 && velocity > 0.32;
+        const threshold = Math.max(60, containerWidth * 0.20);
+        const isFlick = Math.abs(dx) > 30 && velocity > 0.28;
 
         let targetIndex = currentIndexRef.current;
-        if ((dx < -threshold || (dx < -35 && isFlick)) && currentIndexRef.current < 3) {
+        if ((dx < -threshold || (dx < -30 && isFlick)) && currentIndexRef.current < TABS.length - 1) {
           targetIndex = currentIndexRef.current + 1;
-        } else if ((dx > threshold || (dx > 35 && isFlick)) && currentIndexRef.current > 0) {
+        } else if ((dx > threshold || (dx > 30 && isFlick)) && currentIndexRef.current > 0) {
           targetIndex = currentIndexRef.current - 1;
         }
 
@@ -446,7 +440,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         setIsAnimating(true);
 
         if (trackRef.current) {
-          trackRef.current.style.transition = 'transform 230ms cubic-bezier(0.22, 1, 0.36, 1)';
+          trackRef.current.style.transition = 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)';
           trackRef.current.style.transform = `translate3d(-${targetIndex * 100}%, 0, 0)`;
         }
 
@@ -459,7 +453,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         setTimeout(() => {
           setIsAnimating(false);
-        }, 240);
+        }, 230);
       } else {
         dragOffsetRef.current = 0;
         if (trackRef.current) {
@@ -479,7 +473,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   }, [isBlocked, onTabChange, soundEnabled, hapticEnabled]);
 
   const isTabVisible = (index: number) => {
-    return index === currentIndex || isDragging || isAnimating;
+    return Math.abs(index - currentIndex) <= 1 || isDragging || isAnimating;
   };
 
   return (
@@ -491,7 +485,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     >
       <div
         ref={trackRef}
-        className="flex w-full flex-1 min-h-0 h-full"
+        className="flex w-full flex-1 min-h-0 h-full will-change-transform"
         style={{
           transform: `translate3d(-${currentIndex * 100}%, 0, 0)`,
           transition: isDragging

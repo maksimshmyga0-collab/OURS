@@ -11,6 +11,12 @@ import {
   Coffee,
   Copy,
   KeyRound,
+  Mail,
+  Camera,
+  RotateCcw,
+  Clock,
+  Calendar,
+  Layers,
 } from 'lucide-react';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { copyToClipboard } from '../services/device/clipboard';
@@ -197,7 +203,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
       {/* Frame Container */}
       <div className="w-full max-w-md mx-auto flex flex-col min-h-screen relative p-6 sm:px-8 justify-between">
         {/* ========================================================= */}
-        {/* SLIDE 1                                                   */}
+        {/* ========================================================= */}
+        {/* SLIDE 1 — «СВИДАНИЕ» 💌                                  */}
         {/* ========================================================= */}
         {view === 'slide-1' && (
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -222,19 +229,62 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               )}
             </div>
 
-            {/* Center Motif: Official OURS hugging stars logo */}
+            {/* Center Motif: «Свидание» Envelope & Invitation Preview */}
             <div className="my-auto py-4 flex flex-col items-center text-center">
-              <div className="relative mb-4 w-full max-w-[340px] h-72 sm:h-80 flex items-center justify-center">
-                <OursLogo size={665} animate />
+              <div className="relative mb-6 animate-gentle-float w-full max-w-[280px]">
+                {/* Background aura */}
+                <div className="absolute inset-0 rounded-[32px] bg-gradient-to-tr from-[#F6DCE1]/40 via-[#FAF0F2]/20 to-[#EDF4FB]/30 dark:from-[#25151A]/60 dark:via-transparent dark:to-[#151D26]/40 blur-xl pointer-events-none" />
+
+                {/* Card Container mimicking DateScreen */}
+                <div className="relative rounded-[28px] bg-white dark:bg-[#141214] soft-card-shadow border border-[#F0E6E8] dark:border-[#242024] p-4 flex flex-col items-center gap-3">
+                  {/* Badge */}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide">
+                    <Mail size={13} />
+                    <span>Свидание</span>
+                  </span>
+
+                  {/* Envelope / Invitation Card Box */}
+                  <div className="w-full rounded-[22px] bg-gradient-to-br from-[#FFF5F7] via-[#FFF9FA] to-[#FAF0F2] dark:from-[#1E1417] dark:via-[#181215] dark:to-[#151013] p-4 border border-[#F0E6E8] dark:border-[#352126] flex flex-col items-center text-center gap-2.5 relative overflow-hidden">
+                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#25181D] soft-card-shadow flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] border border-[#F0E6E8] dark:border-[#382329] shrink-0">
+                      <Heart size={22} className="fill-[#E98787]/20 text-[#E98787] dark:text-[#F0B9C6]" />
+                    </div>
+
+                    <div>
+                      <p className="font-display font-bold text-sm text-[#343033] dark:text-white leading-snug">
+                        Романтический ужин ♡
+                      </p>
+                      <p className="text-[11px] font-medium text-[#777277] dark:text-[#B8B2B5] mt-1 flex items-center justify-center gap-1">
+                        <Clock size={11} className="text-[#E98787]" />
+                        <span>Завтра в 19:30</span>
+                      </p>
+                    </div>
+
+                    {/* Interactive-looking buttons */}
+                    <div className="flex items-center justify-center gap-2 pt-1 w-full">
+                      <div className="flex-1 py-1.5 px-3 rounded-full bg-[#E98787] text-white font-semibold text-xs shadow-2xs">
+                        Принять ♡
+                      </div>
+                      <div className="py-1.5 px-3 rounded-full bg-white dark:bg-[#201518] text-[#777277] dark:text-[#B8B2B5] font-medium text-xs border border-[#EBE3E5] dark:border-[#382329]">
+                        Не смогу
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footnote */}
+                  <div className="flex items-center justify-between w-full px-1 text-[10px] text-[#777277] dark:text-[#B8B2B5] font-medium">
+                    <span>Приглашение отправлено</span>
+                    <span className="text-[#E98787] dark:text-[#F0B9C6] font-semibold">Ожидает ответа</span>
+                  </div>
+                </div>
               </div>
 
               {/* Title & Description */}
-              <div className="space-y-3 max-w-[310px]">
+              <div className="space-y-3 max-w-[320px]">
                 <h1 className="font-display text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white tracking-tight leading-snug">
-                  Ежедневный ритуал для двоих.
+                  Находите поводы быть ближе
                 </h1>
                 <p className="text-sm text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
-                  Маленькие моменты, которые становятся вашей общей историей.
+                  Отправляйте друг другу приглашения на свидание прямо в OURS. Один предлагает провести время вместе, другой принимает приглашение или отказывает.
                 </p>
               </div>
             </div>
@@ -250,14 +300,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </div>
 
               <PrimaryButton variant="coral" onClick={() => handleNextSlide('slide-2')}>
-                Начать
+                Далее
               </PrimaryButton>
             </div>
           </div>
         )}
 
         {/* ========================================================= */}
-        {/* SLIDE 2                                                   */}
+        {/* SLIDE 2 — «КАСАНИЕ» 🌙                                    */}
         {/* ========================================================= */}
         {view === 'slide-2' && (
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -280,50 +330,66 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </button>
             </div>
 
-            {/* Center Motif: «Касание дня» card */}
-            <div className="my-auto py-8 flex flex-col items-center text-center">
-              <div className="relative mb-8 animate-gentle-float">
+            {/* Center Motif: «Касание» Diptych Photo Slots */}
+            <div className="my-auto py-4 flex flex-col items-center text-center">
+              <div className="relative mb-6 animate-gentle-float w-full max-w-[310px]">
                 {/* Background aura */}
-                <div className="absolute inset-0 rounded-[32px] bg-gradient-to-tr from-[#DDEAF7]/50 via-white to-[#F6DCE1]/40 dark:from-[#151D26]/40 dark:via-transparent dark:to-[#221518]/40 blur-xl pointer-events-none" />
+                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/40 via-white to-[#DDEAF7]/30 dark:from-[#221518]/50 dark:via-transparent dark:to-[#151D26]/30 blur-lg pointer-events-none" />
 
-                {/* Card Container */}
-                <div className="relative w-56 rounded-[28px] bg-white dark:bg-[#141214] soft-card-shadow border border-[#F0E6E8] dark:border-[#242024] p-4 flex flex-col items-center gap-3">
-                  {/* Badge */}
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF9FA] dark:!bg-[#201518] border border-[#F6DCE1] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide">
-                    <Sparkles size={12} />
-                    <span>Касание дня</span>
-                  </span>
-
-                  {/* Visual card content: cozy prompt */}
-                  <div className="w-full rounded-[22px] bg-gradient-to-br from-[#FFF5F7] via-[#FFF9FA] to-[#F7D8D0]/40 dark:from-[#1C1417] dark:via-[#191417] dark:to-[#171418] p-4 border border-[#F0E6E8]/70 dark:border-[#2D2024] flex flex-col items-center text-center gap-2">
-                    <div className="w-11 h-11 rounded-2xl bg-white dark:!bg-[#201518] soft-card-shadow flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] border border-[#F0E6E8] dark:border-[#382329]">
-                      <Coffee size={20} />
-                    </div>
-                    <div>
-                      <p className="font-display font-semibold text-xs text-[#343033] dark:text-white">
-                        Касание 1
-                      </p>
-                      <p className="text-[10px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-                        Касание с любимым человеком
-                      </p>
-                    </div>
+                {/* Diptych Container */}
+                <div className="relative p-3.5 rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs flex flex-col gap-2.5">
+                  {/* Top Badge */}
+                  <div className="flex items-center justify-between px-1">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[10px] font-semibold tracking-wide uppercase">
+                      <Sparkles size={11} />
+                      <span>Касание</span>
+                    </span>
+                    <span className="text-[10px] font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center gap-1">
+                      <Sparkles size={11} />
+                      <span>Оба готовы</span>
+                    </span>
                   </div>
 
-                  {/* Footnote */}
-                  <div className="flex items-center justify-between w-full px-1 text-[10px] text-[#777277] dark:text-[#B8B2B5] font-medium">
-                    <span>Сейчас</span>
-                    <span className="text-[#E98787] dark:text-[#F0B9C6] font-semibold">1 из 3 сегодня</span>
+                  {/* Two Diptych Slots Stage */}
+                  <div className="relative grid grid-cols-2 gap-2">
+                    {/* User Slot */}
+                    <div className="aspect-[4/4.8] rounded-[20px] bg-gradient-to-tr from-[#FAF0ED] via-[#F6DCE1] to-[#EED7DC] dark:from-[#201518] dark:via-[#2A181C] dark:to-[#1C1417] border border-[#EBE3E5] dark:border-[#352126] shadow-2xs flex flex-col items-center justify-center p-2 relative overflow-hidden">
+                      <div className="w-8 h-8 rounded-xl bg-white/90 dark:bg-[#2A181E] flex items-center justify-center text-[#E98787] shadow-xs mb-1">
+                        <Camera size={16} />
+                      </div>
+                      <span className="text-[10px] font-bold text-[#343033] dark:text-white">Твой кадр</span>
+                      <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#E98787] text-white flex items-center justify-center shadow-xs">
+                        <Check size={11} strokeWidth={3} />
+                      </div>
+                    </div>
+
+                    {/* Center connector seal */}
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-white dark:bg-[#1E1C1E] border border-[#F2DEE3] dark:border-[#382730] shadow-xs flex items-center justify-center text-[#E98787] dark:text-[#F2967F]">
+                      <Heart size={12} fill="currentColor" />
+                    </div>
+
+                    {/* Partner Slot (Frosted Blur / Reveal preview) */}
+                    <div className="aspect-[4/4.8] rounded-[20px] bg-[#FAF5F7] dark:bg-[#181416] border border-dashed border-[#E9C3CB] dark:border-[#382329] flex flex-col items-center justify-center p-2 relative overflow-hidden">
+                      <div className="absolute inset-0 backdrop-blur-md bg-white/40 dark:bg-black/40" />
+                      <div className="relative z-10 flex flex-col items-center gap-1">
+                        <div className="w-8 h-8 rounded-xl bg-white/90 dark:bg-[#201518] shadow-xs flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] border border-[#EBE3E5] dark:border-[#382329]">
+                          <Lock size={15} />
+                        </div>
+                        <span className="text-[10px] font-bold text-[#343033] dark:text-white">Кадр партнёра</span>
+                        <span className="text-[8px] font-semibold text-[#E98787] dark:text-[#F0B9C6]">Скрыто до MATCH</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Title & Description */}
-              <div className="space-y-3 max-w-[310px]">
+              <div className="space-y-3 max-w-[320px]">
                 <h1 className="font-display text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white tracking-tight leading-snug">
-                  Получайте небольшой повод быть ближе.
+                  Один момент. На двоих
                 </h1>
                 <p className="text-sm text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
-                  Каждый день — новое касание только для вас двоих.
+                  Отправьте друг другу фотографии и откройте их вместе. Когда оба готовы, ваши моменты встречаются в одном касании.
                 </p>
               </div>
             </div>
@@ -346,7 +412,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* SLIDE 3                                                   */}
+        {/* SLIDE 3 — «НАШ ДЕНЬ» 📸                                   */}
         {/* ========================================================= */}
         {view === 'slide-3' && (
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -369,56 +435,59 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </button>
             </div>
 
-            {/* Center Motif: Two slots (one filled, second locked) */}
-            <div className="my-auto py-8 flex flex-col items-center text-center">
-              <div className="relative mb-8 animate-gentle-float">
+            {/* Center Motif: «Наш день» Single Photo Card */}
+            <div className="my-auto py-4 flex flex-col items-center text-center">
+              <div className="relative mb-6 animate-gentle-float w-full max-w-[310px]">
                 {/* Background aura */}
-                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/30 via-white to-[#DDEAF7]/30 dark:from-[#221518]/30 dark:via-transparent dark:to-[#151D26]/30 blur-lg pointer-events-none" />
+                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/40 via-white to-[#F0E6E8]/30 dark:from-[#221518]/50 dark:via-transparent dark:to-[#1A1417]/30 blur-lg pointer-events-none" />
 
-                {/* Slots Stage */}
-                <div className="relative flex items-center justify-center gap-3 p-3.5 rounded-[26px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs">
-                  {/* Slot 1: Filled Photo */}
-                  <div className="w-24 h-32 rounded-[20px] overflow-hidden relative border border-[#EBE3E5] dark:border-[#242024] shadow-2xs bg-gradient-to-tr from-[#FAF0ED] via-[#F6DCE1] to-[#EED7DC] dark:from-[#201518] dark:via-[#2A181C] dark:to-[#1C1417] flex items-center justify-center">
-                    <Sparkles size={24} className="text-[#E98787] opacity-80" />
-                    {/* Badge: Ready */}
-                    <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 text-[9px] font-bold text-[#343033] dark:text-white shadow-2xs">
-                      Ты
-                    </div>
-                    <div className="absolute bottom-2 right-2 w-5 h-5 rounded-full bg-[#E98787] text-white flex items-center justify-center shadow-xs">
-                      <Check size={11} strokeWidth={3} />
-                    </div>
+                {/* Shared Panel Container mimicking OurDayScreen */}
+                <div className="relative rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs p-4 flex flex-col gap-3">
+                  {/* Top Badge Header */}
+                  <div className="flex items-center justify-between px-0.5">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide">
+                      <Camera size={13} />
+                      <span>Наш день</span>
+                    </span>
+                    <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5] font-medium">16 октября</span>
                   </div>
 
-                  {/* Center connector */}
-                  <div className="w-6 h-6 rounded-full bg-white dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#E98787] shadow-2xs shrink-0">
-                    <Heart size={10} className="fill-[#E98787]" />
-                  </div>
-
-                  {/* Slot 2: Hidden / Locked */}
-                  <div className="w-24 h-32 rounded-[20px] bg-[#FAF5F7] dark:bg-[#181416] border border-dashed border-[#E9C3CB] dark:border-[#382329] flex flex-col items-center justify-center gap-1.5 relative p-2 shadow-2xs">
-                    {/* Badge */}
-                    <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 text-[9px] font-bold text-[#777277] dark:text-[#B8B2B5] shadow-2xs">
-                      Партнёр
+                  {/* SINGLE Photo Frame Stage */}
+                  <div className="relative w-full aspect-[16/10.5] rounded-[22px] overflow-hidden bg-gradient-to-br from-[#FFF5F7] via-[#FFF9FA] to-[#FAF0F2] dark:from-[#1A1417] dark:via-[#161114] dark:to-[#130E11] border border-[#F0E6E8] dark:border-[#332227] shadow-2xs flex flex-col items-center justify-center p-3 select-none">
+                    {/* Author Badge Top-Left */}
+                    <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-[10px] font-medium text-white flex items-center gap-1 z-10">
+                      <span>Ты</span>
                     </div>
 
-                    <div className="w-9 h-9 rounded-full bg-white dark:bg-[#201518] shadow-2xs flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] border border-[#EBE3E5] dark:border-[#382329]">
-                      <Lock size={15} />
+                    {/* Central single photo presentation icon / graphics */}
+                    <div className="w-11 h-11 rounded-2xl bg-white/90 dark:bg-[#201518] shadow-xs border border-[#F0E6E8] dark:border-[#382329] flex items-center justify-center text-[#E98787] dark:text-[#F0B9C6] mb-1.5">
+                      <Camera size={20} />
                     </div>
-                    <div className="text-center">
-                      <p className="text-[10px] font-bold text-[#343033] dark:text-white">Скрыто</p>
-                      <p className="text-[8px] text-[#777277] dark:text-[#B8B2B5]">до MATCH</p>
+                    <span className="font-display font-semibold text-xs text-[#343033] dark:text-white">
+                      Мой момент дня
+                    </span>
+                    <span className="text-[10px] text-[#777277] dark:text-[#B8B2B5] mt-0.5">
+                      Сохранено в общую историю
+                    </span>
+
+                    {/* Replaced photo mechanics notice button at bottom */}
+                    <div className="absolute bottom-2.5 inset-x-3 flex justify-center">
+                      <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-full bg-white/95 dark:bg-[#201518]/95 backdrop-blur-md border border-[#EED7DC] dark:border-[#382329] text-[10px] font-semibold text-[#343033] dark:text-white shadow-2xs">
+                        <RotateCcw size={10} className="text-[#E98787] dark:text-[#F0B9C6]" />
+                        <span>В течение дня можно заменить</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Title & Description */}
-              <div className="space-y-3 max-w-[310px]">
+              <div className="space-y-3 max-w-[320px]">
                 <h1 className="font-display text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white tracking-tight leading-snug">
-                  Сделайте фото.
+                  Сохраняйте то, из чего состоит жизнь
                 </h1>
                 <p className="text-sm text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
-                  Ваши фотографии остаются скрытыми до тех пор, пока не будут готовы оба.
+                  Делитесь фотографиями своего дня — маленькими моментами, которые хочется сохранить. Со временем из них складывается история вашей обычной, настоящей жизни.
                 </p>
               </div>
             </div>
@@ -441,7 +510,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
         )}
 
         {/* ========================================================= */}
-        {/* SLIDE 4                                                   */}
+        {/* SLIDE 4 — «ИСТОРИЯ» ✨                                    */}
         {/* ========================================================= */}
         {view === 'slide-4' && (
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
@@ -464,27 +533,72 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </button>
             </div>
 
-            {/* Center Motif: Official OURS hugging stars logo + MATCH Effect */}
+            {/* Center Motif: «История» Exact Replica of HistoryScreen */}
             <div className="my-auto py-4 flex flex-col items-center text-center">
-              <div className="relative mb-4 w-full max-w-[340px] h-72 sm:h-80 flex items-center justify-center">
-                <OursLogo size={630} animate />
+              <div className="relative mb-6 animate-gentle-float w-full max-w-[310px]">
+                {/* Background aura */}
+                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/40 via-white to-[#EDF4FB]/30 dark:from-[#221518]/50 dark:via-transparent dark:to-[#151D26]/30 blur-lg pointer-events-none" />
 
-                {/* Floating MATCH badge that emerges with the logo */}
-                <div className="absolute -bottom-1 z-20 pointer-events-none animate-match-pill flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white dark:bg-[#1E1C1E] shadow-xs border border-[#EBE3E5] dark:border-[#242024]">
-                  <span className="w-2 h-2 rounded-full bg-[#E98787] dark:bg-[#F0B9C6] animate-ping" />
-                  <span className="font-display text-xs font-bold tracking-widest text-[#343033] dark:text-white">
-                    MATCH
-                  </span>
+                {/* Main Card Container reproducing HistoryScreen */}
+                <div className="relative rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs p-4 flex flex-col gap-3">
+                  {/* Top Bar matching HistoryScreen: Title & Segmented View Mode Toggle */}
+                  <div className="flex items-center justify-between px-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-[#E98787]" />
+                      <h2 className="font-display font-bold text-sm text-[#343033] dark:text-white">
+                        История
+                      </h2>
+                    </div>
+
+                    {/* Segmented View Mode Toggle from HistoryScreen */}
+                    <div className="flex items-center gap-0.5 p-0.5 rounded-full bg-[#F5EFF1] dark:bg-[#1E1A1D] border border-[#EBE3E5] dark:border-[#282126] shadow-2xs">
+                      <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white dark:bg-[#282025] text-[#343033] dark:text-white text-[10px] font-semibold shadow-xs">
+                        <Calendar size={10} />
+                        <span>По дням</span>
+                      </div>
+                      <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[#777277] dark:text-[#A8A0A6] text-[10px] font-semibold">
+                        <Layers size={10} />
+                        <span>Лента</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Day Entry Card from HistoryScreen */}
+                  <div className="w-full rounded-[22px] bg-gradient-to-br from-[#FFF5F7] via-[#FFF9FA] to-[#FAF0F2] dark:from-[#1A1417] dark:via-[#161114] dark:to-[#130E11] p-3 border border-[#F0E6E8] dark:border-[#332227] flex flex-col gap-2 relative">
+                    <div className="flex items-center justify-between text-[10px] font-semibold text-[#343033] dark:text-white px-1">
+                      <span>15 октября · Вчера</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[9px] font-bold text-[#E98787] uppercase border border-[#F5D8DF] dark:border-[#382329]">
+                        Свидание
+                      </span>
+                    </div>
+
+                    {/* Full-width photo memory frame matching HistoryScreen single photo card */}
+                    <div className="relative aspect-[16/9.5] w-full rounded-[18px] overflow-hidden bg-gradient-to-br from-[#FCE6EB] to-[#F5D8DF] dark:from-[#2A1820] dark:to-[#201217] border border-[#EBE3E5] dark:border-[#282024] flex items-center justify-center p-3">
+                      <div className="flex flex-col items-center gap-1 text-center">
+                        <Heart size={20} className="text-[#E98787] fill-[#E98787]/20" />
+                        <span className="font-display font-semibold text-xs text-[#343033] dark:text-white">
+                          Вечернее свидание
+                        </span>
+                      </div>
+                      <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[9px] font-semibold">
+                        Совместное фото
+                      </div>
+                      <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 text-[9px] font-bold text-[#343033] dark:text-white shadow-xs border border-[#EBE3E5] dark:border-[#2D2024] flex items-center gap-1">
+                        <Heart size={10} className="fill-[#E98787] text-[#E98787]" />
+                        <span>MATCH ✨</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Title & Description */}
-              <div className="space-y-3 max-w-[310px]">
+              <div className="space-y-3 max-w-[320px]">
                 <h1 className="font-display text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white tracking-tight leading-snug">
-                  Откройте его вместе.
+                  Ваша история — в каждом моменте
                 </h1>
                 <p className="text-sm text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
-                  Когда готовы оба — происходит MATCH.
+                  Возвращайтесь к фотографиям и моментам, которые вы сохранили вместе. Это ваше личное пространство воспоминаний, которое наполняется вашей общей жизнью.
                 </p>
               </div>
             </div>
@@ -500,7 +614,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </div>
 
               <PrimaryButton variant="coral" onClick={() => handleNextSlide('hub')}>
-                Создать пару
+                Начать нашу историю
               </PrimaryButton>
             </div>
           </div>

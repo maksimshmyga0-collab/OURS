@@ -1251,7 +1251,7 @@ export default function App() {
             />
 
             {/* Scrollable Main Viewport with Horizontal Tab Swipe Navigation */}
-            <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative w-full">
+            <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative w-full overscroll-x-none touch-pan-y">
               <SwipeableTabViews
                 activeTab={activeTab}
                 onTabChange={(tab) => {

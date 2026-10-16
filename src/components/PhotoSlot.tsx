@@ -120,7 +120,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
           {/* Photo Frame Container */}
           <div
             onClick={() => handleOpenViewer(photoUrl, 'Твоё фото')}
-            className="group relative w-full aspect-[2/2.8] sm:aspect-[2/2.9] min-h-[210px] xs:min-h-[240px] sm:min-h-[280px] rounded-[28px] sm:rounded-[30px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)] select-none"
+            className="group relative w-full aspect-[4/4.7] sm:aspect-[4/4.8] min-h-[225px] xs:min-h-[255px] sm:min-h-[295px] rounded-[28px] sm:rounded-[30px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)] select-none"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -218,7 +218,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
         <button
           type="button"
           onClick={handleSlotClick}
-          className={`group relative w-full aspect-[2/2.8] sm:aspect-[2/2.9] min-h-[210px] xs:min-h-[240px] sm:min-h-[280px] rounded-[28px] sm:rounded-[30px] bg-gradient-to-b from-[#FFFFFF] via-[#FFF8F9] to-[#FDF4F6] dark:from-[#1A1417] dark:via-[#161114] dark:to-[#130E11] border-2 border-dashed ${
+          className={`group relative w-full aspect-[4/4.7] sm:aspect-[4/4.8] min-h-[225px] xs:min-h-[255px] sm:min-h-[295px] rounded-[28px] sm:rounded-[30px] bg-gradient-to-b from-[#FFFFFF] via-[#FFF8F9] to-[#FDF4F6] dark:from-[#1A1417] dark:via-[#161114] dark:to-[#130E11] border-2 border-dashed ${
             isPartnerUploaded
               ? 'border-[#E98787] shadow-[0_6px_22px_-2px_rgba(233,135,135,0.32)] animate-pulse'
               : 'border-[#F0D5DC] dark:border-[#3D252E] hover:border-[#E98787] dark:hover:border-[#E98787] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.12)] hover:shadow-[0_8px_24px_-4px_rgba(233,135,135,0.22)]'
@@ -265,7 +265,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
         {/* Photo Card Container */}
         <div
           onClick={!isBlurred ? () => handleOpenViewer(photoUrl, title) : undefined}
-          className={`group relative w-full aspect-[2/2.8] sm:aspect-[2/2.9] min-h-[210px] xs:min-h-[240px] sm:min-h-[280px] rounded-[28px] sm:rounded-[30px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] select-none ${
+          className={`group relative w-full aspect-[4/4.7] sm:aspect-[4/4.8] min-h-[225px] xs:min-h-[255px] sm:min-h-[295px] rounded-[28px] sm:rounded-[30px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_10px_28px_-6px_rgba(215,130,145,0.2),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_12px_32px_-6px_rgba(0,0,0,0.7)] select-none ${
             !isBlurred
               ? 'cursor-pointer active:scale-[0.98] transition-all duration-100 ease-out hover:shadow-[0_14px_32px_-6px_rgba(215,130,145,0.3)]'
               : 'pointer-events-none'
@@ -376,7 +376,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
   return (
     <div className={`w-full flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
       <div
-        className={`relative w-full aspect-[2/2.8] sm:aspect-[2/2.9] min-h-[210px] xs:min-h-[240px] sm:min-h-[280px] rounded-[28px] sm:rounded-[30px] ${
+        className={`relative w-full aspect-[4/4.7] sm:aspect-[4/4.8] min-h-[225px] xs:min-h-[255px] sm:min-h-[295px] rounded-[28px] sm:rounded-[30px] ${
           isUserUploaded
             ? 'bg-gradient-to-b from-[#FFFDFE] via-[#FAF1F4] to-[#F6E6ED] dark:from-[#1D1418] dark:via-[#191115] dark:to-[#140D11] border border-dashed border-[#E8CCD5] dark:border-[#3D252E] shadow-[0_4px_16px_rgba(215,85,105,0.08)]'
             : 'bg-gradient-to-b from-[#FDF9FA] via-[#FAF3F5] to-[#F7EEF1] dark:from-[#171316] dark:via-[#151114] dark:to-[#120E11] border border-dashed border-[#ECD9DE] dark:border-[#35252C] shadow-[0_2px_10px_rgba(0,0,0,0.02)]'
