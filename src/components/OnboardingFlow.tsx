@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { AtmosphericGlow } from './AtmosphericGlow';
 import { PrimaryButton } from './PrimaryButton';
 import {
   ChevronLeft,
@@ -288,8 +289,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             {/* Center Motif: «Свидание» Envelope & Invitation Preview */}
             <div className="my-auto py-4 flex flex-col items-center text-center">
               <div className="relative mb-6 animate-gentle-float w-full max-w-[280px]">
-                {/* Background aura */}
-                <div className="absolute inset-0 rounded-[32px] bg-gradient-to-tr from-[#F6DCE1]/40 via-[#FAF0F2]/20 to-[#EDF4FB]/30 dark:from-[#25151A]/60 dark:via-transparent dark:to-[#151D26]/40 blur-xl pointer-events-none" />
+                {/* Background aura powered by Ambient Canvas Engine */}
+                <AtmosphericGlow variant="card" insetClassName="inset-0" roundedClassName="rounded-[32px]" />
 
                 {/* Card Container mimicking DateScreen */}
                 <div className="relative rounded-[28px] bg-white dark:bg-[#141214] soft-card-shadow border border-[#F0E6E8] dark:border-[#242024] p-4 flex flex-col items-center gap-3">
@@ -389,8 +390,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             {/* Center Motif: «Касание» Diptych Photo Slots */}
             <div className="my-auto py-4 flex flex-col items-center text-center">
               <div className="relative mb-6 animate-gentle-float w-full max-w-[310px]">
-                {/* Background aura */}
-                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/40 via-white to-[#DDEAF7]/30 dark:from-[#221518]/50 dark:via-transparent dark:to-[#151D26]/30 blur-lg pointer-events-none" />
+                {/* Background aura powered by Ambient Canvas Engine */}
+                <AtmosphericGlow variant="card" insetClassName="inset-0" roundedClassName="rounded-[36px]" />
 
                 {/* Diptych Container */}
                 <div className="relative rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs p-4 flex flex-col gap-3">
@@ -494,8 +495,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             {/* Center Motif: «Наш день» Single Photo Card */}
             <div className="my-auto py-4 flex flex-col items-center text-center">
               <div className="relative mb-6 animate-gentle-float w-full max-w-[310px]">
-                {/* Background aura */}
-                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/40 via-white to-[#F0E6E8]/30 dark:from-[#221518]/50 dark:via-transparent dark:to-[#1A1417]/30 blur-lg pointer-events-none" />
+                {/* Background aura powered by Ambient Canvas Engine */}
+                <AtmosphericGlow variant="card" insetClassName="inset-0" roundedClassName="rounded-[36px]" />
 
                 {/* Shared Panel Container mimicking OurDayScreen */}
                 <div className="relative rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs p-4 flex flex-col gap-3">
@@ -592,8 +593,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
             {/* Center Motif: «История» Exact Replica of HistoryScreen */}
             <div className="my-auto py-4 flex flex-col items-center text-center">
               <div className="relative mb-6 animate-gentle-float w-full max-w-[310px]">
-                {/* Background aura */}
-                <div className="absolute inset-0 rounded-[36px] bg-gradient-to-tr from-[#F6DCE1]/40 via-white to-[#EDF4FB]/30 dark:from-[#221518]/50 dark:via-transparent dark:to-[#151D26]/30 blur-lg pointer-events-none" />
+                {/* Background aura powered by Ambient Canvas Engine */}
+                <AtmosphericGlow variant="card" insetClassName="inset-0" roundedClassName="rounded-[36px]" />
 
                 {/* Main Card Container reproducing HistoryScreen */}
                 <div className="relative rounded-[28px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs p-4 flex flex-col gap-3">

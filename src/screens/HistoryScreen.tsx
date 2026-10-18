@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { HistoryDay, Moment, CoupleState, ReactionEmoji, OurDayPhoto } from '../types';
 import { Lock, ArrowLeft, Sparkles, Heart, Calendar, Layers, Image as ImageIcon, Mail, Images, Camera } from 'lucide-react';
 import { ReactionIcon } from '../components/ReactionIcon';
@@ -53,7 +53,6 @@ function getPluralMoments(count: number): string {
   return 'моментов';
 }
 
-
 function getYesterdayDateKey(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
@@ -81,6 +80,439 @@ function getPluralDays(count: number): string {
   return 'дней';
 }
 
+interface HistoryMomentCardProps {
+  moment: Moment;
+  isDayUnlocked: boolean;
+  isUnlockedGlobally: boolean;
+  couple: CoupleState;
+  onPhotoClick: (url: string | null, authorName: string) => void;
+  onOpenLovely: () => void;
+}
+
+const HistoryMomentCard = React.memo<HistoryMomentCardProps>(({
+  moment: m,
+  isDayUnlocked,
+  isUnlockedGlobally,
+  couple,
+  onPhotoClick,
+  onOpenLovely,
+}) => {
+  const isDateM = Boolean(m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) || m.label === 'СВИДАНИЕ');
+  const isOurDayM = Boolean(m.label === 'НАШ ДЕНЬ' || m.prompt === 'Наш день' || (typeof m.id === 'string' && m.id.startsWith('ourday-')));
+  const dPhoto = m.imageUrl || m.userPhoto || m.partnerPhoto || (m.photos && m.photos[0]?.imageUrl);
+
+  const renderCoupleDiptych = () => {
+    const userPhoto = resolveUserPhoto(m, couple.user.id);
+    const partnerPhoto = resolvePartnerPhoto(m, couple.user.id);
+    const hasBoth = Boolean(userPhoto && partnerPhoto);
+
+    if (!isDayUnlocked && !isUnlockedGlobally) {
+      return (
+        <div className="relative w-full rounded-[22px] overflow-hidden bg-[#FAF0F2] dark:bg-[#1E1418] border border-[#F2D1D8] dark:border-[#382329] p-6 text-center space-y-3 shadow-2xs">
+          <div className="w-10 h-10 mx-auto rounded-full bg-white dark:bg-[#2A161E] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shadow-2xs">
+            <Lock size={16} />
+          </div>
+          <div className="space-y-1">
+            <p className="font-display text-sm font-bold text-[#343033] dark:text-white">
+              Касание бережно сохранено навсегда
+            </p>
+            <p className="text-xs text-[#777277] dark:text-[#B8B2B5] max-w-xs mx-auto">
+              Воспоминания старше 7 дней открываются с LOVELY
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenLovely}
+            className="group relative h-[38px] px-4 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-xs hover:border-[#E98787]/35 text-center flex items-center justify-center shrink-0"
+          >
+            <span className="font-display font-semibold text-xs tracking-tight text-[#343033] dark:text-white whitespace-nowrap">
+              Открыть воспоминания
+            </span>
+          </button>
+        </div>
+      );
+    }
+
+    const isDateMoment = Boolean(
+      m.isDate ||
+      (typeof m.id === 'string' && m.id.startsWith('date-')) ||
+      m.label === 'СВИДАНИЕ'
+    );
+
+    const isOurDayMoment = Boolean(
+      m.label === 'НАШ ДЕНЬ' ||
+      m.prompt === 'Наш день' ||
+      (typeof m.id === 'string' && m.id.startsWith('ourday-'))
+    );
+
+    const singlePhoto = userPhoto || partnerPhoto || (m.photos && m.photos[0]?.imageUrl) || m.imageUrl;
+
+    if ((isDateMoment || isOurDayMoment) && (!hasBoth || (m.photos && m.photos.length <= 1))) {
+      const authorLabel = isOurDayMoment
+        ? (userPhoto ? (couple.user.name || 'Ты') : (couple.partner.name || 'Партнёр'))
+        : 'Совместное фото';
+
+      return (
+        <div className="space-y-2">
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              if (singlePhoto) {
+                onPhotoClick(
+                  singlePhoto,
+                  isOurDayMoment ? `Фото от ${authorLabel}` : (m.prompt || 'Свидание')
+                );
+              }
+            }}
+            className="relative aspect-[16/10] xs:aspect-[16/9.5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
+            role="button"
+            tabIndex={0}
+            aria-label={isOurDayMoment ? `Открыть фото ${authorLabel}` : 'Открыть фото свидания'}
+          >
+            {singlePhoto ? (
+              <>
+                <img
+                  src={singlePhoto}
+                  alt={isOurDayMoment ? `Фото от ${authorLabel}` : 'Фото свидания'}
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
+                />
+                <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
+                  {authorLabel}
+                </div>
+                <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-white text-[10px] font-medium tracking-tight pointer-events-none shadow-xs">
+                  Смотреть
+                </div>
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[#777277] text-xs">
+                {isOurDayMoment ? 'Фото Нашего дня' : 'Фото свидания'}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        <div className="relative grid grid-cols-2 gap-1.5 sm:gap-2 items-center">
+          {/* User Photo Slot */}
+          <div className="flex flex-col">
+            {userPhoto ? (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPhotoClick(userPhoto, couple.user.name);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPhotoClick(userPhoto, couple.user.name);
+                  }
+                }}
+                className="relative aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
+                role="button"
+                tabIndex={0}
+                aria-label={`Открыть фото ${couple.user.name}`}
+              >
+                <img
+                  src={userPhoto}
+                  alt={couple.user.name}
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
+                />
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
+                  {couple.user.name}
+                </div>
+                {m.partnerReaction && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-2 right-2 w-7.5 h-7.5 rounded-full bg-white/95 dark:bg-[#1E1A1E] shadow-sm border border-[#F0E6E8] dark:border-[#38262E] flex items-center justify-center transition-transform hover:scale-110 pointer-events-none"
+                    title={`Реакция ${couple.partner.name}`}
+                  >
+                    <ReactionIcon reaction={m.partnerReaction} size={16} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] bg-[#FAF5F7] dark:bg-[#181316] border border-dashed border-[#EED7DC] dark:border-[#382329] flex flex-col items-center justify-center text-center p-3 text-[#777277] dark:text-[#A8A0A6]">
+                <div className="w-8 h-8 rounded-full bg-white dark:bg-[#201518] border border-[#F0DADE] dark:border-[#3A222A] flex items-center justify-center text-[#E98787] mb-2">
+                  <Heart size={14} className="fill-[#E98787]/20" />
+                </div>
+                <span className="text-[11px] font-semibold text-[#343033] dark:text-white">
+                  {couple.user.name}
+                </span>
+                <span className="text-[10px] text-[#8A8488] dark:text-[#A8A0A6] mt-0.5 leading-tight">
+                  Кадр в сердце
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Central Connecting Talisman */}
+          {hasBoth && (
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/95 dark:bg-[#1E1A1E] shadow-md border border-[#F0E6E8] dark:border-[#3A262E] text-[#E98787] flex items-center justify-center pointer-events-none animate-in zoom-in-75 duration-300">
+              <Heart size={13} className="fill-[#E98787] text-[#E98787]" />
+            </div>
+          )}
+
+          {/* Partner Photo Slot */}
+          <div className="flex flex-col">
+            {partnerPhoto ? (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPhotoClick(partnerPhoto, couple.partner.name);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onPhotoClick(partnerPhoto, couple.partner.name);
+                  }
+                }}
+                className="relative aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
+                role="button"
+                tabIndex={0}
+                aria-label={`Открыть фото ${couple.partner.name}`}
+              >
+                <img
+                  src={partnerPhoto}
+                  alt={couple.partner.name}
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
+                />
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
+                  {couple.partner.name}
+                </div>
+                {m.userReaction && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute bottom-2 right-2 w-7.5 h-7.5 rounded-full bg-white/95 dark:bg-[#1E1A1E] shadow-sm border border-[#F0E6E8] dark:border-[#38262E] flex items-center justify-center transition-transform hover:scale-110 pointer-events-none"
+                    title={`Реакция ${couple.user.name}`}
+                  >
+                    <ReactionIcon reaction={m.userReaction} size={16} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] bg-[#FAF5F7] dark:bg-[#181316] border border-dashed border-[#EED7DC] dark:border-[#382329] flex flex-col items-center justify-center text-center p-3 text-[#777277] dark:text-[#A8A0A6]">
+                <div className="w-8 h-8 rounded-full bg-white dark:bg-[#201518] border border-[#F0DADE] dark:border-[#3A222A] flex items-center justify-center text-[#E98787] mb-2">
+                  <Heart size={14} className="fill-[#E98787]/20" />
+                </div>
+                <span className="text-[11px] font-semibold text-[#343033] dark:text-white">
+                  {couple.partner.name}
+                </span>
+                <span className="text-[10px] text-[#8A8488] dark:text-[#A8A0A6] mt-0.5 leading-tight">
+                  Рядом в мыслях
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {(m.userReaction || m.partnerReaction) && (
+          <div className="flex items-center justify-center gap-3 pt-1 text-[11px] text-[#777277] dark:text-[#A8A0A6]">
+            {m.userReaction && (
+              <span className="inline-flex items-center gap-1">
+                <span className="font-medium text-[#343033] dark:text-white">{couple.user.name}:</span>
+                <ReactionIcon reaction={m.userReaction} size={15} />
+              </span>
+            )}
+            {m.userReaction && m.partnerReaction && (
+              <span className="text-[#C8C2C5] dark:text-[#4A4047]" aria-hidden="true">·</span>
+            )}
+            {m.partnerReaction && (
+              <span className="inline-flex items-center gap-1">
+                <span className="font-medium text-[#343033] dark:text-white">{couple.partner.name}:</span>
+                <ReactionIcon reaction={m.partnerReaction} size={15} />
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative overflow-visible">
+      <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+      <div
+        onClick={() => {
+          if (isDateM && dPhoto) {
+            onPhotoClick(dPhoto, m.prompt || 'Свидание');
+          }
+        }}
+        className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
+          isDateM && dPhoto ? 'cursor-pointer hover:border-[#E98787]/40' : ''
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2.5 px-1 pt-0.5">
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
+              {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) ? (
+                <Mail size={11} className="shrink-0" />
+              ) : (
+                <Sparkles size={11} className="shrink-0" />
+              )}
+              <span>
+                {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-'))
+                  ? 'СВИДАНИЕ'
+                  : isOurDayM
+                  ? 'НАШ ДЕНЬ'
+                  : 'КАСАНИЕ'}
+              </span>
+            </div>
+            <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
+              {m.prompt ? m.prompt.replace(/\s*\d+$/, '') : 'Касание'}
+            </h3>
+          </div>
+          {formatMatchCardTimestamp(m) && (
+            <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums text-right">
+              {formatMatchCardTimestamp(m)}
+            </span>
+          )}
+        </div>
+
+        {renderCoupleDiptych()}
+      </div>
+    </div>
+  );
+});
+
+interface HistoryDayCardProps {
+  day: HistoryDay;
+  isUnlockedGlobally: boolean;
+  cardBgColor: string;
+  couple: CoupleState;
+  onSelectDay: (dayId: string) => void;
+  onOpenLovely: () => void;
+}
+
+const HistoryDayCard = React.memo<HistoryDayCardProps>(({
+  day,
+  isUnlockedGlobally,
+  cardBgColor,
+  couple,
+  onSelectDay,
+  onOpenLovely,
+}) => {
+  const isDayUnlocked = !day.isLocked || isUnlockedGlobally;
+
+  return (
+    <div className="relative overflow-visible">
+      <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
+      <div
+        onClick={() => {
+          triggerHaptic(true);
+          if (isDayUnlocked) {
+            onSelectDay(day.id);
+          } else {
+            onOpenLovely();
+          }
+        }}
+        className={`relative rounded-[24px] p-4 sm:p-5 border border-[#EBE3E5] dark:border-[#242024] shadow-2xs transition-all duration-150 cursor-pointer active:scale-[0.99] hover:border-[#E98787]/50 backdrop-blur-md ${cardBgColor}`}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
+              {day.title}
+            </h3>
+            <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
+              {day.subtitle} · {day.dateStr}
+            </p>
+          </div>
+
+          {!isDayUnlocked ? (
+            <span className="w-8 h-8 rounded-full bg-white/90 dark:bg-[#1A181A] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shadow-2xs">
+              <Lock size={14} />
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-[#E98787] flex items-center gap-1">
+              <span>Смотреть</span>
+              <span>→</span>
+            </span>
+          )}
+        </div>
+
+        {isDayUnlocked ? (
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {day.moments.slice(0, 3).map((m, mIdx) => {
+              const isDateM = Boolean(
+                m.isDate ||
+                (typeof m.id === 'string' && m.id.startsWith('date-')) ||
+                m.label === 'СВИДАНИЕ'
+              );
+              const uP = resolveUserPhoto(m, couple.user.id);
+              const pP = resolvePartnerPhoto(m, couple.user.id);
+              const hasDistinctPair = Boolean(uP && pP && uP !== pP);
+              const singlePhoto = uP || pP || m.imageUrl || (m.photos && m.photos[0]?.imageUrl);
+
+              return (
+                <div
+                  key={m.id || mIdx}
+                  className={`aspect-[4/3] rounded-[14px] overflow-hidden bg-white dark:bg-[#141214] relative flex transition-all ${
+                    isDateM
+                      ? 'border border-[#E98787]/40 dark:border-[#E8BFC7]/30 shadow-[0_2px_8px_-2px_rgba(233,135,135,0.22)]'
+                      : 'border border-[#EBE3E5] dark:border-[#242024] shadow-2xs'
+                  }`}
+                >
+                  {hasDistinctPair ? (
+                    <div className="grid grid-cols-2 w-full h-full">
+                      <img src={uP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover border-r border-white/20" />
+                      <img src={pP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                    </div>
+                  ) : singlePhoto ? (
+                    <img src={singlePhoto} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[#777277]">
+                      <ImageIcon size={14} />
+                    </div>
+                  )}
+
+                  {isDateM && (
+                    <div className="absolute bottom-1.5 left-1.5 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/45 dark:bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs pointer-events-none select-none">
+                      <Heart size={8} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
+                      <span className="text-[9px] font-semibold tracking-tight text-white/95 leading-none">
+                        Свидание
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-[18px] bg-white dark:bg-[#141214] p-3.5 border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-3 mt-1 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <Lock size={15} className="text-[#E98787] shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-[#343033] dark:text-white">
+                  Сохранено в архиве пары
+                </p>
+                <p className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
+                  Доступно в LOVELY
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-semibold text-[#E98787] underline whitespace-nowrap">
+              Открыть
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
 export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   history,
   todayMoments,
@@ -90,12 +522,36 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   onOpenLovely,
   onNavigateToToday: _onNavigateToToday,
 }) => {
-  const handleOpenLovely = onOpenLovely || onOpenPremium || (() => {});
+  const handleOpenLovely = useCallback(() => {
+    const fn = onOpenLovely || onOpenPremium || (() => {});
+    fn();
+  }, [onOpenLovely, onOpenPremium]);
+
   const [viewMode, setViewMode] = useState<'days' | 'stream'>('days');
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<{ url: string; title: string } | null>(null);
 
-    // Only real couple history
+  const handlePhotoClick = useCallback((url: string | null, authorName: string) => {
+    if (!url) return;
+    triggerHaptic(true);
+    playSoftChime('tap', true);
+    setFullscreenPhoto({ url, title: authorName });
+  }, []);
+
+  const handleCloseFullscreen = useCallback(() => {
+    setFullscreenPhoto(null);
+  }, []);
+
+  const handleSelectDay = useCallback((dayId: string) => {
+    setSelectedDayId(dayId);
+  }, []);
+
+  const handleBackToHistory = useCallback(() => {
+    triggerHaptic(true);
+    setSelectedDayId(null);
+  }, []);
+
+  // Only real couple history
   const cleanHistory = useMemo(() => {
     return (history || []).filter(
       (d) => d && d.id && !d.id.startsWith("day-hist-") && !d.id.startsWith("hist-today-dynamic")
@@ -116,7 +572,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     const todayKey = getLocalDateKey();
     const yesterdayKey = getYesterdayDateKey();
 
-    // Map of dateKey -> day bucket
     const dayBuckets = new Map<
       string,
       {
@@ -129,7 +584,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       }
     >();
 
-    // Helper to get or initialize bucket for a given dateKey
     const getOrCreateBucket = (dKey: string, initialTitle?: string, initialDateStr?: string, initialLocked?: boolean) => {
       const canonicalKey = (dKey === "today" || dKey === "Сегодня") ? todayKey : dKey;
       let bucket = dayBuckets.get(canonicalKey);
@@ -154,7 +608,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           dateStr = canonicalKey === todayKey ? "Сегодня" : canonicalKey === yesterdayKey ? "Вчера" : formatRussianShortDate(canonicalKey);
         }
 
-        // Calculate lock status if not provided (older than 7 days)
         let isLocked = initialLocked;
         if (isLocked === undefined) {
           try {
@@ -181,7 +634,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       return bucket;
     };
 
-    // 1. Ingest existing clean history days
     cleanHistory.forEach((day) => {
       if (!day) return;
       const dKey =
@@ -201,7 +653,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       }
     });
 
-    // 2. Ingest completed today moments
     completedTodayMoments.forEach((m) => {
       const dKey = m.dateKey || todayKey;
       const bucket = getOrCreateBucket(dKey);
@@ -210,7 +661,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       }
     });
 
-    // 3. Group and ingest Our Day photos
     if (ourDayPhotos && ourDayPhotos.length > 0) {
       const photosByDate = new Map<string, OurDayPhoto[]>();
       ourDayPhotos.forEach((photo) => {
@@ -299,23 +749,15 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       });
     }
 
-    // 4. Convert dayBuckets map to array and sort descending by dateKey
     const sortedDays = Array.from(dayBuckets.values())
       .filter((bucket) => bucket.moments.length > 0)
       .sort((a, b) => b.dateKey.localeCompare(a.dateKey));
 
-    // 5. Update subtitles with pluralized moment counts
     return sortedDays.map((day) => ({
       ...day,
       subtitle: `${day.moments.length} ${getPluralMoments(day.moments.length)}`,
     }));
   }, [cleanHistory, completedTodayMoments, ourDayPhotos, couple]);
-
-
-
-
-
-
 
   const totalMomentsCount = useMemo(() => {
     return displayHistory.reduce((acc, day) => acc + day.moments.length, 0);
@@ -328,289 +770,17 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     return displayHistory.find((d) => d.id === selectedDayId) || null;
   }, [displayHistory, selectedDayId]);
 
-  const handlePhotoClick = (url: string | null, authorName: string) => {
-    if (!url) return;
-    triggerHaptic(true);
-    playSoftChime('tap', true);
-    setFullscreenPhoto({ url, title: authorName });
-  };
-
-  /**
-   * Renders the Signature OURS Couple Diptych Frame
-   * Gracefully handles:
-   * 1. Both photos available -> Romantic interlocking diptych with central heart talisman & reaction badges
-   * 2. Only user's photo -> Elegant hero frame + poetic partner reflection placeholder
-   * 3. Only partner's photo -> Poetic user placeholder + elegant partner hero frame
-   */
-  const renderCoupleDiptych = (moment: Moment, isDayLocked: boolean) => {
-    const userPhoto = resolveUserPhoto(moment, couple.user.id);
-    const partnerPhoto = resolvePartnerPhoto(moment, couple.user.id);
-    const hasBoth = Boolean(userPhoto && partnerPhoto);
-
-    if (isDayLocked && !isUnlockedGlobally) {
-      return (
-        <div className="relative w-full rounded-[22px] overflow-hidden bg-[#FAF0F2] dark:bg-[#1E1418] border border-[#F2D1D8] dark:border-[#382329] p-6 text-center space-y-3 shadow-2xs">
-          <div className="w-10 h-10 mx-auto rounded-full bg-white dark:bg-[#2A161E] border border-[#F2D1D8] dark:border-[#42222B] flex items-center justify-center text-[#E98787] shadow-2xs">
-            <Lock size={16} />
-          </div>
-          <div className="space-y-1">
-            <p className="font-display text-sm font-bold text-[#343033] dark:text-white">
-              Касание бережно сохранено навсегда
-            </p>
-            <p className="text-xs text-[#777277] dark:text-[#B8B2B5] max-w-xs mx-auto">
-              Воспоминания старше 7 дней открываются с LOVELY
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleOpenLovely}
-            className="group relative h-[38px] px-4 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-xs hover:border-[#E98787]/35 text-center flex items-center justify-center shrink-0"
-          >
-            <span className="font-display font-semibold text-xs tracking-tight text-[#343033] dark:text-white whitespace-nowrap">
-              Открыть воспоминания
-            </span>
-          </button>
-        </div>
-      );
-    }
-
-    const isDateMoment = Boolean(
-      moment.isDate ||
-      (typeof moment.id === 'string' && moment.id.startsWith('date-')) ||
-      moment.label === 'СВИДАНИЕ'
-    );
-
-    const isOurDayMoment = Boolean(
-      moment.label === 'НАШ ДЕНЬ' ||
-      moment.prompt === 'Наш день' ||
-      (typeof moment.id === 'string' && moment.id.startsWith('ourday-'))
-    );
-
-    const singlePhoto = userPhoto || partnerPhoto || (moment.photos && moment.photos[0]?.imageUrl) || moment.imageUrl;
-
-    // For a completed date moment or OurDay moment with a single photo, display it as a unified full-width card
-    if ((isDateMoment || isOurDayMoment) && (!hasBoth || (moment.photos && moment.photos.length <= 1))) {
-      const authorLabel = isOurDayMoment
-        ? (userPhoto ? (couple.user.name || 'Ты') : (couple.partner.name || 'Партнёр'))
-        : 'Совместное фото';
-
-      return (
-        <div className="space-y-2">
-          <div
-            onClick={(e) => {
-              e.stopPropagation();
-              if (singlePhoto) {
-                handlePhotoClick(
-                  singlePhoto,
-                  isOurDayMoment ? `Фото от ${authorLabel}` : (moment.prompt || 'Свидание')
-                );
-              }
-            }}
-            className="relative aspect-[16/10] xs:aspect-[16/9.5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
-            role="button"
-            tabIndex={0}
-            aria-label={isOurDayMoment ? `Открыть фото ${authorLabel}` : 'Открыть фото свидания'}
-          >
-            {singlePhoto ? (
-              <>
-                <img
-                  src={singlePhoto}
-                  alt={isOurDayMoment ? `Фото от ${authorLabel}` : 'Фото свидания'}
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
-                />
-                <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
-                  {authorLabel}
-                </div>
-                <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-white text-[10px] font-medium tracking-tight pointer-events-none shadow-xs">
-                  Смотреть
-                </div>
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[#777277] text-xs">
-                {isOurDayMoment ? 'Фото Нашего дня' : 'Фото свидания'}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        {/* The Couple Frame Diptych - Large Expressive Shared Memories */}
-        <div className="relative grid grid-cols-2 gap-1.5 sm:gap-2 items-center">
-          {/* User Photo Slot */}
-          <div className="flex flex-col">
-            {userPhoto ? (
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePhotoClick(userPhoto, couple.user.name);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePhotoClick(userPhoto, couple.user.name);
-                  }
-                }}
-                className="relative aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
-                role="button"
-                tabIndex={0}
-                aria-label={`Открыть фото ${couple.user.name}`}
-              >
-                <img
-                  src={userPhoto}
-                  alt={couple.user.name}
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
-                />
-
-                {/* Subtle author name tag */}
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
-                  {couple.user.name}
-                </div>
-
-                {/* Floating Partner Reaction Badge on User's Photo */}
-                {moment.partnerReaction && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-2 right-2 w-7.5 h-7.5 rounded-full bg-white/95 dark:bg-[#1E1A1E] shadow-sm border border-[#F0E6E8] dark:border-[#38262E] flex items-center justify-center transition-transform hover:scale-110 pointer-events-none"
-                    title={`Реакция ${couple.partner.name}`}
-                  >
-                    <ReactionIcon reaction={moment.partnerReaction} size={16} />
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Poetic placeholder when user photo is absent */
-              <div className="aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] bg-[#FAF5F7] dark:bg-[#181316] border border-dashed border-[#EED7DC] dark:border-[#382329] flex flex-col items-center justify-center text-center p-3 text-[#777277] dark:text-[#A8A0A6]">
-                <div className="w-8 h-8 rounded-full bg-white dark:bg-[#201518] border border-[#F0DADE] dark:border-[#3A222A] flex items-center justify-center text-[#E98787] mb-2">
-                  <Heart size={14} className="fill-[#E98787]/20" />
-                </div>
-                <span className="text-[11px] font-semibold text-[#343033] dark:text-white">
-                  {couple.user.name}
-                </span>
-                <span className="text-[10px] text-[#8A8488] dark:text-[#A8A0A6] mt-0.5 leading-tight">
-                  Кадр в сердце
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Central Connecting Talisman (Shown when both photos are present) */}
-          {hasBoth && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-white/95 dark:bg-[#1E1A1E] shadow-md border border-[#F0E6E8] dark:border-[#3A262E] text-[#E98787] flex items-center justify-center pointer-events-none animate-in zoom-in-75 duration-300">
-              <Heart size={13} className="fill-[#E98787] text-[#E98787]" />
-            </div>
-          )}
-
-          {/* Partner Photo Slot */}
-          <div className="flex flex-col">
-            {partnerPhoto ? (
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePhotoClick(partnerPhoto, couple.partner.name);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handlePhotoClick(partnerPhoto, couple.partner.name);
-                  }
-                }}
-                className="relative aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#F7F2F4] dark:bg-[#181316] border border-[#EBE3E5] dark:border-[#2C2329] shadow-xs group cursor-pointer active:scale-[0.985] transition-transform duration-200"
-                role="button"
-                tabIndex={0}
-                aria-label={`Открыть фото ${couple.partner.name}`}
-              >
-                <img
-                  src={partnerPhoto}
-                  alt={couple.partner.name}
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-103"
-                />
-
-                {/* Subtle author name tag */}
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/45 backdrop-blur-md text-white text-[10px] font-semibold tracking-tight pointer-events-none shadow-xs">
-                  {couple.partner.name}
-                </div>
-
-                {/* Floating User Reaction Badge on Partner's Photo */}
-                {moment.userReaction && (
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute bottom-2 right-2 w-7.5 h-7.5 rounded-full bg-white/95 dark:bg-[#1E1A1E] shadow-sm border border-[#F0E6E8] dark:border-[#38262E] flex items-center justify-center transition-transform hover:scale-110 pointer-events-none"
-                    title={`Реакция ${couple.user.name}`}
-                  >
-                    <ReactionIcon reaction={moment.userReaction} size={16} />
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Poetic placeholder when partner photo is absent */
-              <div className="aspect-[4/5] w-full rounded-[18px] sm:rounded-[20px] bg-[#FAF5F7] dark:bg-[#181316] border border-dashed border-[#EED7DC] dark:border-[#382329] flex flex-col items-center justify-center text-center p-3 text-[#777277] dark:text-[#A8A0A6]">
-                <div className="w-8 h-8 rounded-full bg-white dark:bg-[#201518] border border-[#F0DADE] dark:border-[#3A222A] flex items-center justify-center text-[#E98787] mb-2">
-                  <Heart size={14} className="fill-[#E98787]/20" />
-                </div>
-                <span className="text-[11px] font-semibold text-[#343033] dark:text-white">
-                  {couple.partner.name}
-                </span>
-                <span className="text-[10px] text-[#8A8488] dark:text-[#A8A0A6] mt-0.5 leading-tight">
-                  Рядом в мыслях
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Quiet footer summary of shared reactions if present */}
-        {(moment.userReaction || moment.partnerReaction) && (
-          <div className="flex items-center justify-center gap-3 pt-1 text-[11px] text-[#777277] dark:text-[#A8A0A6]">
-            {moment.userReaction && (
-              <span className="inline-flex items-center gap-1">
-                <span className="font-medium text-[#343033] dark:text-white">{couple.user.name}:</span>
-                <ReactionIcon reaction={moment.userReaction} size={15} />
-              </span>
-            )}
-            {moment.userReaction && moment.partnerReaction && (
-              <span className="text-[#C8C2C5] dark:text-[#4A4047]" aria-hidden="true">·</span>
-            )}
-            {moment.partnerReaction && (
-              <span className="inline-flex items-center gap-1">
-                <span className="font-medium text-[#343033] dark:text-white">{couple.partner.name}:</span>
-                <ReactionIcon reaction={moment.partnerReaction} size={15} />
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   // Day Detail View (Drilldown)
   if (selectedDay) {
     const isDayUnlocked = !selectedDay.isLocked || isUnlockedGlobally;
 
     return (
       <div className="flex-1 h-full w-full flex flex-col space-y-5 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1 animate-in fade-in duration-200">
-        {/* Detail Top Header */}
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => {
-                triggerHaptic(true);
-                setSelectedDayId(null);
-              }}
+              onClick={handleBackToHistory}
               className="w-9 h-9 rounded-full bg-white dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#343033] dark:text-white hover:bg-[#FAF7F8] dark:hover:bg-[#252225] transition-all active:scale-95 cursor-pointer shadow-2xs"
               title="Назад к истории"
             >
@@ -627,66 +797,23 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           </div>
         </div>
 
-        {/* Moments in this Day */}
         <div className="space-y-4">
-          {selectedDay.moments.map((m, idx) => {
-            const isDateM = Boolean(m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) || m.label === 'СВИДАНИЕ');
-                    const isOurDayM = Boolean(m.label === 'НАШ ДЕНЬ' || m.prompt === 'Наш день' || (typeof m.id === 'string' && m.id.startsWith('ourday-')));
-            const dPhoto = m.imageUrl || m.userPhoto || m.partnerPhoto || (m.photos && m.photos[0]?.imageUrl);
-
-            return (
-              <div key={m.id || idx} className="relative overflow-visible">
-                <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
-                <div
-                  onClick={() => {
-                    if (isDateM && dPhoto) {
-                      handlePhotoClick(dPhoto, m.prompt || 'Свидание');
-                    }
-                  }}
-                  className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
-                    isDateM && dPhoto ? 'cursor-pointer hover:border-[#E98787]/40' : ''
-                  }`}
-                >
-                {/* Moment Prompt & Order Header */}
-                <div className="flex items-start justify-between gap-2.5 px-1 pt-0.5">
-                  <div className="flex-1 min-w-0 space-y-0.5">
-                    <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                      {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) ? (
-                        <Mail size={11} className="shrink-0" />
-                      ) : (
-                        <Sparkles size={11} className="shrink-0" />
-                      )}
-                      <span>
-                        {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-'))
-                          ? 'СВИДАНИЕ'
-                          : isOurDayM
-                          ? 'НАШ ДЕНЬ'
-                          : 'КАСАНИЕ'}
-                      </span>
-                    </div>
-                    <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
-                      {m.prompt ? m.prompt.replace(/\s*\d+$/, '') : 'Касание'}
-                    </h3>
-                  </div>
-                  {formatMatchCardTimestamp(m) && (
-                    <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums text-right">
-                      {formatMatchCardTimestamp(m)}
-                    </span>
-                  )}
-                </div>
-
-                {/* The Signature Duo Diptych */}
-                {renderCoupleDiptych(m, !isDayUnlocked)}
-              </div>
-            </div>
-          );
-        })}
+          {selectedDay.moments.map((m, idx) => (
+            <HistoryMomentCard
+              key={m.id || idx}
+              moment={m}
+              isDayUnlocked={isDayUnlocked}
+              isUnlockedGlobally={isUnlockedGlobally}
+              couple={couple}
+              onPhotoClick={handlePhotoClick}
+              onOpenLovely={handleOpenLovely}
+            />
+          ))}
         </div>
 
-        {/* Fullscreen Photo Viewer */}
         <FullscreenPhotoViewer
           isOpen={Boolean(fullscreenPhoto)}
-          onClose={() => setFullscreenPhoto(null)}
+          onClose={handleCloseFullscreen}
           photoUrl={fullscreenPhoto?.url || null}
           title={fullscreenPhoto?.title}
         />
@@ -696,7 +823,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
   return (
     <div className="flex-1 h-full w-full flex flex-col space-y-5 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
-      {/* Top Header & Quiet Couple Metadata */}
       <div className="space-y-2 pt-1">
         <div className="flex items-end justify-between gap-2">
           <div>
@@ -710,7 +836,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             </div>
           </div>
 
-          {/* Clean Segmented View Mode Toggle (Stream vs Days) */}
           <div className="flex items-center gap-0.5 p-0.5 rounded-full bg-[#F5EFF1] dark:bg-[#1E1A1D] border border-[#EBE3E5] dark:border-[#282126] shadow-2xs shrink-0">
             <button
               type="button"
@@ -748,7 +873,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         </div>
       </div>
 
-      {/* Empty State */}
       {displayHistory.length === 0 ? (
         <div className="relative my-6 overflow-visible">
           <AtmosphericGlow variant="card" insetClassName="-inset-2.5 sm:-inset-3.5" roundedClassName="rounded-[32px]" />
@@ -767,16 +891,12 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           </div>
         </div>
       ) : viewMode === 'stream' ? (
-        /* ==================================================================== */
-        /* MODE 1: VISUAL JOURNAL STREAM (Full Couple Moments Feed)             */
-        /* ==================================================================== */
         <div className="space-y-7">
           {displayHistory.map((day) => {
             const isDayUnlocked = !day.isLocked || isUnlockedGlobally;
 
             return (
               <div key={day.id} className="space-y-3.5">
-                {/* Day Chapter Header */}
                 <div className="flex items-center gap-2.5 pt-1">
                   <div className="w-2 h-2 rounded-full bg-[#E98787]" />
                   <h2 className="font-display text-base font-bold text-[#343033] dark:text-white tracking-tight">
@@ -788,66 +908,23 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   <div className="flex-1 h-px bg-[#EBE3E5] dark:bg-[#242024] ml-2" />
                 </div>
 
-                {/* Day's Moments Cards */}
                 <div className="space-y-4">
-                  {day.moments.map((m, mIdx) => {
-                    const isDateM = Boolean(m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) || m.label === 'СВИДАНИЕ');
-                    const isOurDayM = Boolean(m.label === 'НАШ ДЕНЬ' || m.prompt === 'Наш день' || (typeof m.id === 'string' && m.id.startsWith('ourday-')));
-                    const dPhoto = m.imageUrl || m.userPhoto || m.partnerPhoto || (m.photos && m.photos[0]?.imageUrl);
-
-                    return (
-                      <div key={m.id || mIdx} className="relative overflow-visible">
-                        <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
-                        <div
-                          onClick={() => {
-                            if (isDateM && dPhoto) {
-                              handlePhotoClick(dPhoto, m.prompt || 'Свидание');
-                            }
-                          }}
-                          className={`relative rounded-[24px] sm:rounded-[26px] p-2.5 sm:p-3 pb-3 sm:pb-3.5 bg-white dark:bg-[#111111] border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-2.5 transition-all ${
-                            isDateM && dPhoto ? 'cursor-pointer hover:border-[#E98787]/40' : ''
-                          }`}
-                        >
-                        {/* Moment Title & Timestamp */}
-                        <div className="flex items-start justify-between gap-2.5 px-1 pt-0.5">
-                          <div className="flex-1 min-w-0 space-y-0.5">
-                            <div className="inline-flex items-center gap-1.5 text-[10.5px] font-bold text-[#E98787] dark:text-[#F0B9C6] uppercase tracking-wider">
-                              {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-')) ? (
-                                <Mail size={11} className="shrink-0" />
-                              ) : (
-                                <Sparkles size={11} className="shrink-0" />
-                              )}
-                              <span>
-                                {m.isDate || (typeof m.id === 'string' && m.id.startsWith('date-'))
-                                  ? 'СВИДАНИЕ'
-                                  : isOurDayM
-                                  ? 'НАШ ДЕНЬ'
-                                  : 'КАСАНИЕ'}
-                              </span>
-                            </div>
-                            <h3 className="font-display text-[15px] sm:text-base font-bold text-[#343033] dark:text-white leading-snug break-words">
-                              {m.prompt ? m.prompt.replace(/\s*\d+$/, '') : 'Касание'}
-                            </h3>
-                          </div>
-                          {formatMatchCardTimestamp(m) && (
-                            <span className="text-xs font-semibold text-[#8C858A] dark:text-[#A8A0A6] shrink-0 pt-0.5 tabular-nums text-right">
-                              {formatMatchCardTimestamp(m)}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Couple Diptych View */}
-                        {renderCoupleDiptych(m, !isDayUnlocked)}
-                      </div>
-                    </div>
-                  );
-                })}
+                  {day.moments.map((m, mIdx) => (
+                    <HistoryMomentCard
+                      key={m.id || mIdx}
+                      moment={m}
+                      isDayUnlocked={isDayUnlocked}
+                      isUnlockedGlobally={isUnlockedGlobally}
+                      couple={couple}
+                      onPhotoClick={handlePhotoClick}
+                      onOpenLovely={handleOpenLovely}
+                    />
+                  ))}
                 </div>
               </div>
             );
           })}
 
-          {/* Dedicated 7-day boundary reminder for Free tier */}
           {!isUnlockedGlobally && (
             <div className="relative overflow-visible mt-4">
               <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
@@ -869,7 +946,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                   className="group relative w-full max-w-xs mx-auto h-[50px] xs:h-[52px] sm:h-[54px] px-6 rounded-full select-none overflow-hidden cursor-pointer transition-all duration-100 ease-out active:scale-[0.985] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E8BFC7] bg-[#FAF0F2] dark:bg-[#150F13] border border-[#E98787]/20 dark:border-[#E8BFC7]/15 shadow-[0_4px_20px_-4px_rgba(233,135,135,0.18)] dark:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.4)] hover:border-[#E98787]/35 text-center flex items-center justify-center"
                   aria-label="Открыть LOVELY"
                 >
-                  {/* Ambient Background Aura & Delicate Floating Gleam (exact SVG Layer from «Свидание») */}
                   <svg
                     viewBox="0 0 360 65"
                     preserveAspectRatio="xMidYMid slice"
@@ -885,7 +961,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                     </defs>
                     <rect width="100%" height="100%" fill="url(#historyLovelyPillGlow)" />
 
-                    {/* Faint Romantic Gleam Particles */}
                     <g opacity="0.25">
                       <circle cx="42" cy="42" r="1.1" fill="#E98787" />
                       <circle cx="135" cy="18" r="0.8" fill="#E98787" />
@@ -894,7 +969,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                     </g>
                   </svg>
 
-                  {/* Content Overlay */}
                   <div className="relative z-10 flex items-center justify-center pointer-events-none">
                     <span className="font-display font-semibold text-[14.5px] xs:text-[15px] sm:text-[15.5px] tracking-tight text-[#343033] dark:text-white drop-shadow-xs whitespace-nowrap">
                       Открыть LOVELY
@@ -906,12 +980,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           )}
         </div>
       ) : (
-        /* ==================================================================== */
-        /* MODE 2: CHAPTERS / DAYS COLLECTION (Compact Day Cards Grid)         */
-        /* ==================================================================== */
         <div className="space-y-3.5">
           {displayHistory.map((day, idx) => {
-            const isDayUnlocked = !day.isLocked || isUnlockedGlobally;
             const cardBgColor =
               idx % 3 === 0
                 ? 'bg-[#EDF4FB]/70 dark:bg-[#141A22]'
@@ -920,119 +990,23 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
                 : 'bg-[#FAF2EE]/70 dark:bg-[#1F1714]';
 
             return (
-              <div key={day.id} className="relative overflow-visible">
-                <AtmosphericGlow variant="card" insetClassName="-inset-2 sm:-inset-2.5" roundedClassName="rounded-[28px]" />
-                <div
-                  onClick={() => {
-                    triggerHaptic(true);
-                    if (isDayUnlocked) {
-                      setSelectedDayId(day.id);
-                    } else {
-                      handleOpenLovely();
-                    }
-                  }}
-                  className={`relative rounded-[24px] p-4 sm:p-5 border border-[#EBE3E5] dark:border-[#242024] shadow-2xs transition-all duration-150 cursor-pointer active:scale-[0.99] hover:border-[#E98787]/50 backdrop-blur-md ${cardBgColor}`}
-                >
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="font-display text-base font-bold text-[#343033] dark:text-white">
-                      {day.title}
-                    </h3>
-                    <p className="text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-                      {day.subtitle} · {day.dateStr}
-                    </p>
-                  </div>
-
-                  {!isDayUnlocked ? (
-                    <span className="w-8 h-8 rounded-full bg-white/90 dark:bg-[#1A181A] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#777277] dark:text-[#B8B2B5] shadow-2xs">
-                      <Lock size={14} />
-                    </span>
-                  ) : (
-                    <span className="text-xs font-semibold text-[#E98787] flex items-center gap-1">
-                      <span>Смотреть</span>
-                      <span>→</span>
-                    </span>
-                  )}
-                </div>
-
-                {/* Paired Preview of Moments in this Day */}
-                {isDayUnlocked ? (
-                  <div className="grid grid-cols-3 gap-2 pt-1">
-                    {day.moments.slice(0, 3).map((m, mIdx) => {
-                      const isDateM = Boolean(
-                        m.isDate ||
-                        (typeof m.id === 'string' && m.id.startsWith('date-')) ||
-                        m.label === 'СВИДАНИЕ'
-                      );
-                      const uP = resolveUserPhoto(m, couple.user.id);
-                      const pP = resolvePartnerPhoto(m, couple.user.id);
-                      const hasDistinctPair = Boolean(uP && pP && uP !== pP);
-                      const singlePhoto = uP || pP || m.imageUrl || (m.photos && m.photos[0]?.imageUrl);
-
-                      return (
-                        <div
-                          key={m.id || mIdx}
-                          className={`aspect-[4/3] rounded-[14px] overflow-hidden bg-white dark:bg-[#141214] relative flex transition-all ${
-                            isDateM
-                              ? 'border border-[#E98787]/40 dark:border-[#E8BFC7]/30 shadow-[0_2px_8px_-2px_rgba(233,135,135,0.22)]'
-                              : 'border border-[#EBE3E5] dark:border-[#242024] shadow-2xs'
-                          }`}
-                        >
-                          {hasDistinctPair ? (
-                            <div className="grid grid-cols-2 w-full h-full">
-                              <img src={uP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover border-r border-white/20" />
-                              <img src={pP!} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                            </div>
-                          ) : singlePhoto ? (
-                            <img src={singlePhoto} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[#777277]">
-                              <ImageIcon size={14} />
-                            </div>
-                          )}
-
-                          {/* Subtle, elegant OURS Date Indicator Badge */}
-                          {isDateM && (
-                            <div className="absolute bottom-1.5 left-1.5 z-10 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/45 dark:bg-black/60 backdrop-blur-md text-white border border-white/20 shadow-2xs pointer-events-none select-none">
-                              <Heart size={8} className="text-[#E98787] dark:text-[#F0B9C6] fill-[#E98787] dark:fill-[#F0B9C6] shrink-0" />
-                              <span className="text-[9px] font-semibold tracking-tight text-white/95 leading-none">
-                                Свидание
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="rounded-[18px] bg-white dark:bg-[#141214] p-3.5 border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-between gap-3 mt-1 shadow-2xs">
-                    <div className="flex items-center gap-2.5">
-                      <Lock size={15} className="text-[#E98787] shrink-0" />
-                      <div>
-                        <p className="text-xs font-semibold text-[#343033] dark:text-white">
-                          Сохранено в архиве пары
-                        </p>
-                        <p className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
-                          Доступно в LOVELY
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-semibold text-[#E98787] underline whitespace-nowrap">
-                      Открыть
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
+              <HistoryDayCard
+                key={day.id}
+                day={day}
+                isUnlockedGlobally={isUnlockedGlobally}
+                cardBgColor={cardBgColor}
+                couple={couple}
+                onSelectDay={handleSelectDay}
+                onOpenLovely={handleOpenLovely}
+              />
             );
           })}
         </div>
       )}
 
-      {/* Fullscreen Photo Viewer Modal */}
       <FullscreenPhotoViewer
         isOpen={Boolean(fullscreenPhoto)}
-        onClose={() => setFullscreenPhoto(null)}
+        onClose={handleCloseFullscreen}
         photoUrl={fullscreenPhoto?.url || null}
         title={fullscreenPhoto?.title}
       />

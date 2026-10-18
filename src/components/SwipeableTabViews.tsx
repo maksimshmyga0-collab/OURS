@@ -476,6 +476,22 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
     return Math.abs(index - currentIndex) <= 1 || isDragging || isAnimating;
   };
 
+  const isTabActiveForAnimations = (index: number) => {
+    return index === currentIndex || isDragging || isAnimating;
+  };
+
+  const getTabClass = (index: number) => {
+    const isVisible = isTabVisible(index);
+    const isAnimated = isTabActiveForAnimations(index);
+    if (!isVisible) {
+      return 'invisible pointer-events-none tab-hidden tab-inactive';
+    }
+    if (!isAnimated) {
+      return 'opacity-100 visible tab-inactive';
+    }
+    return 'opacity-100 visible';
+  };
+
   return (
     <div
       ref={containerRef}
@@ -496,11 +512,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       >
         {/* Slide 0: Date */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-2 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
-            !isTabVisible(0)
-              ? 'invisible pointer-events-none tab-hidden'
-              : 'opacity-100 visible'
-          }`}
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-2 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(0)}`}
           aria-hidden={currentIndex !== 0}
         >
           {mountedTabs.has(0) ? renderTabContent(children.date) : null}
@@ -508,11 +520,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 1: Today */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2.5 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${
-            !isTabVisible(1)
-              ? 'invisible pointer-events-none tab-hidden'
-              : 'opacity-100 visible'
-          }`}
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2.5 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(1)}`}
           aria-hidden={currentIndex !== 1}
         >
           {mountedTabs.has(1) ? renderTabContent(children.today) : null}
@@ -520,11 +528,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 2: Our Day */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${
-            !isTabVisible(2)
-              ? 'invisible pointer-events-none tab-hidden'
-              : 'opacity-100 visible'
-          }`}
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(2)}`}
           aria-hidden={currentIndex !== 2}
         >
           {mountedTabs.has(2) ? renderTabContent(children.our_day) : null}
@@ -532,11 +536,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 3: History */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
-            !isTabVisible(3)
-              ? 'invisible pointer-events-none tab-hidden'
-              : 'opacity-100 visible'
-          }`}
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(3)}`}
           aria-hidden={currentIndex !== 3}
         >
           {mountedTabs.has(3) ? renderTabContent(children.history) : null}
@@ -544,11 +544,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
         {/* Slide 4: Profile */}
         <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${
-            !isTabVisible(4)
-              ? 'invisible pointer-events-none tab-hidden'
-              : 'opacity-100 visible'
-          }`}
+          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(4)}`}
           aria-hidden={currentIndex !== 4}
         >
           {mountedTabs.has(4) ? renderTabContent(children.profile) : null}

@@ -842,9 +842,11 @@ html.dark .soft-card-shadow {
   will-change: transform, opacity;
 }
 
-/* Pause decorative CSS animations on hidden tabs to reduce CPU/GPU workload */
+/* Pause decorative CSS animations on hidden and inactive tabs to reduce CPU/GPU workload */
 .tab-hidden,
-.tab-hidden * {
+.tab-hidden *,
+.tab-inactive,
+.tab-inactive * {
   animation-play-state: paused !important;
 }
 
@@ -859,3 +861,45 @@ html.dark .soft-card-shadow {
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================================================
+   TEMPORARY GLOW DISABLE SWITCH (Reversible)
+   To re-enable all original glow effects:
+   Remove 'glows-disabled' class from <html> in index.html or execute:
+   document.documentElement.classList.remove('glows-disabled');
+   ========================================================================== */
+html.glows-disabled .ours-glow-layer,
+html.glows-disabled .atmospheric-glow,
+html.glows-disabled .waiting-cloud-glow,
+html.glows-disabled .animate-diptych-halo,
+html.glows-disabled .animate-fluid-blob-1,
+html.glows-disabled .animate-fluid-blob-2,
+html.glows-disabled .animate-fluid-pulse,
+html.glows-disabled [class*="animate-[aura-glow"],
+html.glows-disabled [class*="animate-[incoming-glow-bloom"],
+html.glows-disabled [class*="animate-[incoming-mist-veil"],
+html.glows-disabled [class*="animate-[mist-rise"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+html.glows-disabled .match-glow-shadow,
+html.glows-disabled [class*="shadow-[0_4px_16px_rgba(215,85,105"],
+html.glows-disabled [class*="shadow-[0_4px_20px_rgba(233,135,135"],
+html.glows-disabled [class*="shadow-[0_8px_26px_-6px_rgba(233,135,135"],
+html.glows-disabled [class*="shadow-[0_16px_40px_-8px_rgba(233,135,135"] {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+html.glows-disabled rect[fill*="Glow"],
+html.glows-disabled rect[fill*="glow"],
+html.glows-disabled radialGradient[id*="Glow"],
+html.glows-disabled radialGradient[id*="glow"] {
+  opacity: 0 !important;
+}
+
+html.glows-disabled [filter*="lineGlow"] {
+  filter: none !important;
+}
+

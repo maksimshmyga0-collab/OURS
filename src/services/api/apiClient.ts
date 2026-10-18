@@ -424,7 +424,14 @@ export class ApiClient {
       });
     }
 
-    const todayMomentIds = (rawMoments || []).map((m: any) => m.id);
+    const baseMomentIds = (rawMoments || []).map((m: any) => m.id);
+    const candidateSlotIds = ([1, 2, 3] as const).flatMap((order) => [
+      `moment_${pairId}_${todayKey}_${order}`,
+      `moment-${pairId}-${todayKey}-${order}`,
+      `moment_${todayKey}_${order}`,
+      `moment-${todayKey}-${order}`,
+    ]);
+    const todayMomentIds = Array.from(new Set([...baseMomentIds, ...candidateSlotIds].filter(Boolean)));
 
     // 2. Parallel fetch of member profiles, today's photos, and today's reactions
     // ONLY today's photos are fetched here! Eliminates massive 6.4 MB historical photo payload on startup.
@@ -538,8 +545,14 @@ export class ApiClient {
       const canonicalDbRow = preferredRowWithPhotos || matchingRows[0] || (rawMoments && rawMoments[order - 1]);
       const canonicalId = canonicalDbRow?.id || `moment_${pairId}_${todayKey}_${order}`;
 
-      // All IDs for this slot (canonical ID + all candidate IDs)
-      const slotIds = Array.from(new Set([canonicalId, ...candidateIds].filter(Boolean)));
+      // All candidate IDs for this slot (canonical ID + matching DB IDs + standard naming variations)
+      const slotCandidateVariations = [
+        `moment_${pairId}_${todayKey}_${order}`,
+        `moment-${pairId}-${todayKey}-${order}`,
+        `moment_${todayKey}_${order}`,
+        `moment-${todayKey}-${order}`,
+      ];
+      const slotIds = Array.from(new Set([canonicalId, ...candidateIds, ...slotCandidateVariations].filter(Boolean)));
 
       const mPhotos = allPhotos.filter((p: any) => slotIds.includes(p.moment_id));
       const mReactions = allReactions.filter((r: any) => slotIds.includes(r.moment_id));
@@ -1535,10 +1548,21 @@ export class ApiClient {
     this.invalidateHistoryCache(pairId);
 
     try {
+      const todayKey = getLocalDateKey();
+      const slotMatch = momentId.match(/(\d+)$/);
+      const order = slotMatch ? parseInt(slotMatch[1], 10) : 1;
+      const slotIds = Array.from(new Set([
+        momentId,
+        `moment_${pairId}_${todayKey}_${order}`,
+        `moment-${pairId}-${todayKey}-${order}`,
+        `moment_${todayKey}_${order}`,
+        `moment-${todayKey}-${order}`,
+      ]));
+
       const { data: mPhotos } = await supabase
         .from('photos')
         .select('storage_path, image_url, user_id, created_at')
-        .eq('moment_id', momentId);
+        .in('moment_id', slotIds);
 
       const partnerPhotoObj = mPhotos?.find((p: any) => p.user_id !== userId);
       const rawPartnerUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;

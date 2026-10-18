@@ -231,7 +231,7 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
               <img
                 src={todayPhotos[0].imageUrl}
                 alt="Фото сегодняшнего дня"
-                loading="lazy"
+                loading="eager"
                 decoding="async"
                 className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
               />
@@ -274,7 +274,7 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
                   <img
                     src={userPhotoToday.imageUrl}
                     alt="Твоё фото"
-                    loading="lazy"
+                    loading="eager"
                     decoding="async"
                     className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
                   />
@@ -313,7 +313,7 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
                   <img
                     src={partnerPhotoToday.imageUrl}
                     alt={`Фото от ${couple.partner.name || 'Партнёра'}`}
-                    loading="lazy"
+                    loading="eager"
                     decoding="async"
                     className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.02]"
                   />

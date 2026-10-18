@@ -939,7 +939,7 @@ export default function App() {
   }, [appState.couple, appState.ourDayPhotos]);
 
   // Update a moment in today's moments list with server synchronization
-  const handleUpdateMoment = async (updated: Moment) => {
+  const handleUpdateMoment = useCallback(async (updated: Moment) => {
     // Optimistic UI update
     setAppState((prev) => {
       const nextMoments = prev.todayMoments.map((m) =>
@@ -999,7 +999,7 @@ export default function App() {
         }
       } else if (updated.userPhoto) {
         const res = await apiClient.uploadPhoto(updated.id, updated.userPhoto);
-        if (res.success && res.moment && res.moment.userPhoto && res.moment.userPhoto.startsWith('http')) {
+        if (res.success && res.moment) {
           const uploadedM = res.moment;
           setAppState((prev) => ({
             ...prev,
@@ -1095,7 +1095,7 @@ export default function App() {
         }
       }
     }
-  };
+  }, [appState.couple?.id, appState.couple?.user?.id]);
 
   // Switch active moment
   const handleSelectActiveMoment = useCallback((momentId: string) => {
@@ -1219,6 +1219,145 @@ export default function App() {
     }
   }, []);
 
+  const handleOpenHeaderProfile = useCallback(() => {
+    if (activeTab === 'profile') {
+      setIsEditProfileOpen(true);
+    } else {
+      setActiveTab('profile');
+    }
+  }, [activeTab]);
+
+  const handleOpenStreakModal = useCallback(() => {
+    setIsStreakModalOpen(true);
+  }, []);
+
+  const handleOpenLovelyModal = useCallback(() => {
+    setIsLovelyModalOpen(true);
+  }, []);
+
+  const handleNavigateToToday = useCallback(() => {
+    setActiveTab('today');
+  }, []);
+
+  const handleOpenEditProfile = useCallback(() => {
+    setIsEditProfileOpen(true);
+  }, []);
+
+  const handleOpenTerms = useCallback(() => {
+    setActiveLegalDoc('terms');
+  }, []);
+
+  const handleOpenPrivacy = useCallback(() => {
+    setActiveLegalDoc('privacy');
+  }, []);
+
+  const handleTabChange = useCallback((tab: NavigationTab) => {
+    setActiveTab(tab);
+    playSoftChime('tap', appState.settings.sounds);
+    triggerHaptic(appState.settings.haptic);
+  }, [appState.settings.sounds, appState.settings.haptic]);
+
+  const tabViewsChildren = useMemo(() => ({
+    date: () => (
+      <React.Suspense fallback={<TabLoadingFallback />}>
+        <DateScreen
+          couple={appState.couple}
+          soundEnabled={appState.settings.sounds}
+          hapticEnabled={appState.settings.haptic}
+          isActive={activeTab === 'date'}
+        />
+      </React.Suspense>
+    ),
+    today: (
+      <TodayScreen
+        couple={appState.couple}
+        moments={appState.todayMoments}
+        history={appState.history}
+        pairSeed={pairSeed}
+        activeMomentId={appState.activeMomentId}
+        onSelectActiveMoment={handleSelectActiveMoment}
+        onUpdateMoment={handleUpdateMoment}
+        soundEnabled={appState.settings.sounds}
+        hapticEnabled={appState.settings.haptic}
+        streakInfo={streakInfo}
+        onOpenStreak={handleOpenStreakModal}
+        isActive={activeTab === 'today'}
+      />
+    ),
+    our_day: (
+      <OurDayScreen
+        photos={appState.ourDayPhotos || []}
+        couple={appState.couple}
+        onAddPhotos={handleAddOurDayPhotos}
+        onDeletePhoto={handleDeleteOurDayPhoto}
+        onClearAllPhotos={handleClearAllOurDayPhotos}
+        soundEnabled={appState.settings.sounds}
+        hapticEnabled={appState.settings.haptic}
+      />
+    ),
+    history: () => (
+      <React.Suspense fallback={<TabLoadingFallback />}>
+        <HistoryScreen
+          history={appState.history}
+          todayMoments={appState.todayMoments}
+          ourDayPhotos={appState.ourDayPhotos || []}
+          couple={appState.couple}
+          onOpenLovely={handleOpenLovelyModal}
+          onOpenPremium={handleOpenLovelyModal}
+          onNavigateToToday={handleNavigateToToday}
+        />
+      </React.Suspense>
+    ),
+    profile: () => (
+      <React.Suspense fallback={<TabLoadingFallback />}>
+        <ProfileScreen
+          couple={appState.couple}
+          todayMoments={appState.todayMoments}
+          history={appState.history}
+          pairSeed={pairSeed}
+          settings={appState.settings}
+          onUpdateSettings={handleUpdateSettings}
+          onOpenLovely={handleOpenLovelyModal}
+          onOpenPremium={handleOpenLovelyModal}
+          streakInfo={streakInfo}
+          onOpenEditProfile={handleOpenEditProfile}
+          onOpenSky={handleOpenStreakModal}
+          onOpenFingerprint={handleOpenStreakModal}
+          onOpenThread={handleOpenStreakModal}
+          onOpenTerms={handleOpenTerms}
+          onOpenPrivacy={handleOpenPrivacy}
+          onLeavePair={handleLeavePair}
+          onSignOut={handleSignOut}
+        />
+      </React.Suspense>
+    ),
+  }), [
+    activeTab,
+    appState.couple,
+    appState.todayMoments,
+    appState.history,
+    appState.ourDayPhotos,
+    appState.activeMomentId,
+    appState.settings.sounds,
+    appState.settings.haptic,
+    pairSeed,
+    streakInfo,
+    handleSelectActiveMoment,
+    handleUpdateMoment,
+    handleAddOurDayPhotos,
+    handleDeleteOurDayPhoto,
+    handleClearAllOurDayPhotos,
+    handleUpdateSettings,
+    handleOpenLovelyModal,
+    handleNavigateToToday,
+    handleOpenEditProfile,
+    handleOpenStreakModal,
+    handleOpenTerms,
+    handleOpenPrivacy,
+    handleLeavePair,
+    handleSignOut,
+  ]);
+
   return (
     <ThemeProvider
       initialTheme={appState.settings.theme}
@@ -1238,117 +1377,29 @@ export default function App() {
             {/* Header with couple names and avatar pair */}
             <CoupleHeader
               couple={appState.couple}
-              onOpenProfile={() => {
-                if (activeTab === 'profile') {
-                  setIsEditProfileOpen(true);
-                } else {
-                  setActiveTab('profile');
-                }
-              }}
+              onOpenProfile={handleOpenHeaderProfile}
               currentStreak={streakInfo.currentStreak}
               starsCount={monthStarsCount}
-              onOpenStreak={() => setIsStreakModalOpen(true)}
+              onOpenStreak={handleOpenStreakModal}
             />
 
             {/* Scrollable Main Viewport with Horizontal Tab Swipe Navigation */}
             <main className="flex-1 min-h-0 flex flex-col overflow-hidden relative w-full overscroll-x-none touch-pan-y">
               <SwipeableTabViews
                 activeTab={activeTab}
-                onTabChange={(tab) => {
-                  setActiveTab(tab);
-                  playSoftChime('tap', appState.settings.sounds);
-                  triggerHaptic(appState.settings.haptic);
-                }}
+                onTabChange={handleTabChange}
                 soundEnabled={appState.settings.sounds}
                 hapticEnabled={appState.settings.haptic}
                 disabled={isLovelyModalOpen || isStreakModalOpen || isEditProfileOpen || Boolean(activeLegalDoc)}
               >
-                {{
-                  date: () => (
-                    <React.Suspense fallback={<TabLoadingFallback />}>
-                      <DateScreen
-                        couple={appState.couple}
-                        soundEnabled={appState.settings.sounds}
-                        hapticEnabled={appState.settings.haptic}
-                        isActive={activeTab === 'date'}
-                      />
-                    </React.Suspense>
-                  ),
-                  today: (
-                    <TodayScreen
-                      couple={appState.couple}
-                      moments={appState.todayMoments}
-                      history={appState.history}
-                      pairSeed={pairSeed}
-                      activeMomentId={appState.activeMomentId}
-                      onSelectActiveMoment={handleSelectActiveMoment}
-                      onUpdateMoment={handleUpdateMoment}
-                      soundEnabled={appState.settings.sounds}
-                      hapticEnabled={appState.settings.haptic}
-                      streakInfo={streakInfo}
-                      onOpenStreak={() => setIsStreakModalOpen(true)}
-                      isActive={activeTab === 'today'}
-                    />
-                  ),
-                  our_day: (
-                    <OurDayScreen
-                      photos={appState.ourDayPhotos || []}
-                      couple={appState.couple}
-                      onAddPhotos={handleAddOurDayPhotos}
-                      onDeletePhoto={handleDeleteOurDayPhoto}
-                      onClearAllPhotos={handleClearAllOurDayPhotos}
-                      soundEnabled={appState.settings.sounds}
-                      hapticEnabled={appState.settings.haptic}
-                    />
-                  ),
-                  history: () => (
-                    <React.Suspense fallback={<TabLoadingFallback />}>
-                      <HistoryScreen
-                        history={appState.history}
-                        todayMoments={appState.todayMoments}
-                        ourDayPhotos={appState.ourDayPhotos || []}
-                        couple={appState.couple}
-                        onOpenLovely={() => setIsLovelyModalOpen(true)}
-                        onOpenPremium={() => setIsLovelyModalOpen(true)}
-                        onNavigateToToday={() => setActiveTab('today')}
-                      />
-                    </React.Suspense>
-                  ),
-                  profile: () => (
-                    <React.Suspense fallback={<TabLoadingFallback />}>
-                      <ProfileScreen
-                        couple={appState.couple}
-                        todayMoments={appState.todayMoments}
-                        history={appState.history}
-                        pairSeed={pairSeed}
-                        settings={appState.settings}
-                        onUpdateSettings={handleUpdateSettings}
-                        onOpenLovely={() => setIsLovelyModalOpen(true)}
-                        onOpenPremium={() => setIsLovelyModalOpen(true)}
-                        streakInfo={streakInfo}
-                        onOpenEditProfile={() => setIsEditProfileOpen(true)}
-                        onOpenSky={() => setIsStreakModalOpen(true)}
-                        onOpenFingerprint={() => setIsStreakModalOpen(true)}
-                        onOpenThread={() => setIsStreakModalOpen(true)}
-                        onOpenTerms={() => setActiveLegalDoc('terms')}
-                        onOpenPrivacy={() => setActiveLegalDoc('privacy')}
-                        onLeavePair={handleLeavePair}
-                        onSignOut={handleSignOut}
-                      />
-                    </React.Suspense>
-                  ),
-                }}
+                {tabViewsChildren}
               </SwipeableTabViews>
             </main>
 
             {/* Fixed Bottom Tab Bar */}
             <BottomTabBar
               activeTab={activeTab}
-              onTabChange={(tab) => {
-                setActiveTab(tab);
-                playSoftChime('tap', appState.settings.sounds);
-                triggerHaptic(appState.settings.haptic);
-              }}
+              onTabChange={handleTabChange}
               hasDateNotification={hasUnreadDateInvitation}
             />
 

@@ -33,18 +33,22 @@ function drawFivePointStar(
   ctx.save();
   ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-  // 1. Soft diffused outer glow halo
-  const outerGlowRadius = outerRadius * 3.4;
-  const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerGlowRadius);
-  glowGrad.addColorStop(0, glowColor);
-  glowGrad.addColorStop(0.35, glowColor.replace(/[\d.]+\)$/, '0.4)'));
-  glowGrad.addColorStop(0.7, glowColor.replace(/[\d.]+\)$/, '0.1)'));
-  glowGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  const isGlowDisabled = typeof document !== 'undefined' && document.documentElement.classList.contains('glows-disabled');
 
-  ctx.fillStyle = glowGrad;
-  ctx.beginPath();
-  ctx.arc(cx, cy, outerGlowRadius, 0, Math.PI * 2);
-  ctx.fill();
+  if (!isGlowDisabled) {
+    // 1. Soft diffused outer glow halo
+    const outerGlowRadius = outerRadius * 3.4;
+    const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, outerGlowRadius);
+    glowGrad.addColorStop(0, glowColor);
+    glowGrad.addColorStop(0.35, glowColor.replace(/[\d.]+\)$/, '0.4)'));
+    glowGrad.addColorStop(0.7, glowColor.replace(/[\d.]+\)$/, '0.1)'));
+    glowGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, outerGlowRadius, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // 2. Star Geometry: 5-point star with soft, elegant rounded vertices
   const points = 5;
@@ -86,8 +90,10 @@ function drawFivePointStar(
   };
 
   // Draw Main Star Body
-  ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 14;
+  if (!isGlowDisabled) {
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 14;
+  }
   ctx.fillStyle = fillColor;
   const mainVerts = getStarVertices(outerRadius, innerRadius);
   drawRoundedStarPath(mainVerts, cornerRadius);

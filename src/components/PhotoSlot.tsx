@@ -297,7 +297,6 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
               filter: isBlurred ? 'blur(38px) saturate(145%) brightness(0.98)' : 'none',
               transform: isBlurred ? 'scale(1.35)' : 'scale(1)',
               opacity: isBlurred ? 0.95 : 1,
-              willChange: 'filter, transform, opacity',
             }}
             className={`w-full h-full object-cover transition-[filter,transform,opacity] duration-500 ease-out ${
               isBlurred ? 'select-none pointer-events-none partner-blurred-photo' : 'group-hover:scale-103'

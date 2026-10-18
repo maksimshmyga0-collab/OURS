@@ -73,8 +73,8 @@ export const DateScreen: React.FC<DateScreenProps> = ({
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [uploadTargetPartner, setUploadTargetPartner] = useState(false);
   const hasUserAdvancedCycleRef = useRef(false);
-
   const timersRef = useRef<NodeJS.Timeout[]>([]);
+  const isFetchingPhotosRef = useRef(false);
 
   useEffect(() => {
     const unsub = dateInvitationService.subscribe((updated) => {
@@ -136,6 +136,8 @@ export const DateScreen: React.FC<DateScreenProps> = ({
     }
 
     const loadDatePhotos = async () => {
+      if (isFetchingPhotosRef.current) return;
+      isFetchingPhotosRef.current = true;
       try {
         const photos = await apiClient.fetchDatePhotos(momentId);
         if (isMounted) {
@@ -157,14 +159,24 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             return merged;
           });
         }
-      } catch {}
+      } catch {} finally {
+        isFetchingPhotosRef.current = false;
+      }
     };
 
     if (isActive) {
       loadDatePhotos();
 
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && !document.hidden) {
+          loadDatePhotos();
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
       const interval = setInterval(() => {
-        if (!document.hidden) {
+        if (document.visibilityState === 'visible' && !document.hidden) {
           loadDatePhotos();
         }
       }, 6000);
@@ -172,6 +184,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
       return () => {
         isMounted = false;
         clearInterval(interval);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
 
@@ -597,7 +610,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
             {/* 1.5. MAGICAL MIST & WARM RADIANT GLOW (Emerges gently from pocket when opened) */}
             {isOpen && (
               <div
-                className="absolute inset-x-0 -top-6 h-36 pointer-events-none overflow-visible"
+                className="ours-glow-layer absolute inset-x-0 -top-6 h-36 pointer-events-none overflow-visible"
                 style={{ zIndex: 8 }}
               >
                 {/* Core warm radiant glow aura */}
@@ -1116,7 +1129,7 @@ export const DateScreen: React.FC<DateScreenProps> = ({
         >
           {/* Ambient soft card glow behind modal */}
           <div
-            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.22)_0%,_rgba(168,38,68,0.08)_45%,_transparent_70%)] blur-2xl"
+            className="ours-glow-layer absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.22)_0%,_rgba(168,38,68,0.08)_45%,_transparent_70%)] blur-2xl"
           />
 
           <div
@@ -1280,12 +1293,12 @@ export const DateScreen: React.FC<DateScreenProps> = ({
 
           {/* 1. Atmospheric Soft Radiant Glow */}
           <div
-            className="absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.22)_0%,_rgba(168,38,68,0.08)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
+            className="ours-glow-layer absolute w-80 xs:w-96 aspect-square rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(ellipse_at_center,_rgba(235,168,184,0.35)_0%,_rgba(253,225,232,0.18)_45%,_transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,_rgba(215,68,98,0.22)_0%,_rgba(168,38,68,0.08)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-glow-bloom_800ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
           {/* 2. Soft Floating Mist Veil */}
           <div
-            className="absolute w-96 xs:w-[440px] h-72 rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(circle,_rgba(255,255,255,0.6)_0%,_rgba(253,225,232,0.30)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(255,255,255,0.12)_0%,_rgba(215,68,98,0.08)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-mist-veil_750ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
+            className="ours-glow-layer absolute w-96 xs:w-[440px] h-72 rounded-full pointer-events-none -z-10 inset-0 m-auto bg-[radial-gradient(circle,_rgba(255,255,255,0.6)_0%,_rgba(253,225,232,0.30)_45%,_transparent_70%)] dark:bg-[radial-gradient(circle,_rgba(255,255,255,0.12)_0%,_rgba(215,68,98,0.08)_45%,_transparent_70%)] blur-2xl will-change-[transform,opacity] animate-[incoming-mist-veil_750ms_cubic-bezier(0.22,1,0.36,1)_forwards]"
           />
 
           {/* Main Incoming Invitation Card — Exact same styling, radius, border, and depth */}

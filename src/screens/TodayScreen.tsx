@@ -250,14 +250,14 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 h-full w-full flex flex-col space-y-2.5 sm:space-y-3 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-0.5">
-      {/* Day Status Header */}
-      <div className="flex items-center justify-between px-1">
-        <div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white">
+    <div className="flex-1 h-full w-full flex flex-col space-y-3.5 sm:space-y-4 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
+      {/* Day Status Header Bar */}
+      <div className="flex items-center justify-between px-1.5 pt-0.5 pb-1">
+        <div className="flex flex-col">
+          <h1 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white tracking-tight">
             Сегодня
           </h1>
-          <p className="text-[11px] sm:text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
+          <p className="text-[11px] sm:text-xs font-medium text-[#777277] dark:text-[#B8B2B5] mt-0.5">
             {availability.completedCount} из 3 касаний
           </p>
         </div>
@@ -268,7 +268,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         />
       </div>
 
-      {/* Main Single Active Daily Moment Card with soft exit and enter transitions */}
+      {/* Main Single Active Daily Moment Stage Card */}
       <div
         className={
           momentTransition === 'exiting'
@@ -281,224 +281,248 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         <PastelCard
           key={activeMoment.id}
           color={getThemeCardColor(activeMoment)}
-          className="p-2 sm:p-3 pb-3 sm:pb-3.5 relative overflow-visible transition-all duration-300 ease-out animate-card-enter"
+          className="p-3.5 sm:p-4.5 rounded-[28px] sm:rounded-[32px] relative overflow-hidden transition-all duration-300 ease-out animate-card-enter shadow-sm border border-[#E8DFE1] dark:border-[#242024]"
         >
-        {/* Card Header info — Explicitly elevated above photo glow layers */}
-        <div className="relative z-20 flex items-center justify-between mb-1.5 sm:mb-2 px-0.5 min-h-[28px]">
-          <h2 className="font-display text-xl xs:text-2xl sm:text-[26px] font-bold text-[#343033] dark:text-white leading-none tracking-tight">
-            Касание
-          </h2>
+          {/* 1. Header Row: Title & Status Badge */}
+          <div className="flex items-center justify-between gap-2 px-0.5 mb-1.5 min-h-[32px] relative z-20">
+            <h2 className="font-display text-2xl xs:text-[26px] sm:text-[28px] font-bold text-[#343033] dark:text-white leading-none tracking-tight">
+              Касание
+            </h2>
 
-          {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) ? (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#2B7348] dark:text-[#52B778] animate-in fade-in duration-200">
-              <Check size={14} />
-              Сохранено
-            </span>
-          ) : isCurrentMomentWaiting ? (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/90 dark:bg-[#1E1C1E] border border-[#EED7DC] dark:border-[#2D2024] text-[11px] font-semibold text-[#E2765A] dark:text-[#F2967F] animate-in fade-in duration-200">
-              <Clock size={12} />
-              Следующее скоро
-            </span>
-          ) : activeMoment.status === 'BOTH_UPLOADED' ? (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] animate-in fade-in duration-200">
-              <Sparkles size={14} />
-              Оба готовы
-            </span>
-          ) : activeMoment.status === 'USER_UPLOADED' ? (
-            <span className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center gap-1 animate-in fade-in duration-200">
-              <Check size={13} />
-              Фото отправлено · Ждём {couple.partner.name}
-            </span>
-          ) : isPartnerUploadedOnly ? (
-            <span className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center gap-1 animate-in fade-in duration-200">
-              <Check size={13} />
-              {couple.partner.name} загрузил(а) фото · Ваш черёд
-            </span>
-          ) : null}
-        </div>
-
-        {/* Subtitle Status text below title */}
-        {isCurrentMomentWaiting ? (
-          <p className="relative z-20 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] px-0.5 mb-2.5 sm:mb-3">
-            Следующее касание через {formatRemainingTime(availability.remainingCooldownMs)}
-          </p>
-        ) : (activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) || isPartnerUploadedOnly) ? (
-          <p className="relative z-20 text-xs text-[#777277] dark:text-[#B8B2B5] px-0.5 mb-2.5 sm:mb-3 leading-relaxed">
-            {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)
-              ? `Сохранено сегодня в ${activeMoment.completedAt || '12:00'}`
-              : `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`}
-          </p>
-        ) : null}
-
-        {/* Photo Slots Section - Living Diptych Composition */}
-        <div className="relative z-10 mt-1 sm:mt-1.5 mb-2 sm:mb-2.5 px-0 overflow-visible">
-          {/* 1. Atmospheric Ambient Backlight Aura embracing both photos as a unified diptych */}
-          <AtmosphericGlow />
-
-          {/* 2. Diptych Central Seam Medallion (Physical & Emotional Connection Bridge) */}
-          {/* State A: Revealed and Matched — The Sacred Union Seal */}
-          {isMomentRevealed && activeMoment.userPhoto && activeMoment.partnerPhoto && (
-            <div className="absolute left-1/2 top-[38%] sm:top-[39%] -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-400">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-[#F2DEE3] dark:border-[#382730] shadow-[0_4px_16px_rgba(215,85,105,0.32)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F]">
-                <Heart size={13} fill="currentColor" />
-              </div>
-            </div>
-          )}
-
-          {/* State B: Both uploaded, waiting to open / Match pending */}
-          {activeMoment.status === 'BOTH_UPLOADED' && !isMomentRevealed && (
-            <div className="absolute left-1/2 top-[38%] sm:top-[39%] -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-300">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-rose-100 to-amber-100 dark:from-rose-900/80 dark:to-amber-900/80 backdrop-blur-md border border-rose-200/90 dark:border-rose-700/60 shadow-[0_4px_16px_rgba(215,85,105,0.38)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] animate-pulse">
+            {/* Dynamic Status Badge */}
+            {activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[#2B7348] dark:text-[#52B778] text-[11px] font-semibold tracking-wide animate-in fade-in duration-200">
+                <Check size={13} />
+                <span>Сохранено</span>
+              </span>
+            ) : isCurrentMomentWaiting ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[#E2765A] dark:text-[#F2967F] text-[11px] font-semibold tracking-wide animate-in fade-in duration-200">
+                <Clock size={12} />
+                <span>Пауза</span>
+              </span>
+            ) : activeMoment.status === 'BOTH_UPLOADED' ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide animate-in fade-in duration-200">
                 <Sparkles size={13} />
-              </div>
-            </div>
-          )}
-
-          {/* State C: User uploaded, waiting for partner — Gentle whispered connecting light bridge */}
-          {activeMoment.userPhoto && !activeMoment.partnerPhoto && (
-            <div className="absolute left-1/2 top-[38%] sm:top-[39%] -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full bg-rose-200/50 dark:bg-rose-900/40 blur-xs flex items-center justify-center animate-pulse">
-                <div className="w-2 h-2 rounded-full bg-[#E17282] dark:bg-[#F2967F]" />
-              </div>
-            </div>
-          )}
-
-          <div className="relative grid grid-cols-2 items-start gap-1.5 sm:gap-2">
-            {isCurrentMomentWaiting ? (
-              // Calm waiting placeholders during cooldown with living cherry-burgundy cloud glow
-              <div className="col-span-2 w-full relative overflow-visible my-1">
-                <WaitingCloudGlow />
-                <div className="relative z-10 w-full py-6 px-4 rounded-[24px] bg-white/85 dark:bg-[#161418]/85 backdrop-blur-xl border border-[#EBE3E5] dark:border-[#282529] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
-                  <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
-                    <Clock size={22} className="text-[#E98787] dark:text-[#F0B9C6]" />
-                  </div>
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-semibold text-[#343033] dark:text-white">
-                      Пауза между касаниями
-                    </p>
-                    <p className="text-[11px] font-semibold text-[#E98787] dark:text-[#F0B9C6]">
-                      через {formatRemainingTime(availability.remainingCooldownMs)}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                <span>Оба готовы</span>
+              </span>
+            ) : activeMoment.status === 'USER_UPLOADED' ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide animate-in fade-in duration-200">
+                <Check size={13} />
+                <span>Кадр отправлен</span>
+              </span>
+            ) : isPartnerUploadedOnly ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide animate-in fade-in duration-200">
+                <Sparkles size={13} />
+                <span>Ваш черёд</span>
+              </span>
             ) : (
-              <>
-                {/* User Photo Slot with subtle left tilt and organic float */}
-                <div className="w-full animate-diptych-left transition-transform duration-300 ease-out hover:rotate-0 hover:translate-y-0">
-                  <PhotoSlot
-                    type="user"
-                    title={couple.user.name}
-                    photoUrl={activeMoment.userPhoto}
-                    isRevealed={isMomentRevealed}
-                    isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
-                    onAddPhoto={() => setIsPhotoPickerOpen(true)}
-                    onPhotoSelected={handlePhotoSelected}
-                    onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || 'Твоё фото' })}
-                    reaction={activeMoment.partnerReaction}
-                  />
-                </div>
-
-                {/* Partner Photo Slot with subtle right tilt and counter-phase organic float */}
-                <div className="w-full animate-diptych-right transition-transform duration-300 ease-out hover:rotate-0 hover:translate-y-0">
-                  <PhotoSlot
-                    type="partner"
-                    title={couple.partner.name}
-                    photoUrl={activeMoment.partnerPhoto}
-                    isRevealed={isMomentRevealed}
-                    isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
-                    isUserUploaded={Boolean(activeMoment.userPhoto)}
-                    onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || couple.partner.name })}
-                    reaction={activeMoment.userReaction}
-                  />
-                </div>
-              </>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#201518] border border-[#EED7DC] dark:border-[#382329] text-[#E98787] dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide">
+                <Heart size={12} fill="currentColor" />
+                <span>Момент дня</span>
+              </span>
             )}
           </div>
-        </div>
 
-        {/* State Machine Action Areas */}
-        <div className="pt-1 sm:pt-1.5">
-          {/* While matching animation is in progress */}
-          {isMatching && (
-            <div className="rounded-[20px] bg-white/80 dark:bg-[#141214]/80 border border-[#F0B9C6]/60 dark:border-[#382329] p-3.5 text-center space-y-1 shadow-2xs animate-in fade-in duration-200">
-              <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
-                <Sparkles size={14} className="animate-spin" />
-                <span>Соединяем ваши кадры...</span>
-              </div>
-            </div>
-          )}
-
-
-
-
-
-          {/* State 3: The Signature Match CTA Button [ КОСНУТЬСЯ ] */}
-          {(activeMoment.status === 'BOTH_UPLOADED' ||
-            (activeMoment.userPhoto && activeMoment.partnerPhoto && !isMomentRevealed && !activeMoment.userReaction)) &&
-            !isMatching &&
-            activeMoment.status !== 'COMPLETED' &&
-            activeMoment.status !== 'REVEALED' &&
-            activeMoment.status !== 'REACTED' &&
-            !activeMoment.userReaction && (
-              <div className="pt-1.5 animate-in fade-in zoom-in-[0.97] duration-400 ease-out">
-                <MatchButton
-                  onClick={handleOpenMoment}
-                  soundEnabled={soundEnabled}
-                  hapticEnabled={hapticEnabled}
-                />
-              </div>
-            )}
-
-          {/* State 4: REVEALED (Active Reaction Picker for THIS user) */}
-          {(activeMoment.status === 'REVEALED' || (activeMoment.status === 'REACTED' && !activeMoment.userReaction)) &&
-            !isMatching &&
-            !activeMoment.userReaction && (
-              <div className="space-y-4 pt-1 animate-in fade-in duration-300 ease-out">
-                <ReactionPicker
-                  selectedReaction={activeMoment.userReaction}
-                  onSelectReaction={handleSelectReaction}
-                />
-              </div>
-            )}
-
-          {/* State 6: COMPLETED (Post-Match Waiting State for THIS user) */}
-          {(activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)) && !isMatching && (
-            <div className="pt-1 animate-in fade-in duration-300 ease-out">
-              {availability.isAllCompleted ? (
-                // State after 3rd moment: peaceful completion
-                <div className="p-5 rounded-[22px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] text-center space-y-1.5 shadow-2xs">
-                  <div className="w-10 h-10 rounded-full bg-[#FAF0ED] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center">
-                    <Heart size={20} className="fill-[#E98787] dark:fill-[#F0B9C6]" />
-                  </div>
-                  <p className="font-display text-sm font-bold text-[#343033] dark:text-white">
-                    На сегодня всё 💗
-                  </p>
-                  <p className="text-xs text-[#777277] dark:text-[#B8B2B5]">
-                    Завтра будет новое касание.
-                  </p>
-                </div>
+          {/* 2. Contextual Status Subtitle */}
+          <div className="px-0.5 mb-3 min-h-[22px] flex items-center relative z-20">
+            <p className="text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
+              {isCurrentMomentWaiting ? (
+                <span className="font-semibold text-[#E2765A] dark:text-[#F2967F]">
+                  Следующее касание откроется через {formatRemainingTime(availability.remainingCooldownMs)}
+                </span>
+              ) : activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction) ? (
+                `Сохранено сегодня в ${activeMoment.completedAt || '12:00'} · Нажмите на фото, чтобы развернуть`
+              ) : activeMoment.status === 'BOTH_UPLOADED' ? (
+                'Оба кадра на месте! Нажмите «Открыть касание», чтобы узнать секрет ✨'
+              ) : activeMoment.status === 'USER_UPLOADED' ? (
+                `Фото отправлено · Ждём кадр от ${couple.partner.name}...`
+              ) : isPartnerUploadedOnly ? (
+                `${couple.partner.name} уже отправил(а) фото · Добавьте своё, чтобы произошёл MATCH ✨`
               ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-[#777277] dark:text-[#B8B2B5] px-1">
-                    <span className="font-medium text-[#2B7348] dark:text-[#52B778] flex items-center gap-1">
-                      <Check size={13} /> Касание сохранено
-                    </span>
-                  </div>
+                'Отправьте фото друг другу и откройте их одновременно'
+              )}
+            </p>
+          </div>
 
-                  {availability.isWaitingForNext && (
-                    <div className="rounded-[18px] bg-white dark:bg-[#141214] border border-[#EBE3E5] dark:border-[#242024] p-3 text-center shadow-2xs">
-                      <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
-                        Следующее касание через {formatRemainingTime(availability.remainingCooldownMs)}
+          {/* 3. Photo Diptych Area */}
+          <div className="relative w-full my-2 overflow-visible select-none z-10">
+            {/* Atmospheric Backlight */}
+            <AtmosphericGlow />
+
+            {/* Central Seam Medallion — Strictly vertically and horizontally centered over the photo grid */}
+            {isMomentRevealed && activeMoment.userPhoto && activeMoment.partnerPhoto && (
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-300">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-[#F2DEE3] dark:border-[#382730] shadow-[0_4px_16px_rgba(215,85,105,0.32)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F]">
+                  <Heart size={14} fill="currentColor" />
+                </div>
+              </div>
+            )}
+
+            {activeMoment.status === 'BOTH_UPLOADED' && !isMomentRevealed && (
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-300">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-rose-100 to-amber-100 dark:from-rose-900/80 dark:to-amber-900/80 backdrop-blur-md border border-rose-200/90 dark:border-rose-700/60 shadow-[0_4px_16px_rgba(215,85,105,0.38)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] animate-pulse">
+                  <Sparkles size={14} />
+                </div>
+              </div>
+            )}
+
+            {activeMoment.userPhoto && !activeMoment.partnerPhoto && (
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none flex items-center justify-center">
+                <div className="w-6.5 h-6.5 rounded-full bg-rose-200/50 dark:bg-rose-900/40 blur-xs flex items-center justify-center animate-pulse">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#E17282] dark:bg-[#F2967F]" />
+                </div>
+              </div>
+            )}
+
+            {/* Grid Stage */}
+            <div className="relative grid grid-cols-2 gap-2 sm:gap-2.5 items-stretch w-full">
+              {isCurrentMomentWaiting ? (
+                <div className="col-span-2 w-full relative overflow-visible my-1">
+                  <WaitingCloudGlow />
+                  <div className="relative z-10 w-full py-6 px-4 rounded-[24px] bg-white/85 dark:bg-[#161418]/85 backdrop-blur-xl border border-[#EBE3E5] dark:border-[#282529] text-center space-y-2 shadow-2xs animate-in fade-in duration-300">
+                    <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center border border-[#EED7DC] dark:border-[#382329]">
+                      <Clock size={22} className="text-[#E98787] dark:text-[#F0B9C6]" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-[#343033] dark:text-white">
+                        Пауза между касаниями
+                      </p>
+                      <p className="text-[11px] font-semibold text-[#E98787] dark:text-[#F0B9C6]">
+                        через {formatRemainingTime(availability.remainingCooldownMs)}
                       </p>
                     </div>
-                  )}
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* User Photo Slot */}
+                  <div className="w-full animate-diptych-left transition-transform duration-300 ease-out">
+                    <PhotoSlot
+                      type="user"
+                      title={couple.user.name}
+                      photoUrl={activeMoment.userPhoto}
+                      isRevealed={isMomentRevealed}
+                      isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
+                      onAddPhoto={() => setIsPhotoPickerOpen(true)}
+                      onPhotoSelected={handlePhotoSelected}
+                      onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || 'Твоё фото' })}
+                      reaction={activeMoment.partnerReaction}
+                    />
+                  </div>
+
+                  {/* Partner Photo Slot */}
+                  <div className="w-full animate-diptych-right transition-transform duration-300 ease-out">
+                    <PhotoSlot
+                      type="partner"
+                      title={couple.partner.name}
+                      photoUrl={activeMoment.partnerPhoto}
+                      isRevealed={isMomentRevealed}
+                      isPartnerUploaded={Boolean(activeMoment.partnerPhoto)}
+                      isUserUploaded={Boolean(activeMoment.userPhoto)}
+                      onOpenFullscreen={(url, title) => setFullscreenPhoto({ url, title: title || couple.partner.name })}
+                      reaction={activeMoment.userReaction}
+                    />
+                  </div>
+                </>
               )}
             </div>
-          )}
-        </div>
-      </PastelCard>
+          </div>
+
+          {/* 4. Action & Control Area */}
+          <div className="pt-2 sm:pt-2.5 relative z-20">
+            {/* Connecting Animation State */}
+            {isMatching && (
+              <div className="rounded-[20px] bg-white/80 dark:bg-[#141214]/80 border border-[#F0B9C6]/60 dark:border-[#382329] p-3.5 text-center space-y-1 shadow-2xs animate-in fade-in duration-200">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
+                  <Sparkles size={14} className="animate-spin" />
+                  <span>Соединяем ваши кадры...</span>
+                </div>
+              </div>
+            )}
+
+            {/* User uploaded, waiting for partner response */}
+            {activeMoment.status === 'USER_UPLOADED' && !isMatching && (
+              <div className="p-3.5 rounded-[22px] bg-[#FAF0F2]/80 dark:bg-[#1C1417]/80 border border-[#EED7DC] dark:border-[#352126] text-center space-y-1 animate-in fade-in duration-300">
+                <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6] flex items-center justify-center gap-1.5">
+                  <Clock size={14} />
+                  <span>Ждём ответный кадр от {couple.partner.name}</span>
+                </p>
+                <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5] leading-normal">
+                  Как только {couple.partner.name} загрузит фото, вам станет доступна кнопка раскрытия.
+                </p>
+              </div>
+            )}
+
+            {/* Match Ready CTA Button */}
+            {(activeMoment.status === 'BOTH_UPLOADED' ||
+              (activeMoment.userPhoto && activeMoment.partnerPhoto && !isMomentRevealed && !activeMoment.userReaction)) &&
+              !isMatching &&
+              activeMoment.status !== 'COMPLETED' &&
+              activeMoment.status !== 'REVEALED' &&
+              activeMoment.status !== 'REACTED' &&
+              !activeMoment.userReaction && (
+                <div className="pt-1 animate-in fade-in zoom-in-[0.97] duration-400 ease-out">
+                  <MatchButton
+                    onClick={handleOpenMoment}
+                    soundEnabled={soundEnabled}
+                    hapticEnabled={hapticEnabled}
+                  />
+                </div>
+              )}
+
+            {/* Revealed State: Emoji Reaction Picker */}
+            {(activeMoment.status === 'REVEALED' || (activeMoment.status === 'REACTED' && !activeMoment.userReaction)) &&
+              !isMatching &&
+              !activeMoment.userReaction && (
+                <div className="space-y-3 pt-1 animate-in fade-in duration-300 ease-out">
+                  <div className="text-center">
+                    <p className="text-xs font-semibold text-[#343033] dark:text-white mb-1">
+                      Оставьте реакцию на момент
+                    </p>
+                  </div>
+                  <ReactionPicker
+                    selectedReaction={activeMoment.userReaction}
+                    onSelectReaction={handleSelectReaction}
+                  />
+                </div>
+              )}
+
+            {/* Completed State */}
+            {(activeMoment.status === 'COMPLETED' || Boolean(activeMoment.userReaction)) && !isMatching && (
+              <div className="pt-1 animate-in fade-in duration-300 ease-out">
+                {availability.isAllCompleted ? (
+                  <div className="p-4.5 rounded-[22px] bg-white/90 dark:bg-[#141214]/90 border border-[#EBE3E5] dark:border-[#242024] text-center space-y-1.5 shadow-2xs">
+                    <div className="w-10 h-10 rounded-full bg-[#FAF0ED] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] mx-auto flex items-center justify-center">
+                      <Heart size={20} className="fill-[#E98787] dark:fill-[#F0B9C6]" />
+                    </div>
+                    <p className="font-display text-sm font-bold text-[#343033] dark:text-white">
+                      На сегодня всё 💗
+                    </p>
+                    <p className="text-xs text-[#777277] dark:text-[#B8B2B5]">
+                      Все касания сохранены в вашей общей истории.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-[#777277] dark:text-[#B8B2B5] px-1">
+                      <span className="font-medium text-[#2B7348] dark:text-[#52B778] flex items-center gap-1">
+                        <Check size={13} /> Касание сохранено в историю
+                      </span>
+                    </div>
+
+                    {availability.isWaitingForNext && (
+                      <div className="rounded-[18px] bg-white/90 dark:bg-[#141214]/90 border border-[#EBE3E5] dark:border-[#242024] p-3 text-center shadow-2xs">
+                        <p className="text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
+                          Следующее касание через {formatRemainingTime(availability.remainingCooldownMs)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </PastelCard>
       </div>
 
       {/* «Наше небо» — Живое интерактивное окно в общее небо пары */}
