@@ -28,6 +28,106 @@ import {
 } from '../sky/skyService';
 import { bootDiagnostics } from '../device/bootDiagnostics';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_REGEX.test(value.trim());
+}
+
+export interface ParsedCompositeDailyMomentId {
+  pairId?: string;
+  dateKey: string;
+  order: 1 | 2 | 3;
+  slot: 1 | 2 | 3;
+}
+
+export function isValidCalendarDateKey(dateKey: unknown): dateKey is string {
+  if (typeof dateKey !== 'string') return false;
+  const trimmed = dateKey.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return false;
+  if (trimmed === '1970-01-01') return false;
+  const [yStr, mStr, dStr] = trimmed.split('-');
+  const year = Number(yStr);
+  const month = Number(mStr);
+  const day = Number(dStr);
+  if (year < 2020 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return false;
+  }
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  return (
+    dt.getUTCFullYear() === year &&
+    dt.getUTCMonth() === month - 1 &&
+    dt.getUTCDate() === day
+  );
+}
+
+export function parseCompositeDailyMomentId(
+  momentId: string,
+  fallbackPairId?: string
+): ParsedCompositeDailyMomentId | null {
+  if (!momentId || typeof momentId !== 'string') return null;
+  const trimmed = momentId.trim();
+  if (trimmed.startsWith('date-') || trimmed.startsWith('date_')) {
+    return null;
+  }
+
+  const cleanFallbackPairId = isValidUuid(fallbackPairId) ? fallbackPairId.trim() : undefined;
+
+  // Format 1: moment_<pairId>_<YYYY-MM-DD>_<order> or moment-<pairId>-<YYYY-MM-DD>-<order>
+  const withPairMatch = trimmed.match(/^moment[_-](.+)[_-](\d{4}-\d{2}-\d{2})[_-]([123])$/i);
+  if (withPairMatch) {
+    const [, rawPairId, dateKey, rawOrder] = withPairMatch;
+    if (!isValidUuid(rawPairId) || !isValidCalendarDateKey(dateKey)) {
+      return null;
+    }
+    const cleanPairId = rawPairId.trim();
+    if (cleanFallbackPairId && cleanPairId.toLowerCase() !== cleanFallbackPairId.toLowerCase()) {
+      return null;
+    }
+    const order = Number(rawOrder) as 1 | 2 | 3;
+    return {
+      pairId: cleanPairId,
+      dateKey,
+      order,
+      slot: order,
+    };
+  }
+
+  // Format 2: moment_<YYYY-MM-DD>_<order> or moment-<YYYY-MM-DD>-<order>
+  const dateOnlyMatch = trimmed.match(/^moment[_-](\d{4}-\d{2}-\d{2})[_-]([123])$/i);
+  if (dateOnlyMatch) {
+    const [, dateKey, rawOrder] = dateOnlyMatch;
+    if (!isValidCalendarDateKey(dateKey)) {
+      return null;
+    }
+    const order = Number(rawOrder) as 1 | 2 | 3;
+    return {
+      pairId: cleanFallbackPairId,
+      dateKey,
+      order,
+      slot: order,
+    };
+  }
+
+  // Format 3: moment-today-<order> or moment_today_<order>
+  const todayMatch = trimmed.match(/^moment[_-]today[_-]([123])$/i);
+  if (todayMatch) {
+    const dateKey = getLocalDateKey();
+    if (!isValidCalendarDateKey(dateKey)) {
+      return null;
+    }
+    const order = Number(todayMatch[1]) as 1 | 2 | 3;
+    return {
+      pairId: cleanFallbackPairId,
+      dateKey,
+      order,
+      slot: order,
+    };
+  }
+
+  return null;
+}
+
 let lastClockSync = 0;
 async function syncServerClock(): Promise<void> {
   if (!supabaseConfig.isConfigured) return;
@@ -386,55 +486,74 @@ export class ApiClient {
     const memberList = membersRes.data || [];
     const memberUserIds = memberList.map((m: any) => m.user_id).filter(Boolean);
 
-    let rawMoments = momentsRes.data;
+    let rawMoments = momentsRes.data || [];
 
-    // If no moments exist for today, create the 3 moments in Supabase
-    if (!rawMoments || rawMoments.length === 0) {
-      const newMomentsToInsert = ([1, 2, 3] as const).map((order) => {
-        const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
+    // Check which daily slots (1, 2, 3) already exist in public.moments for today
+    const existingSlots = new Set<1 | 2 | 3>(
+      (rawMoments || [])
+        .map((m: any) => m?.slot)
+        .filter((s: any): s is 1 | 2 | 3 => s === 1 || s === 2 || s === 3)
+    );
+    const missingSlots = ([1, 2, 3] as const).filter((slot) => !existingSlots.has(slot));
+
+    // Idempotently create missing daily slots (1, 2, 3) via upsert on (pair_id, moment_date, slot).
+    // Does not send `id` or `created_at` so existing moment rows are never overwritten with new UUIDs/timestamps.
+    if (missingSlots.length > 0 && isValidUuid(pairId)) {
+      const slotsToUpsert = missingSlots.map((slot) => {
+        const promptInfo = getPromptForPairMoment(pairId, todayKey, slot);
         return {
           pair_id: pairId,
           moment_date: todayKey,
+          slot,
           prompt: promptInfo.prompt,
         };
       });
 
       try {
-        const { data: inserted } = await supabase
+        const { data: upsertedRows, error: upsertErr } = await supabase
           .from('moments')
-          .insert(newMomentsToInsert)
-          .select();
-        rawMoments = inserted || [];
+          .upsert(slotsToUpsert, { onConflict: 'pair_id,moment_date,slot' })
+          .select('*');
+
+        if (!upsertErr && Array.isArray(upsertedRows) && upsertedRows.length > 0) {
+          const mergedById = new Map<string, any>();
+          for (const m of rawMoments) {
+            if (m?.id) mergedById.set(m.id, m);
+          }
+          for (const m of upsertedRows) {
+            if (m?.id) mergedById.set(m.id, m);
+          }
+          rawMoments = Array.from(mergedById.values());
+        } else if (upsertErr) {
+          console.warn('[OURS Moments] Failed to upsert daily moment slots:', upsertErr.message || upsertErr);
+        }
       } catch (err) {
-        console.warn('Failed to insert moments:', err);
+        console.warn('[OURS Moments] Exception upserting daily moment slots:', err);
       }
     }
 
     // Fallback if offline/uninitialized
     if (!rawMoments || rawMoments.length === 0) {
-      rawMoments = ([1, 2, 3] as const).map((order) => {
-        const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
+      rawMoments = ([1, 2, 3] as const).map((slot) => {
+        const promptInfo = getPromptForPairMoment(pairId, todayKey, slot);
         return {
-          id: `moment_${pairId}_${todayKey}_${order}`,
+          id: `moment_${pairId}_${todayKey}_${slot}`,
           pair_id: pairId,
           moment_date: todayKey,
+          slot,
           prompt: promptInfo.prompt,
           created_at: new Date().toISOString(),
         };
       });
     }
 
-    const baseMomentIds = (rawMoments || []).map((m: any) => m.id);
-    const candidateSlotIds = ([1, 2, 3] as const).flatMap((order) => [
-      `moment_${pairId}_${todayKey}_${order}`,
-      `moment-${pairId}-${todayKey}-${order}`,
-      `moment_${todayKey}_${order}`,
-      `moment-${todayKey}-${order}`,
-    ]);
-    const todayMomentIds = Array.from(new Set([...baseMomentIds, ...candidateSlotIds].filter(Boolean)));
+    const slottedMomentIds = (rawMoments || [])
+      .filter((m: any) => isValidUuid(m?.id) && (m?.slot === 1 || m?.slot === 2 || m?.slot === 3))
+      .map((m: any) => m.id);
+    const todayMomentIds = Array.from(new Set(slottedMomentIds));
 
     // 2. Parallel fetch of member profiles, today's photos, and today's reactions
-    // ONLY today's photos are fetched here! Eliminates massive 6.4 MB historical photo payload on startup.
+    // ONLY valid UUIDs of slotted daily moments are passed to .in('moment_id', ...) to prevent 22P02 errors and legacy NULL-slot cross-contamination.
     const profilesPromise = memberUserIds.length > 0
       ? supabase.from('profiles').select('id, name, avatar_url, created_at').in('id', memberUserIds)
       : Promise.resolve({ data: [], error: null });
@@ -523,34 +642,56 @@ export class ApiClient {
     const allPhotos = photosRes.data || [];
     const allReactions = reactionsRes.data || [];
 
-    // 3. Assemble formatted Moment objects for today (strictly 3 moments: order 1, 2, 3)
-    // De-duplicates parallel moment inserts by grouping candidate IDs per prompt/order
+    // 3. Assemble formatted Moment objects for today (strictly 3 moments: slot = 1, 2, 3)
+    // Enforces 1-to-1 slot matching via `dbM.slot === slot` and ensures one UUID is never assigned to two slots.
+    const assignedSlotUuids = new Set<string>();
+
     const assembledMoments: Moment[] = ([1, 2, 3] as const).map((order) => {
-      const promptInfo = getPromptForPairMoment(pairId, todayKey, order);
+      const slot = order;
+      const promptInfo = getPromptForPairMoment(pairId, todayKey, slot);
+      const localCompositeId = `moment_${pairId}_${todayKey}_${slot}`;
 
-      // Find all database moment rows matching this prompt or order
-      const matchingRows = (rawMoments || []).filter((dbM: any) =>
-        dbM.prompt === promptInfo.prompt ||
-        dbM.id === `moment_${pairId}_${todayKey}_${order}` ||
-        dbM.id === `moment-${pairId}-${todayKey}-${order}`
-      );
+      // Match strictly by explicit slot (1, 2, 3) or exact local composite ID for this slot.
+      // Never matches by non-unique prompt, never guesses by array index, and never maps slot IS NULL rows.
+      const matchingRows = (rawMoments || []).filter((dbM: any) => {
+        if (!dbM || String(dbM.prompt || '').startsWith('DATE_INVITATION:')) return false;
+        if (dbM.slot === slot) {
+          if (isValidUuid(dbM.id) && assignedSlotUuids.has(dbM.id)) {
+            return false;
+          }
+          return true;
+        }
+        return (
+          dbM.id === localCompositeId ||
+          dbM.id === `moment-${pairId}-${todayKey}-${slot}`
+        );
+      });
 
-      // All candidate IDs that could have photos/reactions attached
-      const candidateIds = matchingRows.map((r: any) => r.id);
-
-      // Prefer the row that already has photos, or the first matching row, or fallback
+      // Prefer the row for this slot that already has photos, or the first matching row for this slot
       const preferredRowWithPhotos = matchingRows.find((r: any) =>
         allPhotos.some((p: any) => p.moment_id === r.id)
       );
-      const canonicalDbRow = preferredRowWithPhotos || matchingRows[0] || (rawMoments && rawMoments[order - 1]);
-      const canonicalId = canonicalDbRow?.id || `moment_${pairId}_${todayKey}_${order}`;
+      const canonicalDbRow = preferredRowWithPhotos || matchingRows[0] || null;
+      const candidateUuid = canonicalDbRow?.id;
+      const canonicalId =
+        candidateUuid && (!isValidUuid(candidateUuid) || !assignedSlotUuids.has(candidateUuid))
+          ? candidateUuid
+          : localCompositeId;
 
-      // All candidate IDs for this slot (canonical ID + matching DB IDs + standard naming variations)
+      if (isValidUuid(canonicalId)) {
+        assignedSlotUuids.add(canonicalId);
+      }
+
+      const candidateIds = matchingRows
+        .map((r: any) => r.id)
+        .filter((id: any) => typeof id === 'string' && (!isValidUuid(id) || id === canonicalId));
+
+      // All candidate IDs for this specific slot
       const slotCandidateVariations = [
-        `moment_${pairId}_${todayKey}_${order}`,
-        `moment-${pairId}-${todayKey}-${order}`,
-        `moment_${todayKey}_${order}`,
-        `moment-${todayKey}-${order}`,
+        localCompositeId,
+        `moment-${pairId}-${todayKey}-${slot}`,
+        `moment_${todayKey}_${slot}`,
+        `moment-${todayKey}-${slot}`,
       ];
       const slotIds = Array.from(new Set([canonicalId, ...candidateIds, ...slotCandidateVariations].filter(Boolean)));
 
@@ -702,12 +843,16 @@ export class ApiClient {
           return [];
         }
 
-        const allMomentIds = allPairMoments.map((m: any) => m.id);
+        const allMomentIds = allPairMoments.map((m: any) => m?.id).filter(isValidUuid);
 
         // Fetch photos, reactions, pair plan, and date invitations in parallel
         const [photosRes, reactionsRes, pairRes, dateInvsRes] = await Promise.all([
-          supabase.from('photos').select('*').in('moment_id', allMomentIds),
-          supabase.from('reactions').select('*').in('moment_id', allMomentIds),
+          allMomentIds.length > 0
+            ? supabase.from('photos').select('*').in('moment_id', allMomentIds)
+            : Promise.resolve({ data: [], error: null }),
+          allMomentIds.length > 0
+            ? supabase.from('reactions').select('*').in('moment_id', allMomentIds)
+            : Promise.resolve({ data: [], error: null }),
           supabase.from('pairs').select('is_lovely, subscription').eq('id', targetPairId).maybeSingle(),
           supabase.from('date_invitations').select('*').eq('pair_id', targetPairId).eq('status', 'completed'),
         ]);
@@ -764,7 +909,8 @@ export class ApiClient {
           const isMatched = Boolean((hasBothPhotos || hasTwoDistinctPhotos || isExplicitCompleted) && (hasBothPhotos || hasTwoDistinctPhotos || hasReaction));
 
           if (isMatched || (isDateMoment && validPhotos.length > 0)) {
-            const order = isDateMoment ? 1 : (((idx % 3) + 1) as 1 | 2 | 3);
+            const explicitSlot = pm.slot === 1 || pm.slot === 2 || pm.slot === 3 ? (pm.slot as 1 | 2 | 3) : null;
+            const order = isDateMoment ? 1 : (explicitSlot || (((idx % 3) + 1) as 1 | 2 | 3));
             const uReact = pReactions.find((r) => r.user_id === userId)?.reaction || null;
             const pReact = pReactions.find((r) => r.user_id !== userId)?.reaction || null;
             const fallbackPhoto = validPhotos[0]?.storage_path || validPhotos[0]?.image_url || null;
@@ -1470,9 +1616,208 @@ export class ApiClient {
   }
 
   /**
+   * Resolves a momentId (either an existing UUID or a composite daily moment ID moment_<pairId>_<date>_<slot>)
+   * to an unambiguous canonical server UUID from public.moments with a verified `slot` (1, 2, or 3).
+   *
+   * Rules enforced:
+   * 1. Never returns a composite string fallback. Returns { uuid: null, reason } if unresolved.
+   * 2. Never resolves `date-*` / `date_*` or date moments through this daily moment mechanism.
+   * 3. Never redirects legacy UUIDs with `slot IS NULL` to slot 1 automatically; returns a diagnosable error.
+   * 4. Before creating a missing slot via upsert, checks for legacy ambiguous (`slot IS NULL`) rows and validates pair/date.
+   */
+  async resolveCanonicalMomentUuid(
+    pairId: string | null | undefined,
+    momentId: string
+  ): Promise<{ uuid: string | null; slot?: 1 | 2 | 3; reason?: string }> {
+    if (!momentId || typeof momentId !== 'string') {
+      return { uuid: null, reason: 'EMPTY_MOMENT_ID' };
+    }
+
+    const trimmed = momentId.trim();
+    if (trimmed.startsWith('date-') || trimmed.startsWith('date_')) {
+      return { uuid: null, reason: 'DATE_MOMENT_ID_NOT_DAILY' };
+    }
+
+    if (!supabaseConfig.isConfigured) {
+      return { uuid: null, reason: 'SUPABASE_NOT_CONFIGURED' };
+    }
+
+    // Case 1: Caller passed a UUID. Verify the row exists in public.moments and has an explicit slot (1, 2, or 3).
+    // Never auto-redirect a legacy UUID with slot IS NULL to slot 1.
+    if (isValidUuid(trimmed)) {
+      try {
+        const { data: momentRow, error: momentErr } = await supabase
+          .from('moments')
+          .select('id, pair_id, moment_date, slot, prompt, created_at')
+          .eq('id', trimmed)
+          .maybeSingle();
+
+        if (momentErr) {
+          return { uuid: null, reason: `MOMENT_UUID_QUERY_ERROR: ${momentErr.message}` };
+        }
+
+        if (!momentRow) {
+          return { uuid: null, reason: `MOMENT_UUID_NOT_FOUND: ${trimmed}` };
+        }
+
+        const promptStr = String(momentRow.prompt || '');
+        if (promptStr.startsWith('DATE_INVITATION:') || promptStr.startsWith('Свидание')) {
+          return { uuid: null, reason: 'DATE_MOMENT_UUID_NOT_DAILY' };
+        }
+
+        const expectedPairId = (pairId || this.currentPairId || '').trim();
+        if (isValidUuid(expectedPairId) && momentRow.pair_id !== expectedPairId) {
+          return {
+            uuid: null,
+            reason: `MOMENT_PAIR_MISMATCH: moment belongs to pair ${momentRow.pair_id}, expected ${expectedPairId}`,
+          };
+        }
+
+        if (momentRow.slot !== 1 && momentRow.slot !== 2 && momentRow.slot !== 3) {
+          console.warn(
+            `[OURS AmbiguousMoment] Refusing legacy moment UUID "${trimmed}" because slot is ${momentRow.slot ?? 'NULL'}. Automatic redirection to slot 1 is prohibited.`
+          );
+          return {
+            uuid: null,
+            reason: `LEGACY_MOMENT_UUID_NULL_SLOT: moment ${trimmed} has slot IS NULL and cannot be redirected automatically`,
+          };
+        }
+
+        return { uuid: momentRow.id, slot: momentRow.slot };
+      } catch (err: any) {
+        return { uuid: null, reason: `MOMENT_UUID_VERIFY_EXCEPTION: ${err?.message || String(err)}` };
+      }
+    }
+
+    // Case 2: Caller passed a composite daily moment ID (e.g. moment_<pairId>_<YYYY-MM-DD>_<slot>)
+    const parsed = parseCompositeDailyMomentId(trimmed, pairId || this.currentPairId || undefined);
+    if (!parsed) {
+      return { uuid: null, reason: 'UNRECOGNIZED_COMPOSITE_MOMENT_ID' };
+    }
+
+    if (!isValidCalendarDateKey(parsed.dateKey)) {
+      return { uuid: null, reason: `INVALID_MOMENT_DATE: ${parsed.dateKey}` };
+    }
+
+    let targetPairId = (parsed.pairId || pairId || this.currentPairId || '').trim();
+    if (!isValidUuid(targetPairId)) {
+      try {
+        const userId = await this.ensureAuthenticatedUser();
+        const { data: membership } = await supabase
+          .from('pair_members')
+          .select('pair_id')
+          .eq('user_id', userId)
+          .order('joined_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (membership?.pair_id && isValidUuid(membership.pair_id)) {
+          targetPairId = membership.pair_id;
+          this.currentPairId = membership.pair_id;
+        }
+      } catch {
+        // Handled below
+      }
+    }
+
+    if (!isValidUuid(targetPairId)) {
+      return { uuid: null, reason: 'INVALID_PAIR_UUID' };
+    }
+
+    const slot = parsed.slot;
+
+    try {
+      const { data: dbMoments, error: momentsErr } = await supabase
+        .from('moments')
+        .select('id, pair_id, moment_date, slot, prompt, created_at')
+        .eq('pair_id', targetPairId)
+        .eq('moment_date', parsed.dateKey)
+        .order('created_at', { ascending: true });
+
+      if (momentsErr || !dbMoments) {
+        return { uuid: null, reason: `MOMENTS_QUERY_ERROR: ${momentsErr?.message || 'null'}` };
+      }
+
+      const validDailyRows = dbMoments.filter(
+        (m: any) =>
+          isValidUuid(m?.id) &&
+          !String(m?.prompt || '').startsWith('DATE_INVITATION:') &&
+          !String(m?.prompt || '').startsWith('Свидание') &&
+          m?.is_date !== true
+      );
+
+      // 1. Match strictly by explicit slot (1, 2, 3)
+      const slotMatches = validDailyRows.filter((dbM: any) => dbM.slot === slot);
+      if (slotMatches.length === 1) {
+        return { uuid: slotMatches[0].id, slot };
+      }
+      if (slotMatches.length > 1) {
+        console.warn(
+          `[OURS AmbiguousMoment] Found ${slotMatches.length} duplicate rows for slot ${slot} (pair=${targetPairId}, date=${parsed.dateKey}).`
+        );
+        return {
+          uuid: null,
+          reason: `AMBIGUOUS_DUPLICATE_SLOT_ROWS: ${slotMatches.length} rows found for slot ${slot}`,
+        };
+      }
+
+      // 2. Slot does not exist yet: ignore legacy rows with `slot IS NULL` (never map them to slot 1..3),
+      // and proceed to create the clean slotted row (pair_id, moment_date, slot) consistently with assemblePairData.
+      const legacyNullSlotRows = validDailyRows.filter(
+        (dbM: any) => dbM.slot === null || dbM.slot === undefined
+      );
+      if (legacyNullSlotRows.length > 0) {
+        console.info(
+          `[OURS Moments] Ignoring ${legacyNullSlotRows.length} legacy row(s) with slot IS NULL for (pair=${targetPairId}, date=${parsed.dateKey}); creating explicit slot ${slot}.`
+        );
+      }
+
+      // 3. Validate that the pair exists in public.pairs before creating the missing slot
+      const { data: pairExists, error: pairErr } = await supabase
+        .from('pairs')
+        .select('id')
+        .eq('id', targetPairId)
+        .maybeSingle();
+
+      if (pairErr || !pairExists?.id) {
+        return {
+          uuid: null,
+          reason: `INVALID_OR_MISSING_PAIR: ${pairErr?.message || targetPairId}`,
+        };
+      }
+
+      // 4. Idempotently create the missing slot via upsert on (pair_id, moment_date, slot)
+      const promptInfo = getPromptForPairMoment(targetPairId, parsed.dateKey, slot);
+      const { data: upsertedRow, error: upsertErr } = await supabase
+        .from('moments')
+        .upsert(
+          {
+            pair_id: targetPairId,
+            moment_date: parsed.dateKey,
+            slot,
+            prompt: promptInfo.prompt,
+          },
+          { onConflict: 'pair_id,moment_date,slot' }
+        )
+        .select('id, slot')
+        .maybeSingle();
+
+      if (upsertErr || !upsertedRow?.id || !isValidUuid(upsertedRow.id)) {
+        return {
+          uuid: null,
+          reason: `SLOT_UPSERT_ERROR: ${upsertErr?.message || 'No valid UUID returned'}`,
+        };
+      }
+
+      return { uuid: upsertedRow.id, slot };
+    } catch (err: any) {
+      return { uuid: null, reason: `RESOLUTION_EXCEPTION: ${err?.message || String(err)}` };
+    }
+  }
+
+  /**
    * Upload Photo for a Moment to Supabase Storage + public.photos metadata
    */
-  async uploadPhoto(momentId: string, photoData: string): Promise<{ success: boolean; moment?: Moment }> {
+  async uploadPhoto(momentId: string, photoData: string): Promise<{ success: boolean; moment?: Moment; error?: string }> {
     const userId = await this.ensureAuthenticatedUser();
 
     if (!this.currentPairId) {
@@ -1490,82 +1835,95 @@ export class ApiClient {
 
     const pairId = this.currentPairId || 'pair';
 
+    // Always resolve & validate momentId through resolveCanonicalMomentUuid (validates both composite IDs and UUIDs, rejecting slot IS NULL)
+    let targetMomentUuid: string | null = null;
+    if (supabaseConfig.isConfigured) {
+      const resolved = await this.resolveCanonicalMomentUuid(pairId, momentId);
+      if (!resolved.uuid || !isValidUuid(resolved.uuid)) {
+        console.warn(
+          `[OURS uploadPhoto] Stopping DB write: momentId "${momentId}" could not be unambiguously resolved to a slotted UUID (${resolved.reason}). Photo remains in queue for retry.`
+        );
+        return { success: false, error: resolved.reason || 'UNRESOLVED_MOMENT_UUID' };
+      }
+      targetMomentUuid = resolved.uuid;
+    } else if (isValidUuid(momentId)) {
+      targetMomentUuid = momentId.trim();
+    }
+
+    const effectiveMomentId = targetMomentUuid || momentId;
+
     // 1. Upload to Supabase Storage or process as Data URI
     const storageUrl = await photoStorageService.uploadMomentPhoto(
       pairId,
-      momentId,
+      effectiveMomentId,
       userId,
       photoData
     );
 
     if (!storageUrl || storageUrl.startsWith('blob:')) {
       console.warn('[OURS uploadPhoto] Aborting: storageUrl is invalid or local blob URL:', storageUrl);
-      return { success: false };
+      return { success: false, error: 'INVALID_STORAGE_URL' };
     }
 
-    // 2. Upsert photo metadata into public.photos with correct column storage_path
+    // 2. Upsert photo metadata into public.photos using strictly validated UUID and existing schema columns
     let upsertErr: any = null;
-    try {
-      const { data: existingPhoto } = await supabase
-        .from('photos')
-        .select('id')
-        .eq('moment_id', momentId)
-        .eq('user_id', userId)
-        .maybeSingle();
+    if (supabaseConfig.isConfigured && targetMomentUuid) {
+      try {
+        const { data: existingPhoto, error: selectErr } = await supabase
+          .from('photos')
+          .select('id')
+          .eq('moment_id', targetMomentUuid)
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      if (existingPhoto?.id) {
-        const { error } = await supabase
-          .from('photos')
-          .update({
-            storage_path: storageUrl,
-            image_url: storageUrl,
-            created_at: new Date().toISOString(),
-          })
-          .eq('id', existingPhoto.id);
-        upsertErr = error;
-      } else {
-        const { error } = await supabase
-          .from('photos')
-          .insert({
-            moment_id: momentId,
-            user_id: userId,
-            storage_path: storageUrl,
-            image_url: storageUrl,
-            created_at: new Date().toISOString(),
-          });
-        upsertErr = error;
+        if (selectErr) {
+          upsertErr = selectErr;
+        } else if (existingPhoto?.id) {
+          const { error } = await supabase
+            .from('photos')
+            .update({
+              storage_path: storageUrl,
+              created_at: new Date().toISOString(),
+            })
+            .eq('id', existingPhoto.id);
+          upsertErr = error;
+        } else {
+          const { error } = await supabase
+            .from('photos')
+            .insert({
+              moment_id: targetMomentUuid,
+              user_id: userId,
+              storage_path: storageUrl,
+              created_at: new Date().toISOString(),
+            });
+          upsertErr = error;
+        }
+      } catch (e) {
+        upsertErr = e;
       }
-    } catch (e) {
-      upsertErr = e;
     }
 
     if (upsertErr) {
       console.error('[OURS uploadPhoto] Error saving photo row:', upsertErr);
+      return { success: false, error: upsertErr?.message || String(upsertErr) };
     }
 
     // Instant Realtime broadcast across pair channel
-    this.broadcastPairUpdate(pairId, { action: 'photo_uploaded', momentId, userId });
+    this.broadcastPairUpdate(pairId, { action: 'photo_uploaded', momentId: effectiveMomentId, userId });
     this.invalidateHistoryCache(pairId);
 
     try {
-      const todayKey = getLocalDateKey();
-      const slotMatch = momentId.match(/(\d+)$/);
-      const order = slotMatch ? parseInt(slotMatch[1], 10) : 1;
-      const slotIds = Array.from(new Set([
-        momentId,
-        `moment_${pairId}_${todayKey}_${order}`,
-        `moment-${pairId}-${todayKey}-${order}`,
-        `moment_${todayKey}_${order}`,
-        `moment-${todayKey}-${order}`,
-      ]));
+      if (!targetMomentUuid) {
+        return { success: true };
+      }
 
       const { data: mPhotos } = await supabase
         .from('photos')
-        .select('storage_path, image_url, user_id, created_at')
-        .in('moment_id', slotIds);
+        .select('storage_path, user_id, created_at')
+        .eq('moment_id', targetMomentUuid);
 
       const partnerPhotoObj = mPhotos?.find((p: any) => p.user_id !== userId);
-      const rawPartnerUrl = partnerPhotoObj?.storage_path || partnerPhotoObj?.image_url || null;
+      const rawPartnerUrl = partnerPhotoObj?.storage_path || null;
       const partnerPhotoUrl = (rawPartnerUrl && !rawPartnerUrl.startsWith('blob:')) ? rawPartnerUrl : null;
 
       let matchTs: number | undefined = undefined;
@@ -1579,7 +1937,7 @@ export class ApiClient {
       return {
         success: true,
         moment: {
-          id: momentId,
+          id: targetMomentUuid,
           userPhoto: storageUrl,
           ...(partnerPhotoUrl ? { partnerPhoto: partnerPhotoUrl, status: 'BOTH_UPLOADED' } : {}),
           completedTimestamp: matchTs,
@@ -1604,12 +1962,13 @@ export class ApiClient {
       }
     } catch {}
 
-    if (supabaseConfig.isConfigured) {
+    // Only query public.photos.moment_id if momentId is a valid UUID
+    if (supabaseConfig.isConfigured && isValidUuid(momentId)) {
       try {
         const { data: dbPhotos } = await supabase
           .from('photos')
-          .select('storage_path, image_url, user_id, created_at')
-          .eq('moment_id', momentId)
+          .select('storage_path, user_id, created_at')
+          .eq('moment_id', momentId.trim())
           .order('created_at', { ascending: true });
 
         if (Array.isArray(dbPhotos) && dbPhotos.length > 0) {
@@ -1640,12 +1999,8 @@ export class ApiClient {
 
   /**
    * Upload Photo for an accepted Date Invitation:
-   * 1. Creates/ensures historic moment in public.moments with id = date-{invitation.id}
-   * 2. Uploads photo via photoStorageService.uploadMomentPhoto()
-   * 3. Upserts photo record into public.photos linked to moment_id
-   * 4. Enforces max 1 photo per user for this date moment (max 2 total for pair)
-   * 5. Grants 1 persistent star into the sky for this date
-   * 6. Realtime broadcasts across pair channel and invalidates history cache
+   * Preserves the independent date invitation lifecycle without creating regular daily moments
+   * and without passing non-UUID strings into UUID columns.
    */
   async uploadDatePhoto(params: {
     momentId: string;
@@ -1703,48 +2058,33 @@ export class ApiClient {
       return { success: false, photos: [], momentId, photoUrl: '' };
     }
 
-    // 2. Ensure moment row exists in public.moments
-    if (supabaseConfig.isConfigured) {
+    // 2 & 3. Only write to public.moments / public.photos by momentId if momentId is a valid UUID
+    if (supabaseConfig.isConfigured && isValidUuid(momentId) && isValidUuid(pairId)) {
+      const cleanMomentUuid = momentId.trim();
       try {
         const momentRow = {
-          id: momentId,
+          id: cleanMomentUuid,
           pair_id: pairId,
-          creator_user_id: userId,
           moment_date: todayKey,
           prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
-          status: 'COMPLETED',
-          is_date: true,
-          created_at: new Date().toISOString(),
         };
 
         const { error: mErr } = await supabase
           .from('moments')
-          .upsert(momentRow, { onConflict: 'id' });
+          .upsert(momentRow, { onConflict: 'id', ignoreDuplicates: true });
 
         if (mErr) {
-          console.warn('[OURS Date] Upsert moments row error, trying insert:', mErr);
-          await supabase.from('moments').insert({
-            id: momentId,
-            pair_id: pairId,
-            creator_user_id: userId,
-            moment_date: todayKey,
-            prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
-            created_at: new Date().toISOString(),
-          });
+          await supabase.from('moments').insert(momentRow);
         }
       } catch (err) {
         console.warn('[OURS Date] Exception checking/inserting moments row:', err);
       }
-    }
 
-    // 3. Upsert photo metadata into public.photos (enforces max 1 per user)
-    if (supabaseConfig.isConfigured) {
       try {
         const photoRow = {
-          moment_id: momentId,
+          moment_id: cleanMomentUuid,
           user_id: userId,
           storage_path: storageUrl,
-          image_url: storageUrl,
           created_at: new Date().toISOString(),
         };
 
@@ -1753,11 +2093,10 @@ export class ApiClient {
           .upsert(photoRow, { onConflict: 'moment_id,user_id' });
 
         if (pErr) {
-          console.warn('[OURS Date] Upsert photos error, trying fallback update/insert:', pErr);
           const { data: existingPhoto } = await supabase
             .from('photos')
             .select('id')
-            .eq('moment_id', momentId)
+            .eq('moment_id', cleanMomentUuid)
             .eq('user_id', userId)
             .maybeSingle();
 
@@ -1766,7 +2105,6 @@ export class ApiClient {
               .from('photos')
               .update({
                 storage_path: storageUrl,
-                image_url: storageUrl,
                 created_at: new Date().toISOString(),
               })
               .eq('id', existingPhoto.id);
@@ -1780,7 +2118,7 @@ export class ApiClient {
     }
 
     // 4. Persist completed status and photo_url directly on date_invitations table in Supabase
-    if (supabaseConfig.isConfigured) {
+    if (supabaseConfig.isConfigured && isValidUuid(pairId)) {
       try {
         await supabase
           .from('date_invitations')
@@ -1871,13 +2209,13 @@ export class ApiClient {
     this.broadcastPairUpdate(pairId, { action: 'date_photo_uploaded', momentId, userId, pairId });
     this.invalidateHistoryCache(pairId);
 
-    // 8. If Supabase configured, re-fetch authoritative photos list
-    if (supabaseConfig.isConfigured) {
+    // 8. If Supabase configured and momentId is valid UUID, re-fetch authoritative photos list
+    if (supabaseConfig.isConfigured && isValidUuid(momentId)) {
       try {
         const { data: dbPhotos } = await supabase
           .from('photos')
-          .select('storage_path, image_url, user_id, created_at')
-          .eq('moment_id', momentId)
+          .select('storage_path, user_id, created_at')
+          .eq('moment_id', momentId.trim())
           .order('created_at', { ascending: true });
 
         if (Array.isArray(dbPhotos) && dbPhotos.length > 0) {
@@ -1903,7 +2241,7 @@ export class ApiClient {
    * Reveal Moment: Persists MATCH event in public.reactions with match indicator '✨'
    * so both devices know the moment has been revealed and MATCH is complete!
    */
-  async revealMoment(momentId: string): Promise<{ success: boolean; moment?: Moment }> {
+  async revealMoment(momentId: string): Promise<{ success: boolean; moment?: Moment; error?: string }> {
     const userId = await this.ensureAuthenticatedUser();
     if (!this.currentPairId) {
       const { data: membership } = await supabase
@@ -1915,26 +2253,52 @@ export class ApiClient {
       if (membership?.pair_id) this.currentPairId = membership.pair_id;
     }
 
-    // Persist match marker in public.reactions
-    await supabase.from('reactions').upsert(
-      {
-        moment_id: momentId,
-        user_id: userId,
-        reaction: '✨',
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: 'moment_id,user_id' }
-    );
+    let targetMomentUuid: string | null = null;
+    if (supabaseConfig.isConfigured) {
+      const resolved = await this.resolveCanonicalMomentUuid(this.currentPairId, momentId);
+      if (!resolved.uuid || !isValidUuid(resolved.uuid)) {
+        console.warn(
+          `[OURS revealMoment] Stopping reactions write: momentId "${momentId}" could not be unambiguously resolved to a slotted UUID (${resolved.reason}).`
+        );
+        return { success: false, error: resolved.reason || 'UNRESOLVED_MOMENT_UUID' };
+      }
+      targetMomentUuid = resolved.uuid;
+    } else if (isValidUuid(momentId)) {
+      targetMomentUuid = momentId.trim();
+    }
+
+    if (supabaseConfig.isConfigured) {
+      if (!targetMomentUuid) {
+        return { success: false, error: 'INVALID_MOMENT_UUID' };
+      }
+
+      const { error: upsertErr } = await supabase.from('reactions').upsert(
+        {
+          moment_id: targetMomentUuid,
+          user_id: userId,
+          reaction: '✨',
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'moment_id,user_id' }
+      );
+
+      if (upsertErr) {
+        console.error('[OURS revealMoment] Error saving reaction row:', upsertErr);
+        return { success: false, error: upsertErr.message };
+      }
+    }
+
+    const effectiveMomentId = targetMomentUuid || momentId;
 
     // Instant Realtime broadcast across pair channel
     if (this.currentPairId) {
-      this.broadcastPairUpdate(this.currentPairId, { action: 'moment_revealed', momentId, userId });
+      this.broadcastPairUpdate(this.currentPairId, { action: 'moment_revealed', momentId: effectiveMomentId, userId });
       this.invalidateHistoryCache(this.currentPairId);
     }
 
     if (this.currentPairId) {
       const state = await this.assemblePairData(this.currentPairId, userId);
-      const moment = state.moments.find((m) => m.id === momentId);
+      const moment = state.moments.find((m) => m.id === effectiveMomentId || m.id === momentId);
       return { success: true, moment };
     }
 
@@ -1944,7 +2308,7 @@ export class ApiClient {
   /**
    * Submit Reaction in public.reactions
    */
-  async submitReaction(momentId: string, emoji: ReactionEmoji): Promise<{ success: boolean; moment?: Moment }> {
+  async submitReaction(momentId: string, emoji: ReactionEmoji): Promise<{ success: boolean; moment?: Moment; error?: string }> {
     const userId = await this.ensureAuthenticatedUser();
     if (!this.currentPairId) {
       const { data: membership } = await supabase
@@ -1956,25 +2320,52 @@ export class ApiClient {
       if (membership?.pair_id) this.currentPairId = membership.pair_id;
     }
 
-    await supabase.from('reactions').upsert(
-      {
-        moment_id: momentId,
-        user_id: userId,
-        reaction: emoji,
-        created_at: new Date().toISOString(),
-      },
-      { onConflict: 'moment_id,user_id' }
-    );
+    let targetMomentUuid: string | null = null;
+    if (supabaseConfig.isConfigured) {
+      const resolved = await this.resolveCanonicalMomentUuid(this.currentPairId, momentId);
+      if (!resolved.uuid || !isValidUuid(resolved.uuid)) {
+        console.warn(
+          `[OURS submitReaction] Stopping reactions write: momentId "${momentId}" could not be unambiguously resolved to a slotted UUID (${resolved.reason}).`
+        );
+        return { success: false, error: resolved.reason || 'UNRESOLVED_MOMENT_UUID' };
+      }
+      targetMomentUuid = resolved.uuid;
+    } else if (isValidUuid(momentId)) {
+      targetMomentUuid = momentId.trim();
+    }
+
+    if (supabaseConfig.isConfigured) {
+      if (!targetMomentUuid) {
+        return { success: false, error: 'INVALID_MOMENT_UUID' };
+      }
+
+      const { error: upsertErr } = await supabase.from('reactions').upsert(
+        {
+          moment_id: targetMomentUuid,
+          user_id: userId,
+          reaction: emoji,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'moment_id,user_id' }
+      );
+
+      if (upsertErr) {
+        console.error('[OURS submitReaction] Error saving reaction row:', upsertErr);
+        return { success: false, error: upsertErr.message };
+      }
+    }
+
+    const effectiveMomentId = targetMomentUuid || momentId;
 
     // Instant Realtime broadcast across pair channel
     if (this.currentPairId) {
-      this.broadcastPairUpdate(this.currentPairId, { action: 'reaction_submitted', momentId, userId });
+      this.broadcastPairUpdate(this.currentPairId, { action: 'reaction_submitted', momentId: effectiveMomentId, userId });
       this.invalidateHistoryCache(this.currentPairId);
     }
 
     if (this.currentPairId) {
       const state = await this.assemblePairData(this.currentPairId, userId);
-      const moment = state.moments.find((m) => m.id === momentId);
+      const moment = state.moments.find((m) => m.id === effectiveMomentId || m.id === momentId);
       return { success: true, moment };
     }
 

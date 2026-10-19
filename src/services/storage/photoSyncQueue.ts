@@ -6,6 +6,7 @@
 
 import { photoStorageService } from './storageService';
 import { supabase, supabaseConfig } from '../api/supabaseClient';
+import { apiClient, isValidUuid } from '../api/apiClient';
 import { appStorage } from './keyValueStorage';
 import { getInitialAppState, saveAppState } from './appStateStorage';
 import { dateInvitationService } from '../dates/dateInvitationService';
@@ -124,9 +125,10 @@ class PhotoSyncQueue {
   }
 
   /**
-   * Fetch all pending tasks
+   * Fetch all non-completed tasks stored in IndexedDB (including 'pending', 'uploading', and 'failed' after MAX_RETRIES)
+   * Ensures tasks never vanish even after reaching MAX_RETRIES.
    */
-  async getAllPendingTasks(): Promise<PendingUploadTask[]> {
+  async getAllStoredTasks(): Promise<PendingUploadTask[]> {
     try {
       const db = await this.getDB();
       const tasks = await new Promise<PendingUploadTask[]>((resolve, reject) => {
@@ -136,9 +138,55 @@ class PhotoSyncQueue {
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
       });
-      return tasks.filter((t) => t.status !== 'completed' && t.retryCount < MAX_RETRIES);
+      return tasks.filter((t) => t.status !== 'completed');
     } catch {
-      return this.fallbackMemoryQueue.filter((t) => t.status !== 'completed' && t.retryCount < MAX_RETRIES);
+      return this.fallbackMemoryQueue.filter((t) => t.status !== 'completed');
+    }
+  }
+
+  private isAmbiguousLegacyError(errorMsg?: string): boolean {
+    if (!errorMsg) return false;
+    return (
+      errorMsg.includes('LEGACY_MOMENT_UUID_NULL_SLOT') ||
+      errorMsg.includes('AMBIGUOUS_DUPLICATE_SLOT_ROWS')
+    );
+  }
+
+  /**
+   * Fetch all tasks eligible for background processing right now.
+   * Tasks that reached MAX_RETRIES ('failed') are NOT deleted: they remain in storage
+   * and retry with a cooldown backoff so they never vanish permanently.
+   * Tasks blocked by LEGACY_MOMENT_UUID_NULL_SLOT use a 5-minute cooldown instead of 15s polling.
+   */
+  async getAllPendingTasks(): Promise<PendingUploadTask[]> {
+    const allStored = await this.getAllStoredTasks();
+    const now = Date.now();
+    return allStored.filter((t) => {
+      if (this.isAmbiguousLegacyError(t.lastError)) {
+        return now - (t.updatedAt || 0) >= 300000; // 5-minute cooldown for unslotted legacy UUID tasks
+      }
+      if (t.retryCount < MAX_RETRIES) return true;
+      // After MAX_RETRIES, task stays preserved in queue and retries after 60s backoff
+      return now - (t.updatedAt || 0) >= 60000;
+    });
+  }
+
+  /**
+   * Reset retry status on 'failed' tasks when connectivity is explicitly restored
+   */
+  async resetFailedTasksForRetry(): Promise<void> {
+    const allStored = await this.getAllStoredTasks();
+    const now = Date.now();
+    for (const task of allStored) {
+      if (this.isAmbiguousLegacyError(task.lastError) && now - (task.updatedAt || 0) < 300000) {
+        continue;
+      }
+      if (task.status === 'failed' || task.retryCount >= MAX_RETRIES) {
+        task.status = 'pending';
+        task.retryCount = 0;
+        task.updatedAt = now;
+        await this.saveTask(task);
+      }
     }
   }
 
@@ -160,7 +208,8 @@ class PhotoSyncQueue {
       };
     }
 
-    const allTasks = await this.getAllPendingTasks();
+    // Search across all stored tasks (including 'failed' tasks that hit MAX_RETRIES) to prevent duplicates
+    const allTasks = await this.getAllStoredTasks();
     const existing = allTasks.find(
       (t) => t.type === input.type && t.momentId === input.momentId && t.userId === input.userId
     );
@@ -235,10 +284,14 @@ class PhotoSyncQueue {
             await this.processDateUpload(task);
           }
         } catch (err: any) {
+          const errorMsg = err?.message || String(err);
           console.error(`[OURS SyncQueue] Error processing task ${task.id}:`, err);
           task.retryCount += 1;
-          task.lastError = err?.message || String(err);
-          task.status = task.retryCount >= MAX_RETRIES ? 'failed' : 'pending';
+          task.lastError = errorMsg;
+          task.status =
+            task.retryCount >= MAX_RETRIES || this.isAmbiguousLegacyError(errorMsg)
+              ? 'failed'
+              : 'pending';
           task.updatedAt = Date.now();
           await this.saveTask(task);
         }
@@ -249,12 +302,43 @@ class PhotoSyncQueue {
   }
 
   /**
-   * Upload moment photo to Supabase Storage & sync database + appState
+   * Upload moment photo to Supabase Storage & sync database + appState.
+   * Preserves all original task fields (momentId, pairId, userId, type, photoData) if UUID resolution
+   * or database write fails, keeping the task in queue for retry without data loss.
    */
   private async processMomentUpload(task: PendingUploadTask): Promise<void> {
+    const originalMomentId = task.momentId;
+
+    if (!originalMomentId || originalMomentId.trim().startsWith('date-') || originalMomentId.trim().startsWith('date_')) {
+      throw new Error(`Invalid daily moment ID "${originalMomentId}". Task preserved in queue.`);
+    }
+
+    // 1. Resolve canonical server UUID BEFORE attempting database write.
+    // Validates both composite IDs and existing UUIDs (rejecting legacy UUIDs with slot IS NULL).
+    // Never falls back to a composite string if resolution fails or is ambiguous.
+    let targetMomentUuid: string | null = null;
+    if (supabaseConfig.isConfigured) {
+      const resolved = await apiClient.resolveCanonicalMomentUuid(task.pairId, originalMomentId);
+      if (!resolved.uuid || !isValidUuid(resolved.uuid)) {
+        throw new Error(
+          `Cannot resolve canonical moment UUID for "${originalMomentId}" (${resolved.reason || 'UNRESOLVED'}). Task preserved in queue.`
+        );
+      }
+      targetMomentUuid = resolved.uuid;
+    } else if (isValidUuid(originalMomentId)) {
+      targetMomentUuid = originalMomentId.trim();
+    }
+
+    if (supabaseConfig.isConfigured && (!targetMomentUuid || !isValidUuid(targetMomentUuid))) {
+      throw new Error(`Invalid moment UUID for "${originalMomentId}". Task preserved in queue.`);
+    }
+
+    const effectiveMomentId = targetMomentUuid || originalMomentId;
+
+    // 2. Upload photo binary to Supabase Storage
     const storageUrl = await photoStorageService.uploadMomentPhoto(
       task.pairId,
-      task.momentId,
+      effectiveMomentId,
       task.userId,
       task.photoData
     );
@@ -264,11 +348,11 @@ class PhotoSyncQueue {
       throw new Error('Upload returned non-HTTP URL (offline or storage error)');
     }
 
-    // Save photo record to public.photos table in Supabase
-    if (supabaseConfig.isConfigured) {
+    // 3. Save photo record to public.photos table in Supabase using strictly validated UUID
+    if (supabaseConfig.isConfigured && targetMomentUuid) {
       const { error: upsertErr } = await supabase.from('photos').upsert(
         {
-          moment_id: task.momentId,
+          moment_id: targetMomentUuid,
           user_id: task.userId,
           storage_path: storageUrl,
           created_at: new Date().toISOString(),
@@ -277,28 +361,47 @@ class PhotoSyncQueue {
       );
 
       if (upsertErr) {
-        console.warn('[OURS SyncQueue] Warning: public.photos upsert error:', upsertErr);
+        throw new Error(`public.photos upsert error (${upsertErr.code || 'ERR'}): ${upsertErr.message}`);
       }
     }
 
-    // Update local appState storage by replacing Data URI with permanent CDN URL
-    this.updateLocalAppStateMomentPhoto(task.momentId, task.userId, storageUrl);
+    // 4. Update local appState storage by replacing Data URI with permanent CDN URL
+    this.updateLocalAppStateMomentPhoto(originalMomentId, targetMomentUuid, task.userId, storageUrl);
 
-    // Notify active React views
+    // 5. Notify active React views and broadcast realtime update to partner
     this.notifyPhotoSynced({
       type: 'moment',
-      momentId: task.momentId,
+      momentId: effectiveMomentId,
       userId: task.userId,
       photoUrl: storageUrl,
     });
 
-    // Successfully finished! Remove from queue
+    if (originalMomentId !== effectiveMomentId) {
+      this.notifyPhotoSynced({
+        type: 'moment',
+        momentId: originalMomentId,
+        userId: task.userId,
+        photoUrl: storageUrl,
+      });
+    }
+
+    if (task.pairId) {
+      apiClient.broadcastPairUpdate(task.pairId, {
+        action: 'photo_uploaded',
+        momentId: effectiveMomentId,
+        userId: task.userId,
+      });
+      apiClient.invalidateHistoryCache(task.pairId);
+    }
+
+    // 6. Successfully finished! Remove from queue
     await this.removeTask(task.id);
-    console.log(`[OURS SyncQueue] Successfully synced moment photo ${task.momentId} -> ${storageUrl}`);
+    console.log(`[OURS SyncQueue] Successfully synced moment photo ${effectiveMomentId} -> ${storageUrl}`);
   }
 
   /**
-   * Upload date photo to Supabase Storage & sync public.photos + dateInvitationService
+   * Upload date photo to Supabase Storage & sync public.photos + dateInvitationService.
+   * Never creates regular daily moments for date tasks and never passes non-UUID date IDs into UUID columns.
    */
   private async processDateUpload(task: PendingUploadTask): Promise<void> {
     const storageUrl = await photoStorageService.uploadMomentPhoto(
@@ -312,32 +415,37 @@ class PhotoSyncQueue {
       throw new Error('Upload returned non-HTTP URL for date photo');
     }
 
-    if (supabaseConfig.isConfigured) {
+    // Only write to public.moments / public.photos if task.momentId and task.pairId are valid UUIDs
+    if (supabaseConfig.isConfigured && isValidUuid(task.momentId) && isValidUuid(task.pairId)) {
       const todayKey = new Date().toISOString().slice(0, 10);
-      try {
-        await supabase.from('moments').upsert(
-          {
-            id: task.momentId,
-            pair_id: task.pairId,
-            moment_date: todayKey,
-            prompt: task.dateTitle ? `Свидание: ${task.dateTitle}` : 'Свидание',
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: 'id' }
-        );
+      const cleanMomentUuid = task.momentId.trim();
 
-        await supabase.from('photos').upsert(
-          {
-            moment_id: task.momentId,
-            user_id: task.userId,
-            storage_path: storageUrl,
-            image_url: storageUrl,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: 'moment_id,user_id' }
-        );
-      } catch (e) {
-        console.warn('[OURS SyncQueue] Could not upsert date photo in Supabase:', e);
+      const { error: mErr } = await supabase.from('moments').upsert(
+        {
+          id: cleanMomentUuid,
+          pair_id: task.pairId.trim(),
+          moment_date: todayKey,
+          prompt: task.dateTitle ? `Свидание: ${task.dateTitle}` : 'Свидание',
+        },
+        { onConflict: 'id', ignoreDuplicates: true }
+      );
+
+      if (mErr) {
+        throw new Error(`Date moment upsert error (${mErr.code || 'ERR'}): ${mErr.message}`);
+      }
+
+      const { error: pErr } = await supabase.from('photos').upsert(
+        {
+          moment_id: cleanMomentUuid,
+          user_id: task.userId,
+          storage_path: storageUrl,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'moment_id,user_id' }
+      );
+
+      if (pErr) {
+        throw new Error(`Date photo upsert error (${pErr.code || 'ERR'}): ${pErr.message}`);
       }
     }
 
@@ -371,20 +479,26 @@ class PhotoSyncQueue {
   /**
    * Replace Data URI in local appState with permanent CDN HTTP URL
    */
-  private updateLocalAppStateMomentPhoto(momentId: string, userId: string, photoUrl: string): void {
+  private updateLocalAppStateMomentPhoto(
+    originalMomentId: string,
+    resolvedMomentUuid: string | null,
+    userId: string,
+    photoUrl: string
+  ): void {
     try {
       const appState = getInitialAppState();
       let updated = false;
 
       if (Array.isArray(appState.todayMoments)) {
         appState.todayMoments = appState.todayMoments.map((m) => {
-          if (m.id === momentId) {
+          if (m.id === originalMomentId || (resolvedMomentUuid && m.id === resolvedMomentUuid)) {
             updated = true;
             const currentUserId = appState.couple?.user?.id;
             const isCurrentUser = !currentUserId || currentUserId === userId;
 
             return {
               ...m,
+              id: resolvedMomentUuid || m.id,
               ...(isCurrentUser
                 ? { userPhoto: photoUrl }
                 : { partnerPhoto: photoUrl }),
@@ -491,7 +605,9 @@ class PhotoSyncQueue {
 
     window.addEventListener('online', () => {
       console.log('[OURS SyncQueue] Network connection restored. Processing pending upload queue...');
-      this.processQueue();
+      this.resetFailedTasksForRetry().then(() => {
+        this.processQueue();
+      });
     });
 
     window.addEventListener('focus', () => {
@@ -511,9 +627,11 @@ class PhotoSyncQueue {
 
     // Initial startup scan and queue check after 2s
     setTimeout(() => {
-      this.scanAndEnqueueUnsyncedDataURIs().then(() => {
-        this.processQueue();
-      });
+      this.resetFailedTasksForRetry()
+        .then(() => this.scanAndEnqueueUnsyncedDataURIs())
+        .then(() => {
+          this.processQueue();
+        });
     }, 2000);
   }
 }

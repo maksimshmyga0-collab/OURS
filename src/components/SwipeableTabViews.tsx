@@ -3,6 +3,7 @@ import { NavigationTab } from '../types';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 
 const TABS: NavigationTab[] = ['date', 'today', 'our_day', 'history', 'profile'];
+const LAST_SWIPEABLE_INDEX = 3; // 'history' — 'profile' (index 4) opens only via header button
 
 export type TabContentNode = React.ReactNode | (() => React.ReactNode);
 
@@ -66,6 +67,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   }, [currentIndex]);
 
   const ensureAdjacentMounted = useCallback((idx: number) => {
+    if (idx > LAST_SWIPEABLE_INDEX) return;
     setMountedTabs((prev) => {
       let changed = false;
       const next = new Set(prev);
@@ -73,7 +75,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         next.add(idx - 1);
         changed = true;
       }
-      if (idx < TABS.length - 1 && !next.has(idx + 1)) {
+      if (idx < LAST_SWIPEABLE_INDEX && !next.has(idx + 1)) {
         next.add(idx + 1);
         changed = true;
       }
@@ -138,7 +140,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   }, [disabled]);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
-    if (isBlocked()) return;
+    if (isBlocked() || currentIndexRef.current > LAST_SWIPEABLE_INDEX) return;
 
     if (e.touches.length > 1) {
       touchState.current.isScrolling = true;
@@ -175,7 +177,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       return;
     }
 
-    if (e.touches.length > 1 || isBlocked()) {
+    if (e.touches.length > 1 || isBlocked() || currentIndexRef.current > LAST_SWIPEABLE_INDEX) {
       touchState.current.isScrolling = true;
       if (touchState.current.isSwiping) {
         touchState.current.isSwiping = false;
@@ -207,10 +209,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
       // Check if horizontal movement is strictly dominant over vertical (angle < ~38.6°)
       const isHorizontal = absX > absY * 1.25;
 
-      // Check boundary conditions:
+      // Check boundary conditions: cannot swipe past first tab ('date' = 0) or last bottom-nav tab ('history' = 3)
       const isBoundaryBlocked =
         (currentIndexRef.current === 0 && dx > 0) ||
-        (currentIndexRef.current === TABS.length - 1 && dx < 0);
+        (currentIndexRef.current >= LAST_SWIPEABLE_INDEX && dx < 0);
 
       if (!isHorizontal || isBoundaryBlocked) {
         touchState.current.isDetermined = true;
@@ -234,12 +236,12 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         e.preventDefault();
       }
 
-      // Enforce tab boundaries with subtle elastic resistance
+      // Enforce tab boundaries without revealing Profile (index 4)
       let clampedDx = dx;
       if (currentIndexRef.current === 0 && dx > 0) {
         clampedDx = dx * 0.2;
-      } else if (currentIndexRef.current === TABS.length - 1 && dx < 0) {
-        clampedDx = dx * 0.2;
+      } else if (currentIndexRef.current >= LAST_SWIPEABLE_INDEX && dx < 0) {
+        clampedDx = 0;
       }
 
       dragOffsetRef.current = clampedDx;
@@ -272,10 +274,10 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
     let targetIndex = currentIndexRef.current;
 
-    // Single tab advance per swipe
-    if ((dx < -threshold || (dx < -30 && isFlick)) && currentIndexRef.current < TABS.length - 1) {
+    // Single tab advance per swipe within swipeable tabs (0..LAST_SWIPEABLE_INDEX)
+    if ((dx < -threshold || (dx < -30 && isFlick)) && currentIndexRef.current < LAST_SWIPEABLE_INDEX) {
       targetIndex = currentIndexRef.current + 1;
-    } else if ((dx > threshold || (dx > 30 && isFlick)) && currentIndexRef.current > 0) {
+    } else if ((dx > threshold || (dx > 30 && isFlick)) && currentIndexRef.current > 0 && currentIndexRef.current <= LAST_SWIPEABLE_INDEX) {
       targetIndex = currentIndexRef.current - 1;
     }
 
@@ -339,7 +341,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   });
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0 || isBlocked()) return;
+    if (e.button !== 0 || isBlocked() || currentIndexRef.current > LAST_SWIPEABLE_INDEX) return;
 
     const target = e.target as HTMLElement;
     if (
@@ -369,7 +371,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
 
   useEffect(() => {
     const onWindowMouseMove = (e: MouseEvent) => {
-      if (!mouseState.current.isDown || isBlocked()) return;
+      if (!mouseState.current.isDown || isBlocked() || currentIndexRef.current > LAST_SWIPEABLE_INDEX) return;
 
       const dx = e.clientX - mouseState.current.startX;
       const dy = e.clientY - mouseState.current.startY;
@@ -380,7 +382,7 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         if (absX >= 12 && absX > absY * 1.35) {
           if (
             (currentIndexRef.current === 0 && dx > 0) ||
-            (currentIndexRef.current === TABS.length - 1 && dx < 0)
+            (currentIndexRef.current >= LAST_SWIPEABLE_INDEX && dx < 0)
           ) {
             return;
           }
@@ -400,8 +402,8 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         let clampedDx = dx;
         if (currentIndexRef.current === 0 && dx > 0) {
           clampedDx = dx * 0.2;
-        } else if (currentIndexRef.current === TABS.length - 1 && dx < 0) {
-          clampedDx = dx * 0.2;
+        } else if (currentIndexRef.current >= LAST_SWIPEABLE_INDEX && dx < 0) {
+          clampedDx = 0;
         }
         dragOffsetRef.current = clampedDx;
         if (trackRef.current) {
@@ -428,9 +430,9 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
         const isFlick = Math.abs(dx) > 30 && velocity > 0.28;
 
         let targetIndex = currentIndexRef.current;
-        if ((dx < -threshold || (dx < -30 && isFlick)) && currentIndexRef.current < TABS.length - 1) {
+        if ((dx < -threshold || (dx < -30 && isFlick)) && currentIndexRef.current < LAST_SWIPEABLE_INDEX) {
           targetIndex = currentIndexRef.current + 1;
-        } else if ((dx > threshold || (dx > 30 && isFlick)) && currentIndexRef.current > 0) {
+        } else if ((dx > threshold || (dx > 30 && isFlick)) && currentIndexRef.current > 0 && currentIndexRef.current <= LAST_SWIPEABLE_INDEX) {
           targetIndex = currentIndexRef.current - 1;
         }
 
@@ -473,6 +475,9 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
   }, [isBlocked, onTabChange, soundEnabled, hapticEnabled]);
 
   const isTabVisible = (index: number) => {
+    if (index > LAST_SWIPEABLE_INDEX) {
+      return currentIndex === index || isAnimating;
+    }
     return Math.abs(index - currentIndex) <= 1 || isDragging || isAnimating;
   };
 
