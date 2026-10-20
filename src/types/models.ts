@@ -133,6 +133,8 @@ export interface HistoryDay {
   dateKey?: string;
   moments: Moment[];
   isLocked: boolean;
+  duoMomentsCount?: number;
+  hasDateCompleted?: boolean;
 }
 
 /**
@@ -154,6 +156,7 @@ export interface OurDayPhoto {
   authorName: string;
   imageUrl: string;
   createdAt: string; // ISO date string or timestamp
+  dateKey?: string; // Calendar day 'YYYY-MM-DD'
   caption?: string | null;
 }
 

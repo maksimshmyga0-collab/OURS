@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Moment, HistoryDay, CoupleState, CoupleStreakInfo } from '../types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Moment, HistoryDay, CoupleState, CoupleStreakInfo, OurDayPhoto } from '../types';
 import {
   getCoupleMatchedDates,
   getCoupleSkyDates,
@@ -16,6 +16,7 @@ export interface OurSkyPreviewProps {
   couple: CoupleState;
   todayMoments?: Moment[];
   history?: HistoryDay[];
+  ourDayPhotos?: OurDayPhoto[];
   pairSeed?: string;
   streakInfo?: CoupleStreakInfo;
   soundEnabled?: boolean;
@@ -34,6 +35,7 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
   couple,
   todayMoments = [],
   history = [],
+  ourDayPhotos = [],
   pairSeed,
   soundEnabled = true,
   hapticEnabled = true,
@@ -44,6 +46,13 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
   const now = useMemo(() => new Date(), []);
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
+  const [dateSyncVersion, setDateSyncVersion] = useState(0);
+
+  useEffect(() => {
+    return dateInvitationService.subscribe(() => {
+      setDateSyncVersion((v) => v + 1);
+    });
+  }, []);
 
   const stablePairSeed = useMemo(() => {
     return (
@@ -55,13 +64,13 @@ export const OurSkyPreview: React.FC<OurSkyPreviewProps> = React.memo(({
 
   // Retrieve calendar days with completed/conducted dates (real, confirmed dates only)
   const completedDateDays = useMemo(() => {
-    return dateInvitationService.getCompletedDateDays();
-  }, [todayMoments, history]);
+    return dateInvitationService.getCompletedDateDays(couple.id);
+  }, [couple.id, todayMoments, history, dateSyncVersion]);
 
   // All authoritative star events with exact type (Match ⭐ vs Date ✨) directly linked to memories
   const allStarEvents = useMemo(() => {
-    return getCoupleStarEvents(couple, todayMoments, history, completedDateDays, now);
-  }, [couple, todayMoments, history, completedDateDays, now]);
+    return getCoupleStarEvents(couple, todayMoments, history, completedDateDays, now, ourDayPhotos);
+  }, [couple, todayMoments, history, completedDateDays, now, ourDayPhotos]);
 
   const monthStarEvents = useMemo(() => {
     return getStarEventsForMonth(allStarEvents, currentYear, currentMonth);

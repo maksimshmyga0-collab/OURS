@@ -1,6 +1,7 @@
-import { Moment, HistoryDay, CoupleState } from '../../types';
+import { Moment, HistoryDay, CoupleState, OurDayPhoto } from '../../types';
 import { pluralizeWord } from '../gamification';
 import { appStorage } from '../storage/keyValueStorage';
+import { getLocalDateKey } from '../moments/momentTiming';
 
 export type StarEventType = 'moment' | 'date';
 
@@ -42,13 +43,13 @@ export interface SkyState {
 
 // --------------------------------------------------------------------------
 // INDEPENDENT ACCUMULATED STAR REGISTRY
-// Monotonic & persistent: once earned, stars are NEVER lost, reset or wiped
-// by Free-tier 7-day limits, photo stripping, or offline reloads.
+// Persistent across reloads & Free-tier 7-day photo stripping, and reconciled
+// against authoritative server history so both partners see identical stars.
 // Preserves exact event types: Small Star ⭐ (Match) vs Big Star ✨ (Date).
 // --------------------------------------------------------------------------
 
 export interface StarEvent {
-  id: string; // unique ID, e.g. `match_${dateKey}` or `date_${momentId || dateKey}`
+  id: string; // canonical ID: `match_${dateKey}` or `date_${dateKey}`
   dateKey: string; // 'YYYY-MM-DD'
   starType: StarEventType; // 'moment' (Match ⭐) | 'date' (Date ✨)
   momentId?: string;
@@ -59,6 +60,64 @@ export interface StarEvent {
 const STAR_RECORDS_STORAGE_PREFIX = 'ours_accumulated_stars_v2_';
 const STAR_DATES_STORAGE_PREFIX = 'ours_accumulated_stars_v1_';
 
+/**
+ * Extracts canonical YYYY-MM-DD key from an explicit dateKey or ISO timestamp.
+ */
+export function extractStarDateKey(
+  dateKey?: string | null,
+  fallbackIso?: string | null
+): string | null {
+  if (typeof dateKey === 'string') {
+    const trimmed = dateKey.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed) && trimmed !== '1970-01-01') {
+      return trimmed;
+    }
+  }
+  if (typeof fallbackIso === 'string' && fallbackIso.trim()) {
+    const trimmed = fallbackIso.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed) && trimmed !== '1970-01-01') {
+      return trimmed;
+    }
+    try {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        const localKey = getLocalDateKey(d);
+        if (localKey !== '1970-01-01') return localKey;
+      }
+    } catch {
+      // fallback below
+    }
+    const sub = trimmed.substring(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(sub) && sub !== '1970-01-01') {
+      return sub;
+    }
+  }
+  return null;
+}
+
+function getRecordSemanticKey(e: StarEvent): string {
+  if (e.starType === 'moment') {
+    return `moment_${e.dateKey}`;
+  }
+  // Canonical 1 date star per calendar day so different local/remote momentIds never double-count
+  return `date_${e.dateKey}`;
+}
+
+function normalizeStarRecord(e: StarEvent): StarEvent {
+  if (e.starType === 'moment') {
+    return {
+      ...e,
+      id: `match_${e.dateKey}`,
+      title: e.title || 'Касание',
+    };
+  }
+  return {
+    ...e,
+    id: `date_${e.dateKey}`,
+    title: e.title || 'Свидание',
+  };
+}
+
 export function getAccumulatedStarRecords(pairId?: string): StarEvent[] {
   const cleanId = (pairId || 'default').trim().toLowerCase();
   try {
@@ -66,14 +125,30 @@ export function getAccumulatedStarRecords(pairId?: string): StarEvent[] {
     if (typeof raw === 'string' && raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (e) =>
+        const deduped = new Map<string, StarEvent>();
+        for (const e of parsed) {
+          if (
             e &&
             typeof e.id === 'string' &&
             typeof e.dateKey === 'string' &&
             /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey) &&
+            e.dateKey !== '1970-01-01' &&
             (e.starType === 'moment' || e.starType === 'date')
-        );
+          ) {
+            const norm = normalizeStarRecord(e);
+            const semKey = getRecordSemanticKey(norm);
+            const prev = deduped.get(semKey);
+            if (!prev || norm.momentId) {
+              deduped.set(semKey, norm);
+            }
+          }
+        }
+        return Array.from(deduped.values()).sort((a, b) => {
+          const cmp = a.dateKey.localeCompare(b.dateKey);
+          if (cmp !== 0) return cmp;
+          if (a.starType === b.starType) return a.id.localeCompare(b.id);
+          return a.starType === 'moment' ? -1 : 1;
+        });
       }
     }
   } catch {
@@ -100,36 +175,23 @@ export function recordAccumulatedStarRecords(
 ): StarEvent[] {
   const cleanId = (pairId || 'default').trim().toLowerCase();
   const existing = getAccumulatedStarRecords(cleanId);
-  // Deduplicate strictly by semantic identity: (starType, dateKey)
-  // For 'date' stars with specific momentId, allow multiple dates if moments differ,
-  // but for 'moment' (daily touch) stars: strictly at most 1 star per calendar day.
   const eventMap = new Map<string, StarEvent>();
 
-  const getRecordSemanticKey = (e: StarEvent): string => {
-    if (e.starType === 'moment') {
-      return `moment_${e.dateKey}`;
-    }
-    // Date stars preserve distinct completed date moments
-    return e.momentId ? `date_${e.dateKey}_${e.momentId}` : `date_${e.dateKey}`;
-  };
-
   for (const e of existing) {
-    if (e && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey)) {
-      const key = getRecordSemanticKey(e);
-      // Prefer canonical match_${dateKey} ID over legacy event_${dateKey}
-      const prev = eventMap.get(key);
-      if (!prev || (prev.id.startsWith('event_') && e.id.startsWith('match_'))) {
-        eventMap.set(key, e);
-      }
+    if (e && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey) && e.dateKey !== '1970-01-01') {
+      const norm = normalizeStarRecord(e);
+      const key = getRecordSemanticKey(norm);
+      eventMap.set(key, norm);
     }
   }
 
   for (const e of newRecords) {
-    if (e && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey)) {
-      const key = getRecordSemanticKey(e);
+    if (e && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey) && e.dateKey !== '1970-01-01') {
+      const norm = normalizeStarRecord(e);
+      const key = getRecordSemanticKey(norm);
       const prev = eventMap.get(key);
-      if (!prev || (prev.id.startsWith('event_') && e.id.startsWith('match_')) || e.momentId) {
-        eventMap.set(key, e);
+      if (!prev || norm.momentId) {
+        eventMap.set(key, norm);
       }
     }
   }
@@ -143,7 +205,55 @@ export function recordAccumulatedStarRecords(
 
   try {
     appStorage.setItem(`${STAR_RECORDS_STORAGE_PREFIX}${cleanId}`, JSON.stringify(merged));
-    // Also keep legacy date registry in sync
+    const dateSet = Array.from(new Set(merged.map((e) => e.dateKey))).sort();
+    appStorage.setItem(`${STAR_DATES_STORAGE_PREFIX}${cleanId}`, JSON.stringify(dateSet));
+  } catch {
+    // ignore
+  }
+
+  return merged;
+}
+
+/**
+ * Reconciles the local star registry with authoritative server records from fetchHistory.
+ * Replaces historical records (< todayKey) with server truth while preserving today's live records,
+ * cleaning up any legacy duplicate or stale entries so both partners converge on identical stars.
+ */
+export function replaceServerStarRecords(
+  pairId: string | undefined,
+  serverRecords: StarEvent[],
+  todayKey?: string
+): StarEvent[] {
+  const cleanId = (pairId || 'default').trim().toLowerCase();
+  const currentTodayKey = todayKey || getLocalDateKey();
+  const existing = getAccumulatedStarRecords(cleanId);
+  const eventMap = new Map<string, StarEvent>();
+
+  // Preserve only today's records from existing local cache if not yet in serverRecords
+  for (const e of existing) {
+    if (e && e.dateKey === currentTodayKey) {
+      const norm = normalizeStarRecord(e);
+      eventMap.set(getRecordSemanticKey(norm), norm);
+    }
+  }
+
+  // Authoritatively apply all server records
+  for (const e of serverRecords) {
+    if (e && e.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(e.dateKey) && e.dateKey !== '1970-01-01') {
+      const norm = normalizeStarRecord(e);
+      eventMap.set(getRecordSemanticKey(norm), norm);
+    }
+  }
+
+  const merged = Array.from(eventMap.values()).sort((a, b) => {
+    const cmp = a.dateKey.localeCompare(b.dateKey);
+    if (cmp !== 0) return cmp;
+    if (a.starType === b.starType) return a.id.localeCompare(b.id);
+    return a.starType === 'moment' ? -1 : 1;
+  });
+
+  try {
+    appStorage.setItem(`${STAR_RECORDS_STORAGE_PREFIX}${cleanId}`, JSON.stringify(merged));
     const dateSet = Array.from(new Set(merged.map((e) => e.dateKey))).sort();
     appStorage.setItem(`${STAR_DATES_STORAGE_PREFIX}${cleanId}`, JSON.stringify(dateSet));
   } catch {
@@ -160,7 +270,9 @@ export function getAccumulatedStarDates(pairId?: string): string[] {
     if (typeof raw === 'string' && raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d));
+        return parsed.filter(
+          (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== '1970-01-01'
+        );
       }
     }
   } catch {
@@ -175,7 +287,7 @@ export function recordAccumulatedStarDates(pairId: string | undefined, newDates:
   const dateSet = new Set<string>(existing);
 
   for (const d of newDates) {
-    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== '1970-01-01') {
       dateSet.add(d);
     }
   }
@@ -186,15 +298,6 @@ export function recordAccumulatedStarDates(pairId: string | undefined, newDates:
   } catch {
     // ignore
   }
-
-  // Also sync to v2 records using canonical match_${d} ID
-  const newRecords: StarEvent[] = merged.map((d) => ({
-    id: `match_${d}`,
-    dateKey: d,
-    starType: 'moment',
-    title: 'Касание',
-  }));
-  recordAccumulatedStarRecords(cleanId, newRecords);
 
   return merged;
 }
@@ -250,36 +353,63 @@ function toDateKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+function isDateMomentObj(moment: Moment): boolean {
+  if (!moment) return false;
+  return Boolean(
+    moment.isDate ||
+      (typeof moment.id === 'string' &&
+        (moment.id.startsWith('date-') || moment.id.startsWith('date_'))) ||
+      moment.label === 'СВИДАНИЕ' ||
+      (typeof moment.prompt === 'string' && moment.prompt.startsWith('Свидание'))
+  );
+}
+
 /**
  * Checks whether a Moment represents an authentic completed MATCH.
- * Crucial: If a moment was completed/revealed/reacted, it IS a match, even if
- * older photos were archived or stripped on the wire for Free tier limits.
+ * Crucial: If a moment in history was completed/revealed/reacted, it IS a match,
+ * even if older photos were stripped on the wire for Free tier limits.
  */
 export function isMomentMatched(moment: Moment): boolean {
   if (!moment) return false;
 
-  // 1. Date moments with uploaded photos count as completed date events
-  if (moment.isDate || (typeof moment.id === 'string' && moment.id.startsWith('date-'))) {
+  // 1. Date moments with uploaded photos (or sanitized completed status in locked history)
+  if (isDateMomentObj(moment)) {
     const hasPhoto = Boolean(
       moment.imageUrl ||
-      moment.userPhoto ||
-      moment.partnerPhoto ||
-      (moment.photos && moment.photos.length > 0)
+        moment.userPhoto ||
+        moment.partnerPhoto ||
+        (moment.photos && moment.photos.length > 0) ||
+        moment.status === 'COMPLETED'
     );
     if (hasPhoto) return true;
   }
 
-  // 2. Regular moments MUST have both photos or explicit duo interaction from both partners
+  // 2. Regular & OUR_DAY moments: check for photos from both partners
+  const distinctPhotoAuthors = Array.isArray(moment.photos)
+    ? new Set(
+        moment.photos
+          .map((p: any) => p?.userId || p?.authorId)
+          .filter(Boolean)
+      ).size
+    : 0;
+
   const hasBothPhotos = Boolean(
     (moment.userPhoto && moment.partnerPhoto) ||
-    (moment.photos && moment.photos.length >= 2)
+      distinctPhotoAuthors >= 2 ||
+      (Array.isArray(moment.photos) &&
+        moment.photos.length >= 2 &&
+        distinctPhotoAuthors === 0)
   );
 
   if (hasBothPhotos) {
     return true;
   }
 
-  if (moment.status === 'BOTH_UPLOADED' || moment.status === 'REVEALED') {
+  if (
+    moment.status === 'BOTH_UPLOADED' ||
+    moment.status === 'REVEALED' ||
+    moment.status === 'MATCH'
+  ) {
     return true;
   }
 
@@ -287,11 +417,87 @@ export function isMomentMatched(moment: Moment): boolean {
     return true;
   }
 
-  if ((moment.status === 'COMPLETED' || moment.status === 'REACTED' || moment.status === 'MATCH') && hasBothPhotos) {
+  // 3. Free tier locked history moments: fetchHistory only includes confirmed matched
+  // moments in history with status === 'COMPLETED', and strips imageUrl/userPhoto/partnerPhoto/photos
+  // when isLocked is true (>7 days on Free plan).
+  const isSanitizedCompletedHistoryMoment =
+    (moment.status === 'COMPLETED' || moment.status === 'REACTED') &&
+    !moment.userPhoto &&
+    !moment.partnerPhoto &&
+    !moment.imageUrl &&
+    (!moment.photos || moment.photos.length === 0);
+
+  if (isSanitizedCompletedHistoryMoment) {
     return true;
   }
 
   return false;
+}
+
+function getNormalizedOurDayAuthorKey(
+  photo: OurDayPhoto,
+  currentUserId?: string,
+  currentUserName?: string
+): string {
+  const cleanCurrentId = (currentUserId || '').trim();
+  const cleanAuthorId = (photo.authorId || '').trim();
+
+  if (cleanAuthorId && cleanAuthorId !== 'user_1' && cleanAuthorId !== 'local_user') {
+    return cleanAuthorId;
+  }
+
+  if (
+    cleanCurrentId &&
+    (cleanAuthorId === 'user_1' ||
+      cleanAuthorId === 'local_user' ||
+      (!cleanAuthorId && currentUserName && photo.authorName === currentUserName))
+  ) {
+    return cleanCurrentId;
+  }
+
+  if (cleanAuthorId) {
+    return cleanAuthorId;
+  }
+
+  return `name:${(photo.authorName || 'unknown').trim()}`;
+}
+
+/**
+ * Extracts date keys where both partners uploaded a photo in "Наш день" (OUR_DAY).
+ */
+export function getMatchedOurDayDateKeys(
+  ourDayPhotos: OurDayPhoto[] = [],
+  couple?: CoupleState
+): Set<string> {
+  const matchedDays = new Set<string>();
+  if (!Array.isArray(ourDayPhotos) || ourDayPhotos.length === 0) {
+    return matchedDays;
+  }
+
+  const currentUserId = couple?.user?.id;
+  const currentUserName = couple?.user?.name;
+  const authorsByDay = new Map<string, Set<string>>();
+
+  for (const p of ourDayPhotos) {
+    if (!p || typeof p.imageUrl !== 'string' || !p.imageUrl.trim() || p.imageUrl.startsWith('blob:')) {
+      continue;
+    }
+    const dKey = extractStarDateKey(p.dateKey, p.createdAt);
+    if (!dKey) continue;
+    const authorKey = getNormalizedOurDayAuthorKey(p, currentUserId, currentUserName);
+    if (!authorsByDay.has(dKey)) {
+      authorsByDay.set(dKey, new Set());
+    }
+    authorsByDay.get(dKey)!.add(authorKey);
+  }
+
+  for (const [dKey, authors] of authorsByDay.entries()) {
+    if (authors.size >= 2) {
+      matchedDays.add(dKey);
+    }
+  }
+
+  return matchedDays;
 }
 
 /**
@@ -305,7 +511,7 @@ export function getTestMatchedDates(referenceDate: Date = new Date()): string[] 
     `${y}-${m}-01`, // 1. Match ⭐
     `${y}-${m}-02`, // 2. Date ✨
     `${y}-${m}-03`, // 3. Match ⭐
-    `${y}-${m}-04`, // 4. Match ⭐
+    `${y}-${m}-04`, // 3. Match ⭐
     `${y}-${m}-05`, // 5. Date ✨
     `${y}-${m}-06`, // 6. Match ⭐
     `${y}-${m}-07`, // 7. Date ✨
@@ -328,111 +534,63 @@ export function getTestDateDays(referenceDate: Date = new Date()): string[] {
 }
 
 /**
- * Extracts unique calendar days with an authentic MATCH from the couple's history and today's moments.
+ * Extracts unique calendar days with an authentic MATCH from the couple's history, today's moments, and Our Day.
  * Rule: Exactly 1 star per unique calendar day with a match (even if 2 or 3 touches occurred).
  */
 export function getCoupleMatchedDates(
-  _couple: CoupleState,
+  couple: CoupleState,
   todayMoments: Moment[] = [],
   history: HistoryDay[] = [],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  ourDayPhotos: OurDayPhoto[] = []
 ): string[] {
-  const matchedDatesSet = new Set<string>();
-  const todayKey = toDateKey(referenceDate);
-
-  // 1. Check if today has at least one moment that achieved MATCH
-  const todayHasMatch = todayMoments.some(isMomentMatched);
-  if (todayHasMatch) {
-    matchedDatesSet.add(todayKey);
-  }
-
-  // 2. Check real history days:
-  // History days only exist when joint moments took place.
-  // Locked days (>7 days on Free plan) and sanitized moments MUST retain their stars.
-  for (const day of history) {
-    const hasMatch =
-      Boolean(day.isLocked) ||
-      (Array.isArray(day.moments) && day.moments.length > 0) ||
-      (Array.isArray(day.moments) && day.moments.some(isMomentMatched));
-
-    if (hasMatch) {
-      let key: string | null = null;
-      if (day.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(day.dateKey)) {
-        key = day.dateKey;
-      } else if (day.id?.startsWith('day-')) {
-        const rawId = day.id.replace('day-', '');
-        if (/^\d{4}-\d{2}-\d{2}$/.test(rawId)) {
-          key = rawId;
-        }
-      } else if (day.id?.startsWith('hist-')) {
-        const rawId = day.id.replace('hist-', '');
-        if (/^\d{4}-\d{2}-\d{2}$/.test(rawId)) {
-          key = rawId;
-        }
-      }
-
-      if (!key && Array.isArray(day.moments)) {
-        for (const m of day.moments) {
-          if (m.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(m.dateKey)) {
-            key = m.dateKey;
-            break;
-          } else if (m.createdAt) {
-            try {
-              const d = new Date(m.createdAt);
-              if (!isNaN(d.getTime())) {
-                key = toDateKey(d);
-                break;
-              }
-            } catch {}
-          }
-        }
-      }
-
-      if (key && /^\d{4}-\d{2}-\d{2}$/.test(key)) {
-        matchedDatesSet.add(key);
-      }
-    }
-  }
-
-  // Never return fake test dates for couples; return strictly authentic matched dates
-  return Array.from(matchedDatesSet).sort();
+  const events = getCoupleStarEvents(
+    couple,
+    todayMoments,
+    history,
+    [],
+    referenceDate,
+    ourDayPhotos
+  );
+  return Array.from(
+    new Set(events.filter((e) => e.starType === 'moment').map((e) => e.dateKey))
+  ).sort();
 }
 
 /**
  * Extracts all authentic, authoritatively typed StarEvents (Match ⭐ and Date ✨)
  * directly linked to real memories, preserving individual identities across devices.
+ * "Наш день" (OUR_DAY) uses the exact same 'moment' star type as "Касание".
  */
 export function getCoupleStarEvents(
   couple: CoupleState,
   todayMoments: Moment[] = [],
   history: HistoryDay[] = [],
   completedDateDays: string[] = [],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  ourDayPhotos: OurDayPhoto[] = []
 ): StarEvent[] {
   const pairId = couple?.id || couple?.inviteCode || couple?.pairSeed;
   const eventsMap = new Map<string, StarEvent>();
+  const todayKey = toDateKey(referenceDate);
 
-  const getSemanticKey = (ev: StarEvent): string => {
-    if (ev.starType === 'moment') {
-      return `moment_${ev.dateKey}`;
-    }
-    return ev.momentId ? `date_${ev.dateKey}_${ev.momentId}` : `date_${ev.dateKey}`;
-  };
+  const getSemanticKey = (ev: StarEvent): string => getRecordSemanticKey(ev);
 
-  // 1. Retrieve previously persisted accumulated star records
+  // 1. Seed from persisted accumulated star records (protects offline / initial boot before fetchHistory resolves)
   const persisted = getAccumulatedStarRecords(pairId);
   for (const ev of persisted) {
-    if (ev && ev.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(ev.dateKey)) {
-      const key = getSemanticKey(ev);
-      const prev = eventsMap.get(key);
-      if (!prev || (prev.id.startsWith('event_') && ev.id.startsWith('match_'))) {
-        eventsMap.set(key, ev);
-      }
+    if (ev && ev.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(ev.dateKey) && ev.dateKey !== '1970-01-01') {
+      const norm = normalizeStarRecord(ev);
+      eventsMap.set(getSemanticKey(norm), norm);
     }
   }
 
-  // 2. Extract authentic events from real history days
-  for (const day of (history || [])) {
+  // Precompute matched "Наш день" dates (uses same 'moment' star type as "Касание")
+  const matchedOurDayDates = getMatchedOurDayDateKeys(ourDayPhotos, couple);
+  const confirmedMomentDays = new Set<string>(matchedOurDayDates);
+
+  // 2. Extract authentic events from real history days (including Free-tier locked days)
+  for (const day of history || []) {
     if (!day) continue;
     let dayKey: string | null = null;
     if (day.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(day.dateKey)) {
@@ -440,73 +598,73 @@ export function getCoupleStarEvents(
     } else if (day.id?.startsWith('day-')) {
       const raw = day.id.replace('day-', '');
       if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) dayKey = raw;
+    } else if (day.id?.startsWith('hist-')) {
+      const raw = day.id.replace('hist-', '');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) dayKey = raw;
     }
 
     if (!dayKey && Array.isArray(day.moments)) {
       for (const m of day.moments) {
-        if (m.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(m.dateKey)) {
-          dayKey = m.dateKey;
+        const extracted = extractStarDateKey(m?.dateKey, m?.createdAt);
+        if (extracted) {
+          dayKey = extracted;
           break;
-        } else if (m.createdAt) {
-          try {
-            const d = new Date(m.createdAt);
-            if (!isNaN(d.getTime())) {
-              dayKey = toDateKey(d);
-              break;
-            }
-          } catch {}
         }
       }
     }
 
-    if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) continue;
+    if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey) || dayKey === '1970-01-01') continue;
 
-    // A. Check for Match moments in this day:
-    const hasMatchMoment = Array.isArray(day.moments) && day.moments.some((m) => {
-      const isDate = Boolean(
-        m.isDate ||
-        (typeof m.id === 'string' && m.id.startsWith('date-')) ||
-        (typeof m.prompt === 'string' && m.prompt.startsWith('Свидание'))
-      );
-      return !isDate && isMomentMatched(m);
-    });
+    // A. Check for Match moments (daily touch or OUR_DAY) in this day:
+    const nonDateMoments = Array.isArray(day.moments)
+      ? day.moments.filter((m) => m && !isDateMomentObj(m))
+      : [];
 
-    const isLockedWithoutMoments = Boolean(day.isLocked) && (!day.moments || day.moments.length === 0);
+    const hasMatchMoment =
+      nonDateMoments.some((m) => isMomentMatched(m)) ||
+      (typeof day.duoMomentsCount === 'number' && day.duoMomentsCount > 0);
+    const isLockedWithTouchHistory =
+      Boolean(day.isLocked) &&
+      (typeof day.duoMomentsCount === 'number'
+        ? day.duoMomentsCount > 0
+        : nonDateMoments.length > 0);
 
-    if (hasMatchMoment || isLockedWithoutMoments) {
-      const matchId = `match_${dayKey}`;
+    if (hasMatchMoment || isLockedWithTouchHistory || matchedOurDayDates.has(dayKey)) {
+      confirmedMomentDays.add(dayKey);
       const ev: StarEvent = {
-        id: matchId,
+        id: `match_${dayKey}`,
         dateKey: dayKey,
         starType: 'moment',
         title: 'Касание',
       };
       eventsMap.set(getSemanticKey(ev), ev);
-    } else if (Array.isArray(day.moments) && day.moments.length > 0) {
-      // Purge any previously stored invalid single-photo match star for this day
+    } else if (
+      Array.isArray(day.moments) &&
+      day.moments.length > 0 &&
+      dayKey !== todayKey &&
+      typeof day.duoMomentsCount === 'number' &&
+      day.duoMomentsCount === 0
+    ) {
+      // Day only had a Date moment and confirmed 0 touch/OUR_DAY matches
       eventsMap.delete(`moment_${dayKey}`);
     }
 
-    // B. Check for completed Date moments in this day:
+    // B. Check for completed Date moments in this day (including locked Free-tier history):
+    let addedDateForDay = false;
     if (Array.isArray(day.moments)) {
       for (const m of day.moments) {
-        const isDate = Boolean(
-          m.isDate ||
-          (typeof m.id === 'string' && m.id.startsWith('date-')) ||
-          (typeof m.prompt === 'string' && m.prompt.startsWith('Свидание')) ||
-          m.label === 'СВИДАНИЕ'
-        );
-        if (isDate) {
-          const hasPhoto = Boolean(
+        if (m && isDateMomentObj(m)) {
+          const hasPhotoOrCompleted = Boolean(
             m.imageUrl ||
-            m.userPhoto ||
-            m.partnerPhoto ||
-            (m.photos && m.photos.length > 0)
+              m.userPhoto ||
+              m.partnerPhoto ||
+              (m.photos && m.photos.length > 0) ||
+              m.status === 'COMPLETED' ||
+              day.isLocked
           );
-          if (hasPhoto) {
-            const dateEventId = `date_${m.id || dayKey}`;
+          if (hasPhotoOrCompleted) {
             const ev: StarEvent = {
-              id: dateEventId,
+              id: `date_${dayKey}`,
               dateKey: dayKey,
               starType: 'date',
               momentId: m.id,
@@ -514,57 +672,87 @@ export function getCoupleStarEvents(
               createdAt: m.createdAt,
             };
             eventsMap.set(getSemanticKey(ev), ev);
+            addedDateForDay = true;
           }
         }
       }
     }
+    if (!addedDateForDay && day.hasDateCompleted) {
+      const ev: StarEvent = {
+        id: `date_${dayKey}`,
+        dateKey: dayKey,
+        starType: 'date',
+        title: 'Свидание',
+      };
+      eventsMap.set(getSemanticKey(ev), ev);
+    }
   }
 
-  // 3. Extract today's events from todayMoments
-  const todayKey = toDateKey(referenceDate);
-  const todayHasMatch = todayMoments.some((m) => {
-    const isDate = Boolean(
-      m.isDate ||
-      (typeof m.id === 'string' && m.id.startsWith('date-')) ||
-      (typeof m.prompt === 'string' && m.prompt.startsWith('Свидание'))
-    );
-    return !isDate && isMomentMatched(m);
-  });
+  // 3. Extract events from todayMoments using each moment's authoritative dateKey
+  if (Array.isArray(todayMoments)) {
+    for (const m of todayMoments) {
+      if (!m) continue;
+      const mDateKey = extractStarDateKey(m.dateKey, m.createdAt) || todayKey;
+      if (isDateMomentObj(m)) {
+        const hasPhoto = Boolean(
+          m.imageUrl ||
+            m.userPhoto ||
+            m.partnerPhoto ||
+            (m.photos && m.photos.length > 0)
+        );
+        if (hasPhoto) {
+          const ev: StarEvent = {
+            id: `date_${mDateKey}`,
+            dateKey: mDateKey,
+            starType: 'date',
+            momentId: m.id,
+            title: m.prompt || 'Свидание',
+            createdAt: m.createdAt,
+          };
+          eventsMap.set(getSemanticKey(ev), ev);
+        }
+      } else if (isMomentMatched(m)) {
+        confirmedMomentDays.add(mDateKey);
+        const ev: StarEvent = {
+          id: `match_${mDateKey}`,
+          dateKey: mDateKey,
+          starType: 'moment',
+          title: 'Касание',
+        };
+        eventsMap.set(getSemanticKey(ev), ev);
+      }
+    }
+  }
 
-  if (todayHasMatch) {
-    const matchId = `match_${todayKey}`;
+  // 4. Apply all matched "Наш день" (OUR_DAY) days as 'moment' stars ("Касание")
+  for (const dKey of matchedOurDayDates) {
     const ev: StarEvent = {
-      id: matchId,
-      dateKey: todayKey,
+      id: `match_${dKey}`,
+      dateKey: dKey,
       starType: 'moment',
       title: 'Касание',
     };
     eventsMap.set(getSemanticKey(ev), ev);
-  } else if (todayMoments && todayMoments.length > 0) {
-    eventsMap.delete(`moment_${todayKey}`);
   }
 
-  // 4. Any completed date days recorded from invitation service
-  for (const d of completedDateDays) {
-    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      const hasDateStarForDay = Array.from(eventsMap.values()).some(
-        (existing) => existing.starType === 'date' && existing.dateKey === d
-      );
-      if (!hasDateStarForDay) {
-        const dateId = `date_inv_${d}`;
+  // 5. Any completed date days recorded from active/completed date invitation service
+  for (const d of completedDateDays || []) {
+    const dKey = extractStarDateKey(d);
+    if (dKey) {
+      const semKey = `date_${dKey}`;
+      if (!eventsMap.has(semKey)) {
         const ev: StarEvent = {
-          id: dateId,
-          dateKey: d,
+          id: `date_${dKey}`,
+          dateKey: dKey,
           starType: 'date',
           title: 'Свидание',
         };
-        const semKey = getSemanticKey(ev);
         eventsMap.set(semKey, ev);
       }
     }
   }
 
-  // 5. Sort chronologically: by date ascending, then moment before date
+  // 6. Sort chronologically: by date ascending, then moment before date
   const sortedEvents = Array.from(eventsMap.values()).sort((a, b) => {
     const cmp = a.dateKey.localeCompare(b.dateKey);
     if (cmp !== 0) return cmp;
@@ -572,7 +760,7 @@ export function getCoupleStarEvents(
     return a.starType === 'moment' ? -1 : 1;
   });
 
-  // 6. Monotonically persist in registry
+  // 7. Persist in registry
   recordAccumulatedStarRecords(pairId, sortedEvents);
 
   return sortedEvents;
@@ -599,14 +787,16 @@ export function getCoupleSkyDates(
   todayMoments: Moment[] = [],
   history: HistoryDay[] = [],
   completedDateDays: string[] = [],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  ourDayPhotos: OurDayPhoto[] = []
 ): string[] {
   const events = getCoupleStarEvents(
     couple,
     todayMoments,
     history,
     completedDateDays,
-    referenceDate
+    referenceDate,
+    ourDayPhotos
   );
   return events.map((e) => e.dateKey);
 }

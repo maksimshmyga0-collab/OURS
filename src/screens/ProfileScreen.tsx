@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { CoupleState, CoupleStreakInfo, AppSettings, Moment, HistoryDay } from '../types';
+import { CoupleState, CoupleStreakInfo, AppSettings, Moment, HistoryDay, OurDayPhoto } from '../types';
 import { PastelCard } from '../components/PastelCard';
 import { Avatar } from '../components/Avatar';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
@@ -36,6 +36,7 @@ export interface ProfileScreenProps {
   streakInfo: CoupleStreakInfo;
   todayMoments?: Moment[];
   history?: HistoryDay[];
+  ourDayPhotos?: OurDayPhoto[];
   pairSeed?: string;
   settings: AppSettings;
   onUpdateSettings: (settings: AppSettings) => void;
@@ -58,6 +59,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   streakInfo,
   todayMoments = [],
   history = [],
+  ourDayPhotos = [],
   pairSeed,
   settings,
   onUpdateSettings,
@@ -359,6 +361,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             couple={couple}
             todayMoments={todayMoments}
             history={history}
+            ourDayPhotos={ourDayPhotos}
             pairSeed={pairSeed}
             streakInfo={streakInfo}
             soundEnabled={settings.sounds}

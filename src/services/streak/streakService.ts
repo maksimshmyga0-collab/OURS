@@ -1,4 +1,4 @@
-import { Moment, HistoryDay, CoupleStreakInfo } from '../../types';
+import { Moment, HistoryDay, CoupleStreakInfo, OurDayPhoto } from '../../types';
 
 /**
  * Format date to YYYY-MM-DD
@@ -35,12 +35,48 @@ function isMomentActive(m: Moment): boolean {
 }
 
 /**
- * Calculate streak and historical metrics across todayMoments and history
+ * Extract per-day "Наш день" (OUR_DAY) activity without constructing synthetic Moment objects
+ */
+function extractOurDayActivityByDate(
+  ourDayPhotos: OurDayPhoto[],
+  fallbackDateKey: string
+): Map<string, { isDuo: boolean }> {
+  const result = new Map<string, { isDuo: boolean }>();
+  if (!Array.isArray(ourDayPhotos) || ourDayPhotos.length === 0) {
+    return result;
+  }
+
+  const authorsByDay = new Map<string, Set<string>>();
+  for (const p of ourDayPhotos) {
+    if (!p || !p.imageUrl || p.imageUrl.startsWith('blob:')) continue;
+    const dKey =
+      p.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(p.dateKey.trim())
+        ? p.dateKey.trim()
+        : fallbackDateKey;
+    const authorKey = (p.authorId || p.authorName || 'user').trim();
+    if (!authorsByDay.has(dKey)) {
+      authorsByDay.set(dKey, new Set());
+    }
+    if (authorKey) {
+      authorsByDay.get(dKey)!.add(authorKey);
+    }
+  }
+
+  for (const [dKey, authors] of authorsByDay.entries()) {
+    result.set(dKey, { isDuo: authors.size >= 2 });
+  }
+
+  return result;
+}
+
+/**
+ * Calculate streak and historical metrics across todayMoments, history, and ourDayPhotos
  */
 export function calculateCoupleStreak(
   todayMoments: Moment[],
   history: HistoryDay[],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  ourDayPhotos: OurDayPhoto[] = []
 ): CoupleStreakInfo {
   // Aggregate all unique moments grouped by dateKey
   const seenMomentIds = new Set<string>();
@@ -78,8 +114,32 @@ export function calculateCoupleStreak(
     }
   }
 
+  // 3. Process "Наш день" (OUR_DAY) photos grouped by dateKey if not already in momentsByDate as OUR_DAY
+  const ourDayRawByDate = extractOurDayActivityByDate(ourDayPhotos, todayKey);
+  const ourDayExtraByDate = new Map<string, { isDuo: boolean }>();
+  for (const [dKey, info] of ourDayRawByDate.entries()) {
+    const existingList = momentsByDate[dKey] || [];
+    const alreadyHasOurDay = existingList.some(
+      (m) => m.label === 'НАШ ДЕНЬ' || m.prompt === 'Наш день'
+    );
+    if (!alreadyHasOurDay) {
+      ourDayExtraByDate.set(dKey, info);
+    }
+  }
+
+  const isDateActive = (key: string): boolean => {
+    return Boolean(
+      (momentsByDate[key] && momentsByDate[key].length > 0) ||
+      ourDayExtraByDate.has(key)
+    );
+  };
+
   // Distinct active date keys sorted
-  const activeDates = Object.keys(momentsByDate).sort();
+  const allDateKeys = new Set<string>([
+    ...Object.keys(momentsByDate),
+    ...ourDayExtraByDate.keys(),
+  ]);
+  const activeDates = Array.from(allDateKeys).filter(isDateActive).sort();
   const totalActiveDays = activeDates.length;
 
   let totalMoments = 0;
@@ -90,19 +150,34 @@ export function calculateCoupleStreak(
   let daysWithThreeMoments = 0;
 
   for (const dateKey of activeDates) {
-    const list = momentsByDate[dateKey];
-    totalMoments += list.length;
-    if (list.length === 1) daysWithOneMoment++;
-    else if (list.length === 2) daysWithTwoMoments++;
-    else if (list.length >= 3) daysWithThreeMoments++;
+    const list = momentsByDate[dateKey] || [];
+    const extraOurDay = ourDayExtraByDate.get(dateKey);
+    const dayTotalCount = list.length + (extraOurDay ? 1 : 0);
+
+    totalMoments += dayTotalCount;
+    if (dayTotalCount === 1) daysWithOneMoment++;
+    else if (dayTotalCount === 2) daysWithTwoMoments++;
+    else if (dayTotalCount >= 3) daysWithThreeMoments++;
 
     for (const m of list) {
+      const distinctAuthors = Array.isArray(m.photos)
+        ? new Set(m.photos.map((p: any) => p?.userId || p?.authorId).filter(Boolean)).size
+        : 0;
       const hasBothPhotos = Boolean(
         (m.userPhoto && m.partnerPhoto) ||
-        (m.photos && m.photos.length >= 2)
+        distinctAuthors >= 2 ||
+        (Array.isArray(m.photos) && m.photos.length >= 2 && distinctAuthors === 0)
       );
+      const isSanitizedCompleted =
+        (m.status === 'COMPLETED' || m.status === 'REACTED') &&
+        !m.userPhoto &&
+        !m.partnerPhoto &&
+        !m.imageUrl &&
+        (!m.photos || m.photos.length === 0);
+
       const hasDuo =
         hasBothPhotos ||
+        isSanitizedCompleted ||
         m.status === 'BOTH_UPLOADED' ||
         m.status === 'REVEALED' ||
         (Boolean(m.userReaction) && Boolean(m.partnerReaction)) ||
@@ -114,12 +189,20 @@ export function calculateCoupleStreak(
         singleMomentsCount++;
       }
     }
+
+    if (extraOurDay) {
+      if (extraOurDay.isDuo) {
+        duoMomentsCount++;
+      } else {
+        singleMomentsCount++;
+      }
+    }
   }
 
   // Calculate calendar streak
-  const isTodayActive = Boolean(momentsByDate[todayKey] && momentsByDate[todayKey].length > 0);
+  const isTodayActive = isDateActive(todayKey);
   const yesterdayKey = formatDateKey(subDays(referenceDate, 1));
-  const isYesterdayActive = Boolean(momentsByDate[yesterdayKey] && momentsByDate[yesterdayKey].length > 0);
+  const isYesterdayActive = isDateActive(yesterdayKey);
 
   let currentStreak = 0;
 
@@ -129,7 +212,7 @@ export function calculateCoupleStreak(
     let step = 1;
     while (true) {
       const prevKey = formatDateKey(subDays(referenceDate, step));
-      if (momentsByDate[prevKey] && momentsByDate[prevKey].length > 0) {
+      if (isDateActive(prevKey)) {
         currentStreak++;
         step++;
       } else {
@@ -142,7 +225,7 @@ export function calculateCoupleStreak(
     let step = 1;
     while (true) {
       const prevKey = formatDateKey(subDays(referenceDate, step));
-      if (momentsByDate[prevKey] && momentsByDate[prevKey].length > 0) {
+      if (isDateActive(prevKey)) {
         currentStreak++;
         step++;
       } else {
@@ -168,7 +251,7 @@ export function calculateCoupleStreak(
     return {
       dayLabel: label,
       dateKey: key,
-      isActive: Boolean(momentsByDate[key] && momentsByDate[key].length > 0),
+      isActive: isDateActive(key),
       isToday: key === todayKey,
     };
   });

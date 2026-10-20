@@ -23,6 +23,8 @@ import {
 import {
   recordAccumulatedStarDates,
   recordAccumulatedStarRecords,
+  replaceServerStarRecords,
+  extractStarDateKey,
   StarEvent,
   isMomentMatched,
 } from '../sky/skyService';
@@ -654,7 +656,7 @@ export class ApiClient {
       // Match strictly by explicit slot (1, 2, 3) or exact local composite ID for this slot.
       // Never matches by non-unique prompt, never guesses by array index, and never maps slot IS NULL rows.
       const matchingRows = (rawMoments || []).filter((dbM: any) => {
-        if (!dbM || String(dbM.prompt || '').startsWith('DATE_INVITATION:')) return false;
+        if (!dbM || dbM.prompt === 'OUR_DAY' || String(dbM.prompt || '').startsWith('DATE_INVITATION:')) return false;
         if (dbM.slot === slot) {
           if (isValidUuid(dbM.id) && assignedSlotUuids.has(dbM.id)) {
             return false;
@@ -832,13 +834,19 @@ export class ApiClient {
         const todayKey = getLocalDateKey();
 
         // Fetch all historical moments of this pair
-        const { data: allPairMoments } = await supabase
+        const { data: allPairMoments, error: momentsError } = await supabase
           .from('moments')
           .select('*')
           .eq('pair_id', targetPairId)
           .order('created_at', { ascending: true });
 
+        if (momentsError) {
+          console.warn('[OURS History] Error fetching moments:', momentsError);
+          return this.historyCache.get(targetPairId)?.data || [];
+        }
+
         if (!allPairMoments || allPairMoments.length === 0) {
+          replaceServerStarRecords(targetPairId, [], todayKey);
           this.historyCache.set(targetPairId, { data: [], timestamp: Date.now() });
           return [];
         }
@@ -875,20 +883,45 @@ export class ApiClient {
           reactionsByMoment.set(r.moment_id, list);
         });
 
+        const sanitizeHistUrl = (u: string | null | undefined): string | null => {
+          if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
+          return u;
+        };
+
         const dayMap = new Map<string, Moment[]>();
+        const ourDayMomentsByDate = new Map<string, any[]>();
+        const completedFallbackDateInvs: any[] = [];
 
         allPairMoments.forEach((pm: any, idx: number) => {
-          const dKey = pm.moment_date || todayKey;
+          if (!pm) return;
+
+          if (pm.prompt === 'OUR_DAY') {
+            const dKey = extractStarDateKey(pm.moment_date, pm.created_at) || todayKey;
+            const list = ourDayMomentsByDate.get(dKey) || [];
+            list.push(pm);
+            ourDayMomentsByDate.set(dKey, list);
+            return;
+          }
+
+          if (String(pm.prompt || '').startsWith('DATE_INVITATION:')) {
+            try {
+              const rawJson = String(pm.prompt).replace('DATE_INVITATION:', '');
+              const parsed = JSON.parse(rawJson);
+              if (parsed && parsed.status === 'completed' && (parsed.photoUrl || parsed.photo_url)) {
+                completedFallbackDateInvs.push(parsed);
+              }
+            } catch {
+              // ignore malformed fallback json
+            }
+            return;
+          }
+
+          const dKey = extractStarDateKey(pm.moment_date, pm.created_at) || todayKey;
           const pPhotos = photosByMoment.get(pm.id) || [];
           const pReactions = reactionsByMoment.get(pm.id) || [];
 
           const uPhotoObj = pPhotos.find((p) => p.user_id === userId);
           const partPhotoObj = pPhotos.find((p) => p.user_id !== userId);
-
-          const sanitizeHistUrl = (u: string | null | undefined): string | null => {
-            if (!u || typeof u !== 'string' || u.startsWith('blob:')) return null;
-            return u;
-          };
 
           const uPhoto = sanitizeHistUrl(uPhotoObj?.storage_path || uPhotoObj?.image_url);
           const partPhoto = sanitizeHistUrl(partPhotoObj?.storage_path || partPhotoObj?.image_url);
@@ -903,10 +936,10 @@ export class ApiClient {
             return url && typeof url === 'string' && !url.startsWith('blob:');
           });
           const hasBothPhotos = Boolean(uPhoto && partPhoto);
-          const hasTwoDistinctPhotos = validPhotos.length >= 2 && new Set(validPhotos.map((p) => p.user_id)).size >= 2;
-          const hasReaction = pReactions.length > 0;
-          const isExplicitCompleted = pm.status === 'COMPLETED' || pm.status === 'REVEALED' || pm.status === 'MATCH';
-          const isMatched = Boolean((hasBothPhotos || hasTwoDistinctPhotos || isExplicitCompleted) && (hasBothPhotos || hasTwoDistinctPhotos || hasReaction));
+          const hasTwoDistinctPhotos =
+            validPhotos.length >= 2 &&
+            new Set(validPhotos.map((p) => p.user_id).filter(Boolean)).size >= 2;
+          const isMatched = Boolean(hasBothPhotos || hasTwoDistinctPhotos);
 
           if (isMatched || (isDateMoment && validPhotos.length > 0)) {
             const explicitSlot = pm.slot === 1 || pm.slot === 2 || pm.slot === 3 ? (pm.slot as 1 | 2 | 3) : null;
@@ -914,6 +947,12 @@ export class ApiClient {
             const uReact = pReactions.find((r) => r.user_id === userId)?.reaction || null;
             const pReact = pReactions.find((r) => r.user_id !== userId)?.reaction || null;
             const fallbackPhoto = validPhotos[0]?.storage_path || validPhotos[0]?.image_url || null;
+
+            const existingList = dayMap.get(dKey) || [];
+            // Deduplicate Date moments on the same day
+            if (isDateMoment && existingList.some((m) => Boolean(m.isDate))) {
+              return;
+            }
 
             const hMoment: Moment = {
               id: pm.id,
@@ -942,61 +981,99 @@ export class ApiClient {
               isDate: isDateMoment,
             };
 
-            const list = dayMap.get(dKey) || [];
-            list.push(hMoment);
-            dayMap.set(dKey, list);
+            existingList.push(hMoment);
+            dayMap.set(dKey, existingList);
           }
         });
 
-        // Merge date invitation photo reports directly from date_invitations table
-        if (dateInvsRes.data && Array.isArray(dateInvsRes.data)) {
-          dateInvsRes.data.forEach((dInv: any) => {
-            const photoUrl = dInv.photo_url || dInv.photoUrl;
-            if (photoUrl && typeof photoUrl === 'string' && !photoUrl.startsWith('blob:')) {
-              const dateIso = dInv.completed_at || dInv.updated_at || dInv.created_at || new Date().toISOString();
-              const dKey = dateIso.split('T')[0] || todayKey;
-              const dMomentId = `date-${dInv.id}`;
-
-              const existingList = dayMap.get(dKey) || [];
-              const existingIdx = existingList.findIndex(
-                (m) => m.id === dMomentId || (m.isDate && (m.imageUrl === photoUrl || m.userPhoto === photoUrl || m.partnerPhoto === photoUrl))
-              );
-
-              if (existingIdx < 0) {
-                const dateMoment: Moment = {
-                  id: dMomentId,
-                  pairId: targetPairId,
-                  createdBy: dInv.creator_user_id || userId,
-                  createdAt: dateIso,
-                  dateKey: dKey,
-                  imageUrl: photoUrl,
-                  caption: null,
-                  order: 1,
-                  label: 'СВИДАНИЕ',
-                  prompt: dInv.idea?.title ? `Свидание: ${dInv.idea.title}` : 'Свидание',
-                  subtext: dInv.idea?.description || 'Воспоминание свидания',
-                  status: 'COMPLETED',
-                  themeColor: 'pink',
-                  userPhoto: photoUrl,
-                  partnerPhoto: null,
-                  photos: [
-                    {
-                      userId: dInv.creator_user_id || userId,
-                      imageUrl: photoUrl,
-                      createdAt: dateIso,
-                    },
-                  ],
-                  userReaction: null,
-                  partnerReaction: null,
-                  completedAt: dateIso,
-                  isDate: true,
-                };
-                existingList.push(dateMoment);
-                dayMap.set(dKey, existingList);
+        // Track matched "Наш день" (OUR_DAY) dates (2 distinct partner photos) for stars & duoMomentsCount
+        // without injecting synthetic moments into dayMap (HistoryScreen builds OUR_DAY cards from ourDayPhotos)
+        const matchedOurDayDates = new Set<string>();
+        for (const [dKey, ourDayRows] of ourDayMomentsByDate.entries()) {
+          const latestPhotoByUser = new Map<string, any>();
+          for (const row of ourDayRows) {
+            const pPhotos = photosByMoment.get(row.id) || [];
+            for (const p of pPhotos) {
+              const url = sanitizeHistUrl(p?.storage_path || p?.image_url);
+              const uid = p?.user_id;
+              if (!url || !uid) continue;
+              const prev = latestPhotoByUser.get(uid);
+              const tNew = p.created_at ? new Date(p.created_at).getTime() : 0;
+              const tOld = prev?.created_at ? new Date(prev.created_at).getTime() : 0;
+              if (!prev || tNew >= tOld) {
+                latestPhotoByUser.set(uid, { ...p, cleanUrl: url });
               }
             }
-          });
+          }
+
+          if (latestPhotoByUser.size >= 2) {
+            matchedOurDayDates.add(dKey);
+          }
         }
+
+        // Merge date invitation photo reports from date_invitations table and DATE_INVITATION fallback rows
+        const allCompletedDateInvs = [
+          ...(Array.isArray(dateInvsRes.data) ? dateInvsRes.data : []),
+          ...completedFallbackDateInvs,
+        ];
+
+        allCompletedDateInvs.forEach((dInv: any) => {
+          const photoUrl = sanitizeHistUrl(dInv.photo_url || dInv.photoUrl);
+          if (photoUrl) {
+            const dateIso =
+              dInv.completed_at ||
+              dInv.completedAt ||
+              dInv.updated_at ||
+              dInv.responded_at ||
+              dInv.respondedAt ||
+              dInv.created_at ||
+              dInv.createdAt ||
+              new Date().toISOString();
+            const dKey =
+              extractStarDateKey(dInv.date_key || dInv.dateKey, dateIso) || todayKey;
+            const dMomentId = dInv.momentId || dInv.moment_id || `date-${dInv.id}`;
+
+            const existingList = dayMap.get(dKey) || [];
+            const existingIdx = existingList.findIndex(
+              (m) =>
+                m.id === dMomentId ||
+                Boolean(m.isDate)
+            );
+
+            if (existingIdx < 0) {
+              const dateMoment: Moment = {
+                id: dMomentId,
+                pairId: targetPairId,
+                createdBy: dInv.creator_user_id || dInv.senderUserId || userId,
+                createdAt: dateIso,
+                dateKey: dKey,
+                imageUrl: photoUrl,
+                caption: null,
+                order: 1,
+                label: 'СВИДАНИЕ',
+                prompt: dInv.idea?.title ? `Свидание: ${dInv.idea.title}` : 'Свидание',
+                subtext: dInv.idea?.description || 'Воспоминание свидания',
+                status: 'COMPLETED',
+                themeColor: 'pink',
+                userPhoto: photoUrl,
+                partnerPhoto: null,
+                photos: [
+                  {
+                    userId: dInv.creator_user_id || dInv.senderUserId || userId,
+                    imageUrl: photoUrl,
+                    createdAt: dateIso,
+                  },
+                ],
+                userReaction: null,
+                partnerReaction: null,
+                completedAt: dateIso,
+                isDate: true,
+              };
+              existingList.push(dateMoment);
+              dayMap.set(dKey, existingList);
+            }
+          }
+        });
 
         // Merge offline / locally persisted date moments if any
         try {
@@ -1005,9 +1082,11 @@ export class ApiClient {
             const localMoments: Moment[] = JSON.parse(rawLocalDates);
             if (Array.isArray(localMoments)) {
               localMoments.forEach((lm) => {
-                const dKey = lm.dateKey || todayKey;
+                const dKey = extractStarDateKey(lm.dateKey, lm.completedAt || lm.createdAt) || todayKey;
                 const existingList = dayMap.get(dKey) || [];
-                const existingIdx = existingList.findIndex((m) => m.id === lm.id);
+                const existingIdx = existingList.findIndex(
+                  (m) => m.id === lm.id || (Boolean(m.isDate) && Boolean(lm.isDate))
+                );
                 if (existingIdx >= 0) {
                   const existingM = existingList[existingIdx];
                   const mergedPhotos = [...(existingM.photos || [])];
@@ -1026,7 +1105,7 @@ export class ApiClient {
                     imageUrl: uP || pP || existingM.imageUrl,
                   };
                 } else {
-                  existingList.push(lm);
+                  existingList.push({ ...lm, dateKey: dKey });
                   dayMap.set(dKey, existingList);
                 }
               });
@@ -1034,11 +1113,15 @@ export class ApiClient {
           }
         } catch {}
 
-        // Persist all authentic star events into the independent accumulative star registry
+        // Reconcile all authentic star events into the star registry (without turning date-only days into 'moment' stars)
         const starEventsToRecord: StarEvent[] = [];
+        const recordedMatchDays = new Set<string>();
         for (const [dKey, dayMoments] of dayMap.entries()) {
-          const hasMatch = dayMoments.some((m) => !m.isDate && isMomentMatched(m));
+          const hasMatch =
+            dayMoments.some((m) => !m.isDate && isMomentMatched(m)) ||
+            matchedOurDayDates.has(dKey);
           if (hasMatch) {
+            recordedMatchDays.add(dKey);
             starEventsToRecord.push({
               id: `match_${dKey}`,
               dateKey: dKey,
@@ -1049,7 +1132,7 @@ export class ApiClient {
           for (const m of dayMoments) {
             if (m.isDate) {
               starEventsToRecord.push({
-                id: `date_${m.id || dKey}`,
+                id: `date_${dKey}`,
                 dateKey: dKey,
                 starType: 'date',
                 momentId: m.id,
@@ -1059,12 +1142,19 @@ export class ApiClient {
             }
           }
         }
-        if (starEventsToRecord.length > 0) {
-          recordAccumulatedStarRecords(targetPairId, starEventsToRecord);
+        for (const dKey of matchedOurDayDates) {
+          if (!recordedMatchDays.has(dKey)) {
+            recordedMatchDays.add(dKey);
+            starEventsToRecord.push({
+              id: `match_${dKey}`,
+              dateKey: dKey,
+              starType: 'moment',
+              title: 'Касание',
+            });
+          }
         }
-        const matchedHistoryDates = Array.from(dayMap.keys()).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
-        if (matchedHistoryDates.length > 0) {
-          recordAccumulatedStarDates(targetPairId, matchedHistoryDates);
+        if (!photosRes.error) {
+          replaceServerStarRecords(targetPairId, starEventsToRecord, todayKey);
         }
 
         // Calculate the 7 calendar days boundary (today + previous 6 days = 7 days)
@@ -1085,6 +1175,10 @@ export class ApiClient {
               if (!a.isDate && b.isDate) return -1;
               return a.order - b.order;
             });
+
+            const duoTouchesCount = sortedMoments.filter((m) => !m.isDate && isMomentMatched(m)).length;
+            const duoMomentsCount = duoTouchesCount + (matchedOurDayDates.has(dKey) ? 1 : 0);
+            const hasDateCompleted = sortedMoments.some((m) => Boolean(m.isDate));
 
             // For Free users, omit high-res photo URLs on locked older days to enforce privacy & data limitation on wire
             const sanitizedMoments = isLocked
@@ -1107,6 +1201,8 @@ export class ApiClient {
               dateStr: formatRussianDate(dKey),
               moments: sanitizedMoments,
               isLocked,
+              duoMomentsCount,
+              hasDateCompleted,
             };
           });
 
@@ -2011,14 +2107,18 @@ export class ApiClient {
     overrideUserId?: string;
   }): Promise<{ success: boolean; photos: MomentPhoto[]; momentId: string; photoUrl: string }> {
     const { momentId, photoData, dateTitle, dateDescription, overrideUserId } = params;
-    let userId = overrideUserId;
-    if (!userId) {
-      try {
-        userId = await this.ensureAuthenticatedUser();
-      } catch {
-        userId = this.currentUserId || 'user';
-      }
+    let authUserId: string | null = null;
+    try {
+      authUserId = await this.ensureAuthenticatedUser();
+    } catch {
+      authUserId = this.currentUserId || null;
     }
+    const userId =
+      authUserId && isValidUuid(authUserId)
+        ? authUserId
+        : overrideUserId && isValidUuid(overrideUserId)
+          ? overrideUserId
+          : authUserId || overrideUserId || this.currentUserId || 'user';
 
     let pairId = (params.pairId || this.currentPairId || '').trim();
     if (!pairId) {
@@ -2058,66 +2158,105 @@ export class ApiClient {
       return { success: false, photos: [], momentId, photoUrl: '' };
     }
 
-    // 2 & 3. Only write to public.moments / public.photos by momentId if momentId is a valid UUID
-    if (supabaseConfig.isConfigured && isValidUuid(momentId) && isValidUuid(pairId)) {
-      const cleanMomentUuid = momentId.trim();
-      try {
-        const momentRow = {
-          id: cleanMomentUuid,
-          pair_id: pairId,
-          moment_date: todayKey,
-          prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
-        };
+    // 2 & 3. Resolve or create a valid UUID row in public.moments (slot IS NULL) and save photo in public.photos
+    let resolvedMomentUuid: string | null = isValidUuid(momentId) ? momentId.trim() : null;
+    const datePrompt = dateTitle ? `Свидание: ${dateTitle}` : 'Свидание';
+    const nowIso = new Date().toISOString();
 
-        const { error: mErr } = await supabase
-          .from('moments')
-          .upsert(momentRow, { onConflict: 'id', ignoreDuplicates: true });
+    if (supabaseConfig.isConfigured && isValidUuid(pairId)) {
+      if (!resolvedMomentUuid) {
+        try {
+          const { data: existingDateMoments } = await supabase
+            .from('moments')
+            .select('id, prompt')
+            .eq('pair_id', pairId)
+            .eq('moment_date', todayKey)
+            .is('slot', null)
+            .order('created_at', { ascending: false });
 
-        if (mErr) {
-          await supabase.from('moments').insert(momentRow);
+          const matchingDateRow = (existingDateMoments || []).find(
+            (r: any) =>
+              isValidUuid(r?.id) &&
+              typeof r.prompt === 'string' &&
+              r.prompt.startsWith('Свидание')
+          );
+
+          if (matchingDateRow?.id) {
+            resolvedMomentUuid = matchingDateRow.id;
+          } else {
+            const { data: insertedDateRow } = await supabase
+              .from('moments')
+              .insert({
+                pair_id: pairId,
+                moment_date: todayKey,
+                slot: null,
+                prompt: datePrompt,
+              })
+              .select('id')
+              .maybeSingle();
+
+            if (insertedDateRow?.id && isValidUuid(insertedDateRow.id)) {
+              resolvedMomentUuid = insertedDateRow.id;
+            }
+          }
+        } catch (err) {
+          console.warn('[OURS Date] Exception resolving/creating date moment UUID:', err);
         }
-      } catch (err) {
-        console.warn('[OURS Date] Exception checking/inserting moments row:', err);
+      } else {
+        try {
+          const momentRow = {
+            id: resolvedMomentUuid,
+            pair_id: pairId,
+            moment_date: todayKey,
+            slot: null,
+            prompt: datePrompt,
+          };
+
+          const { error: mErr } = await supabase
+            .from('moments')
+            .upsert(momentRow, { onConflict: 'id', ignoreDuplicates: true });
+
+          if (mErr) {
+            await supabase.from('moments').insert(momentRow);
+          }
+        } catch (err) {
+          console.warn('[OURS Date] Exception checking/inserting moments row:', err);
+        }
       }
 
-      try {
-        const photoRow = {
-          moment_id: cleanMomentUuid,
-          user_id: userId,
-          storage_path: storageUrl,
-          created_at: new Date().toISOString(),
-        };
-
-        const { error: pErr } = await supabase
-          .from('photos')
-          .upsert(photoRow, { onConflict: 'moment_id,user_id' });
-
-        if (pErr) {
-          const { data: existingPhoto } = await supabase
+      if (resolvedMomentUuid && isValidUuid(resolvedMomentUuid) && isValidUuid(userId)) {
+        try {
+          const { data: existingPhotos } = await supabase
             .from('photos')
             .select('id')
-            .eq('moment_id', cleanMomentUuid)
-            .eq('user_id', userId)
-            .maybeSingle();
+            .eq('moment_id', resolvedMomentUuid)
+            .eq('user_id', userId);
 
-          if (existingPhoto?.id) {
+          const existingIds = Array.isArray(existingPhotos)
+            ? existingPhotos.map((p: any) => p?.id).filter(Boolean)
+            : [];
+
+          const { error: insertErr } = await supabase.from('photos').insert({
+            moment_id: resolvedMomentUuid,
+            user_id: userId,
+            storage_path: storageUrl,
+            created_at: nowIso,
+          });
+
+          if (!insertErr && existingIds.length > 0) {
             await supabase
               .from('photos')
-              .update({
-                storage_path: storageUrl,
-                created_at: new Date().toISOString(),
-              })
-              .eq('id', existingPhoto.id);
-          } else {
-            await supabase.from('photos').insert(photoRow);
+              .delete()
+              .in('id', existingIds)
+              .eq('user_id', userId);
           }
+        } catch (err) {
+          console.warn('[OURS Date] Exception saving photos row:', err);
         }
-      } catch (err) {
-        console.warn('[OURS Date] Exception saving photos row:', err);
       }
     }
 
-    // 4. Persist completed status and photo_url directly on date_invitations table in Supabase
+    // 4. Persist completed status and photo_url on date_invitations table AND DATE_INVITATION fallback in public.moments
     if (supabaseConfig.isConfigured && isValidUuid(pairId)) {
       try {
         await supabase
@@ -2125,12 +2264,42 @@ export class ApiClient {
           .update({
             status: 'completed',
             photo_url: storageUrl,
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            completed_at: nowIso,
+            updated_at: nowIso,
           })
           .eq('pair_id', pairId);
       } catch (err) {
         console.warn('[OURS Date] Could not update date_invitations status:', err);
+      }
+
+      try {
+        const { data: rows } = await supabase
+          .from('moments')
+          .select('*')
+          .eq('pair_id', pairId)
+          .eq('moment_date', '1970-01-01')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (rows && rows.length > 0) {
+          const row = rows[0];
+          if (row.prompt && String(row.prompt).startsWith('DATE_INVITATION:')) {
+            const parsed = JSON.parse(String(row.prompt).replace('DATE_INVITATION:', ''));
+            parsed.status = 'completed';
+            parsed.photoUrl = storageUrl;
+            parsed.completedAt = nowIso;
+            parsed.dateKey = todayKey;
+            parsed.momentId = momentId;
+            await supabase
+              .from('moments')
+              .update({
+                prompt: `DATE_INVITATION:${JSON.stringify(parsed)}`,
+              })
+              .eq('id', row.id);
+          }
+        }
+      } catch {
+        // Best-effort fallback update
       }
     }
 
@@ -2143,30 +2312,32 @@ export class ApiClient {
       filtered.push({
         userId,
         imageUrl: storageUrl,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
       });
       updatedPhotos = filtered.slice(0, 2);
       appStorage.setItem(`ours_date_photos_${momentId}`, JSON.stringify(updatedPhotos));
     } catch {
-      updatedPhotos = [{ userId, imageUrl: storageUrl, createdAt: new Date().toISOString() }];
+      updatedPhotos = [{ userId, imageUrl: storageUrl, createdAt: nowIso }];
     }
 
     // 5. Update local history cache for this pair
     try {
       const rawLocalDates = appStorage.getItem(`ours_local_date_moments_${pairId}`);
       const localMoments: Moment[] = typeof rawLocalDates === 'string' && rawLocalDates ? JSON.parse(rawLocalDates) : [];
-      const existingIdx = localMoments.findIndex((m) => m.id === momentId);
+      const existingIdx = localMoments.findIndex(
+        (m) => m.id === momentId || (resolvedMomentUuid && m.id === resolvedMomentUuid) || (Boolean(m.isDate) && m.dateKey === todayKey)
+      );
       const newMoment: Moment = {
         id: momentId,
         pairId,
         createdBy: userId,
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
         dateKey: todayKey,
         imageUrl: storageUrl,
         caption: null,
         order: 1,
         label: 'СВИДАНИЕ',
-        prompt: dateTitle ? `Свидание: ${dateTitle}` : 'Свидание',
+        prompt: datePrompt,
         subtext: dateDescription || 'Воспоминание свидания',
         status: 'COMPLETED',
         themeColor: 'pink',
@@ -2175,7 +2346,7 @@ export class ApiClient {
         photos: updatedPhotos,
         userReaction: null,
         partnerReaction: null,
-        completedAt: new Date().toISOString(),
+        completedAt: nowIso,
         isDate: true,
       };
 
@@ -2191,16 +2362,16 @@ export class ApiClient {
       appStorage.setItem(`ours_local_date_moments_${pairId}`, JSON.stringify(localMoments));
     } catch {}
 
-    // 6. Monotonically record Big Star ✨ in sky registry for this pair
+    // 6. Monotonically record Big Star ✨ in sky registry for this pair using canonical date_${todayKey} ID
     try {
       recordAccumulatedStarRecords(pairId, [
         {
-          id: `date_${momentId}`,
+          id: `date_${todayKey}`,
           dateKey: todayKey,
           starType: 'date',
           momentId,
           title: dateTitle || 'Свидание',
-          createdAt: new Date().toISOString(),
+          createdAt: nowIso,
         },
       ]);
     } catch {}
@@ -2209,13 +2380,14 @@ export class ApiClient {
     this.broadcastPairUpdate(pairId, { action: 'date_photo_uploaded', momentId, userId, pairId });
     this.invalidateHistoryCache(pairId);
 
-    // 8. If Supabase configured and momentId is valid UUID, re-fetch authoritative photos list
-    if (supabaseConfig.isConfigured && isValidUuid(momentId)) {
+    // 8. If Supabase configured and we have a valid UUID, re-fetch authoritative photos list
+    const queryUuid = resolvedMomentUuid || (isValidUuid(momentId) ? momentId.trim() : null);
+    if (supabaseConfig.isConfigured && queryUuid) {
       try {
         const { data: dbPhotos } = await supabase
           .from('photos')
           .select('storage_path, user_id, created_at')
-          .eq('moment_id', momentId.trim())
+          .eq('moment_id', queryUuid)
           .order('created_at', { ascending: true });
 
         if (Array.isArray(dbPhotos) && dbPhotos.length > 0) {

@@ -5,7 +5,7 @@ import {
   saveAppState,
   resetToOnboarding,
 } from './services/storage/appStateStorage';
-import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode, MomentStatus } from './types';
+import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode, MomentStatus, OurDayPhoto } from './types';
 import { apiClient } from './services/api/apiClient';
 import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
@@ -144,6 +144,157 @@ function mergeMomentsMonotonic(srvMoments: Moment[] | undefined, prevMoments: Mo
   });
 }
 
+function getOurDayPhotoDateKey(photo: OurDayPhoto): string {
+  if (photo.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(photo.dateKey.trim())) {
+    return photo.dateKey.trim();
+  }
+  if (photo.createdAt) {
+    try {
+      const d = new Date(photo.createdAt);
+      if (!isNaN(d.getTime())) {
+        return getLocalDateKey(d);
+      }
+    } catch {
+      // fallback below
+    }
+    const sub = photo.createdAt.substring(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(sub)) {
+      return sub;
+    }
+  }
+  return getLocalDateKey();
+}
+
+function getOurDayAuthorKey(
+  photo: OurDayPhoto,
+  currentUserId?: string,
+  currentUserName?: string
+): string {
+  const cleanCurrentId = (currentUserId || '').trim();
+  const cleanAuthorId = (photo.authorId || '').trim();
+
+  if (cleanAuthorId && cleanAuthorId !== 'user_1' && cleanAuthorId !== 'local_user') {
+    return cleanAuthorId;
+  }
+
+  if (
+    cleanCurrentId &&
+    (cleanAuthorId === 'user_1' ||
+      cleanAuthorId === 'local_user' ||
+      (!cleanAuthorId && currentUserName && photo.authorName === currentUserName))
+  ) {
+    return cleanCurrentId;
+  }
+
+  if (cleanAuthorId) {
+    return cleanAuthorId;
+  }
+
+  return `name:${(photo.authorName || 'unknown').trim()}`;
+}
+
+/**
+ * Pure merge function for "Наш день" photos.
+ * Uniqueness key per day: (dateKey, authorId).
+ * Remote server photos take priority for their (dateKey, authorId), while preserving
+ * local photos that are awaiting server sync and never deleting partner photos.
+ */
+export function mergeOurDayPhotos(
+  remotePhotos: OurDayPhoto[] | undefined,
+  localPhotos: OurDayPhoto[] | undefined,
+  currentUserId?: string,
+  currentUserName?: string
+): OurDayPhoto[] {
+  const isValidPhoto = (p: OurDayPhoto | null | undefined): p is OurDayPhoto =>
+    Boolean(
+      p &&
+        typeof p === 'object' &&
+        typeof p.imageUrl === 'string' &&
+        p.imageUrl.trim().length > 0 &&
+        !p.imageUrl.startsWith('blob:')
+    );
+
+  const validRemote = (remotePhotos || []).filter(isValidPhoto);
+  const validLocal = (localPhotos || []).filter(isValidPhoto);
+
+  if (validRemote.length === 0 && validLocal.length === 0) {
+    return [];
+  }
+
+  const byKey = new Map<string, OurDayPhoto>();
+
+  // 1. Seed with local photos (keeping newest if local has duplicates for same (dateKey, authorKey))
+  for (const lp of validLocal) {
+    const dKey = getOurDayPhotoDateKey(lp);
+    const aKey = getOurDayAuthorKey(lp, currentUserId, currentUserName);
+    const key = `${dKey}::${aKey}`;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, {
+        ...lp,
+        dateKey: dKey,
+        authorId: aKey.startsWith('name:') ? lp.authorId : aKey,
+      });
+    } else {
+      const tNew = lp.createdAt ? new Date(lp.createdAt).getTime() : 0;
+      const tOld = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
+      if (tNew >= tOld) {
+        byKey.set(key, {
+          ...lp,
+          dateKey: dKey,
+          authorId: aKey.startsWith('name:') ? lp.authorId : aKey,
+        });
+      }
+    }
+  }
+
+  // 2. Apply authoritative remote photos with priority for each (dateKey, authorId)
+  const sortedRemote = [...validRemote].sort((a, b) => {
+    const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tB - tA;
+  });
+
+  const appliedRemoteKeys = new Set<string>();
+  for (const rp of sortedRemote) {
+    const dKey = getOurDayPhotoDateKey(rp);
+    const aKey = getOurDayAuthorKey(rp, currentUserId, currentUserName);
+    const key = `${dKey}::${aKey}`;
+    if (appliedRemoteKeys.has(key)) {
+      continue;
+    }
+    appliedRemoteKeys.add(key);
+
+    byKey.set(key, {
+      ...rp,
+      dateKey: dKey,
+      authorId: aKey.startsWith('name:') ? rp.authorId : aKey,
+    });
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => {
+    const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return tB - tA;
+  });
+}
+
+function areOurDayPhotosEqual(a: OurDayPhoto[] = [], b: OurDayPhoto[] = []): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].id !== b[i].id ||
+      a[i].imageUrl !== b[i].imageUrl ||
+      a[i].authorId !== b[i].authorId ||
+      a[i].dateKey !== b[i].dateKey ||
+      a[i].createdAt !== b[i].createdAt
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export default function App() {
   const [appState, setAppState] = useState<AppState>(getInitialAppState);
   const [activeTab, setActiveTab] = useState<NavigationTab>('today');
@@ -154,14 +305,16 @@ export default function App() {
   const [hasUnreadDateInvitation, setHasUnreadDateInvitation] = useState<boolean>(() =>
     dateInvitationService.hasUnreadIncomingInvitation()
   );
+  const [dateSyncVersion, setDateSyncVersion] = useState<number>(0);
   const [isInitialSessionReady, setIsInitialSessionReady] = useState(false);
 
-  // Subscribe to date invitation updates for bottom tab badge
+  // Subscribe to date invitation updates for bottom tab badge & star calculations
   useEffect(() => {
     const unsubscribe = dateInvitationService.subscribe((inv) => {
       setHasUnreadDateInvitation(
         Boolean(inv && inv.status === 'pending' && inv.senderId === 'partner' && !inv.read)
       );
+      setDateSyncVersion((v) => v + 1);
     });
     return unsubscribe;
   }, []);
@@ -286,6 +439,27 @@ export default function App() {
             saveAppState(nextState);
             return nextState;
           });
+
+          const activePairId = session.pair.id;
+          if (activePairId) {
+            ourDayService.fetchRemotePhotos(activePairId).then((remotePhotos) => {
+              if (!isMounted || !Array.isArray(remotePhotos)) return;
+              setAppState((prev) => {
+                const merged = mergeOurDayPhotos(
+                  remotePhotos,
+                  prev.ourDayPhotos || [],
+                  prev.couple?.user?.id,
+                  prev.couple?.user?.name
+                );
+                if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
+                  return prev;
+                }
+                const nextState = { ...prev, ourDayPhotos: merged };
+                saveAppState(nextState);
+                return nextState;
+              });
+            }).catch(() => {});
+          }
         } else if (session.success && !session.hasCompletedOnboarding) {
           // Explicit server confirmation: user does not have a pair
           setAppState((prev) => ({
@@ -487,15 +661,20 @@ export default function App() {
           });
         }
 
-        // Live sync active Date invitation for this pair across devices
+        // Live sync "Наш день" photos and active Date invitation across devices
         ourDayService.fetchRemotePhotos(pairId).then((remotePhotos) => {
-          if (remotePhotos && remotePhotos.length > 0) {
+          if (Array.isArray(remotePhotos)) {
             setAppState((prev) => {
-              const existingIds = new Set((prev.ourDayPhotos || []).map((p) => p.id));
-              const newItems = remotePhotos.filter((p) => p && p.id && !existingIds.has(p.id));
-              if (newItems.length === 0) return prev;
-              const updatedPhotos = [...newItems, ...(prev.ourDayPhotos || [])];
-              const nextState = { ...prev, ourDayPhotos: updatedPhotos };
+              const merged = mergeOurDayPhotos(
+                remotePhotos,
+                prev.ourDayPhotos || [],
+                prev.couple?.user?.id,
+                prev.couple?.user?.name
+              );
+              if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
+                return prev;
+              }
+              const nextState = { ...prev, ourDayPhotos: merged };
               saveAppState(nextState);
               return nextState;
             });
@@ -565,8 +744,8 @@ export default function App() {
         if (!isMounted || !history || history.length === 0) return;
 
         setAppState((prev) => {
-          const prevCount = prev.history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
-          const nextCount = history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
+          const prevCount = prev.history.reduce((acc, d) => acc + (d.moments?.length || 0) + (d.duoMomentsCount || 0) + (d.hasDateCompleted ? 1 : 0), 0);
+          const nextCount = history.reduce((acc, d) => acc + (d.moments?.length || 0) + (d.duoMomentsCount || 0) + (d.hasDateCompleted ? 1 : 0), 0);
           if (
             prev.history.length === history.length &&
             prevCount === nextCount &&
@@ -618,14 +797,35 @@ export default function App() {
     };
   }, [isInitialSessionReady, appState.couple.id]);
 
-  // Ensure History is fresh when History tab or Our Sky modal is opened (returns in 0ms if already cached)
+  // Ensure History and Our Day photos are fresh when History/Our Day tab or Our Sky modal is opened
   useEffect(() => {
+    if ((activeTab === 'history' || activeTab === 'our_day' || isStreakModalOpen) && appState.couple.id) {
+      ourDayService.fetchRemotePhotos(appState.couple.id).then((remotePhotos) => {
+        if (Array.isArray(remotePhotos)) {
+          setAppState((prev) => {
+            const merged = mergeOurDayPhotos(
+              remotePhotos,
+              prev.ourDayPhotos || [],
+              prev.couple?.user?.id,
+              prev.couple?.user?.name
+            );
+            if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
+              return prev;
+            }
+            const nextState = { ...prev, ourDayPhotos: merged };
+            saveAppState(nextState);
+            return nextState;
+          });
+        }
+      }).catch(() => {});
+    }
+
     if ((activeTab === 'history' || isStreakModalOpen) && appState.couple.id) {
       apiClient.fetchHistory(appState.couple.id, true).then((history) => {
         if (history && history.length > 0) {
           setAppState((prev) => {
-            const prevCount = prev.history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
-            const nextCount = history.reduce((acc, d) => acc + (d.moments?.length || 0), 0);
+            const prevCount = prev.history.reduce((acc, d) => acc + (d.moments?.length || 0) + (d.duoMomentsCount || 0) + (d.hasDateCompleted ? 1 : 0), 0);
+            const nextCount = history.reduce((acc, d) => acc + (d.moments?.length || 0) + (d.duoMomentsCount || 0) + (d.hasDateCompleted ? 1 : 0), 0);
             if (
               prev.history.length === history.length &&
               prevCount === nextCount &&
@@ -634,10 +834,12 @@ export default function App() {
             ) {
               return prev; // History identical -> avoid full app re-render
             }
-            return {
+            const next = {
               ...prev,
               history,
             };
+            saveAppState(next);
+            return next;
           });
         }
       }).catch((err) => {
@@ -668,8 +870,13 @@ export default function App() {
 
   // Calculate real streak & metrics dynamically
   const streakInfo = useMemo(() => {
-    return calculateCoupleStreak(appState.todayMoments, appState.history);
-  }, [appState.todayMoments, appState.history]);
+    return calculateCoupleStreak(
+      appState.todayMoments,
+      appState.history,
+      new Date(),
+      appState.ourDayPhotos || []
+    );
+  }, [appState.todayMoments, appState.history, appState.ourDayPhotos]);
 
   // Dynamic pair seed strictly derived from pairId for deterministic constellation generation
   const pairSeed = useMemo(() => {
@@ -682,8 +889,8 @@ export default function App() {
 
   // Retrieve calendar days with completed/conducted dates
   const completedDateDays = useMemo(() => {
-    return dateInvitationService.getCompletedDateDays();
-  }, [hasUnreadDateInvitation]);
+    return dateInvitationService.getCompletedDateDays(appState.couple.id);
+  }, [appState.couple.id, hasUnreadDateInvitation, dateSyncVersion, appState.todayMoments, appState.history]);
 
   // All authoritative star events with exact type (Match ⭐ vs Date ✨) directly linked to memories
   const allStarEvents = useMemo(() => {
@@ -691,9 +898,11 @@ export default function App() {
       appState.couple,
       appState.todayMoments,
       appState.history,
-      completedDateDays
+      completedDateDays,
+      new Date(),
+      appState.ourDayPhotos || []
     );
-  }, [appState.couple, appState.todayMoments, appState.history, completedDateDays]);
+  }, [appState.couple, appState.todayMoments, appState.history, completedDateDays, appState.ourDayPhotos]);
 
   // All deduplicated sky dates (strictly cumulative & persistent across reloads/device/plans)
   const allSkyDates = useMemo(() => {
@@ -775,6 +984,27 @@ export default function App() {
           return nextState;
         });
 
+        if (res.pair.id) {
+          ourDayService.fetchRemotePhotos(res.pair.id).then((remotePhotos) => {
+            if (Array.isArray(remotePhotos)) {
+              setAppState((prev) => {
+                const merged = mergeOurDayPhotos(
+                  remotePhotos,
+                  prev.ourDayPhotos || [],
+                  prev.couple?.user?.id,
+                  prev.couple?.user?.name
+                );
+                if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
+                  return prev;
+                }
+                const nextState = { ...prev, ourDayPhotos: merged };
+                saveAppState(nextState);
+                return nextState;
+              });
+            }
+          }).catch(() => {});
+        }
+
         return {
           success: true,
           inviteCode: res.pair.inviteCode,
@@ -826,6 +1056,7 @@ export default function App() {
         todayMoments: freshMoments,
         activeMomentId: freshMoments[0]?.id || 'moment-today-1',
         history: [],
+        ourDayPhotos: [],
       };
       saveAppState(updated);
       return updated;
@@ -849,64 +1080,57 @@ export default function App() {
   const handleAddOurDayPhotos = useCallback(async (imageUrls: string[]) => {
     if (!imageUrls || imageUrls.length === 0) return;
     const pairId = appState.couple.id || 'pair_default';
-    const authorId = appState.couple.user.id || 'user_1';
+    const authorId = appState.couple.user.id || apiClient.getCurrentUserId() || '';
     const authorName = appState.couple.user.name || 'Пользователь';
     const imageUrl = imageUrls[0];
 
-    const todayKey = getLocalDateKey();
+    // Add or replace only the current user's photo in Supabase (public.moments prompt='OUR_DAY' + public.photos)
+    const savedPhoto = await ourDayService.addPhoto(
+      pairId,
+      authorId,
+      authorName,
+      imageUrl
+    );
 
-    // Check if user already uploaded a photo today
-    const existingUserPhotoToday = (appState.ourDayPhotos || []).find((p) => {
-      if (!p || !p.createdAt) return false;
-      const isUser = p.authorId === authorId || p.authorName === authorName;
-      let photoKey = todayKey;
-      try {
-        const d = new Date(p.createdAt);
-        if (!isNaN(d.getTime())) photoKey = getLocalDateKey(d);
-      } catch {
-        photoKey = p.createdAt.substring(0, 10);
-      }
-      return isUser && photoKey === todayKey;
+    setAppState((prev) => {
+      const currentUserId = prev.couple?.user?.id || savedPhoto.authorId;
+      const currentUserName = prev.couple?.user?.name || authorName;
+      const merged = mergeOurDayPhotos(
+        [savedPhoto],
+        prev.ourDayPhotos || [],
+        currentUserId,
+        currentUserName
+      );
+      const updated = {
+        ...prev,
+        ourDayPhotos: merged,
+      };
+      saveAppState(updated);
+      return updated;
     });
 
-    if (existingUserPhotoToday) {
-      // Replace scenario
-      await ourDayService.deletePhoto(existingUserPhotoToday.id, pairId);
-      const updatedPhoto = await ourDayService.addPhoto(
-        pairId,
-        authorId,
-        authorName,
-        imageUrl
-      );
-
-      setAppState((prev) => {
-        const filtered = (prev.ourDayPhotos || []).filter((p) => p.id !== existingUserPhotoToday.id);
-        const updated = {
-          ...prev,
-          ourDayPhotos: [updatedPhoto, ...filtered],
-        };
-        saveAppState(updated);
-        return updated;
-      });
-    } else {
-      // New photo for today scenario
-      const newPhoto = await ourDayService.addPhoto(
-        pairId,
-        authorId,
-        authorName,
-        imageUrl
-      );
-
-      setAppState((prev) => {
-        const updated = {
-          ...prev,
-          ourDayPhotos: [newPhoto, ...(prev.ourDayPhotos || [])],
-        };
-        saveAppState(updated);
-        return updated;
-      });
+    // Pull full remote list for the pair so any concurrent partner photo is also merged
+    if (pairId && pairId !== 'pair_default') {
+      ourDayService.fetchRemotePhotos(pairId).then((remotePhotos) => {
+        if (Array.isArray(remotePhotos) && remotePhotos.length > 0) {
+          setAppState((prev) => {
+            const merged = mergeOurDayPhotos(
+              remotePhotos,
+              prev.ourDayPhotos || [],
+              prev.couple?.user?.id || savedPhoto.authorId,
+              prev.couple?.user?.name || authorName
+            );
+            if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
+              return prev;
+            }
+            const nextState = { ...prev, ourDayPhotos: merged };
+            saveAppState(nextState);
+            return nextState;
+          });
+        }
+      }).catch(() => {});
     }
-  }, [appState.couple, appState.ourDayPhotos]);
+  }, [appState.couple]);
 
   const handleDeleteOurDayPhoto = useCallback(async (photoId: string) => {
     const pairId = appState.couple.id || 'pair_default';
@@ -1273,6 +1497,7 @@ export default function App() {
         couple={appState.couple}
         moments={appState.todayMoments}
         history={appState.history}
+        ourDayPhotos={appState.ourDayPhotos || []}
         pairSeed={pairSeed}
         activeMomentId={appState.activeMomentId}
         onSelectActiveMoment={handleSelectActiveMoment}
@@ -1314,6 +1539,7 @@ export default function App() {
           couple={appState.couple}
           todayMoments={appState.todayMoments}
           history={appState.history}
+          ourDayPhotos={appState.ourDayPhotos || []}
           pairSeed={pairSeed}
           settings={appState.settings}
           onUpdateSettings={handleUpdateSettings}
@@ -1430,6 +1656,7 @@ export default function App() {
                   pairSeed={pairSeed}
                   todayMoments={appState.todayMoments}
                   history={appState.history}
+                  ourDayPhotos={appState.ourDayPhotos || []}
                   matchedDates={matchedDates}
                   partnerAName={appState.couple.user.name}
                   partnerBName={appState.couple.partner.name}

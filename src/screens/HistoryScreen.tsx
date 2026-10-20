@@ -662,11 +662,27 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
     });
 
     if (ourDayPhotos && ourDayPhotos.length > 0) {
+      const isCurrentUserOurDayPhoto = (p: OurDayPhoto): boolean => {
+        const currentUserId = (couple.user?.id || "").trim();
+        const photoAuthorId = (p.authorId || "").trim();
+        if (currentUserId && photoAuthorId && photoAuthorId !== "user_1" && photoAuthorId !== "local_user") {
+          return photoAuthorId === currentUserId;
+        }
+        if (photoAuthorId === "user_1" || photoAuthorId === "local_user") {
+          return true;
+        }
+        const currentUserName = (couple.user?.name || "").trim();
+        const photoAuthorName = (p.authorName || "").trim();
+        return Boolean(currentUserName && photoAuthorName && photoAuthorName === currentUserName);
+      };
+
       const photosByDate = new Map<string, OurDayPhoto[]>();
       ourDayPhotos.forEach((photo) => {
-        if (!photo || !photo.imageUrl) return;
+        if (!photo || !photo.imageUrl || photo.imageUrl.startsWith("blob:")) return;
         let canonicalKey = todayKey;
-        if (photo.createdAt) {
+        if (photo.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(photo.dateKey.trim())) {
+          canonicalKey = photo.dateKey.trim();
+        } else if (photo.createdAt) {
           try {
             const d = new Date(photo.createdAt);
             if (!isNaN(d.getTime())) {
@@ -687,16 +703,11 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       });
 
       photosByDate.forEach((photos, dKey) => {
-        const validPhotos = photos.filter((p) => p && p.imageUrl);
+        const validPhotos = photos.filter((p) => p && p.imageUrl && !p.imageUrl.startsWith("blob:"));
         if (validPhotos.length === 0) return;
 
-        const userP = validPhotos.find(
-          (p) => p.authorId === couple.user.id || p.authorName === couple.user.name
-        );
-
-        const partnerP = validPhotos.find(
-          (p) => p.authorId !== couple.user.id && p.authorName !== couple.user.name
-        );
+        const userP = validPhotos.find((p) => isCurrentUserOurDayPhoto(p));
+        const partnerP = validPhotos.find((p) => !isCurrentUserOurDayPhoto(p));
 
         const finalUserPhoto = userP?.imageUrl || null;
         const finalPartnerPhoto = partnerP?.imageUrl || null;
@@ -707,6 +718,27 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
         const latestCreatedAt = validPhotos.reduce((latest, p) => {
           return p.createdAt && p.createdAt > latest ? p.createdAt : latest;
         }, firstP.createdAt || new Date().toISOString());
+
+        const assembledPhotos = [
+          ...(finalUserPhoto
+            ? [
+                {
+                  userId: couple.user.id || userP?.authorId || "user",
+                  imageUrl: finalUserPhoto,
+                  createdAt: userP?.createdAt || latestCreatedAt,
+                },
+              ]
+            : []),
+          ...(finalPartnerPhoto
+            ? [
+                {
+                  userId: couple.partner.id || partnerP?.authorId || "partner",
+                  imageUrl: finalPartnerPhoto,
+                  createdAt: partnerP?.createdAt || latestCreatedAt,
+                },
+              ]
+            : []),
+        ];
 
         const ourDayMoment: Moment = {
           id: `ourday-group-${dKey}`,
@@ -724,6 +756,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
           themeColor: "pink",
           userPhoto: finalUserPhoto,
           partnerPhoto: finalPartnerPhoto,
+          photos: assembledPhotos,
           userReaction: null,
           partnerReaction: null,
           completedAt: latestCreatedAt
@@ -741,6 +774,7 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
             ...bucket.moments[existingIdx],
             userPhoto: finalUserPhoto || bucket.moments[existingIdx].userPhoto,
             partnerPhoto: finalPartnerPhoto || bucket.moments[existingIdx].partnerPhoto,
+            photos: assembledPhotos.length > 0 ? assembledPhotos : bucket.moments[existingIdx].photos,
             imageUrl: finalUserPhoto || finalPartnerPhoto || bucket.moments[existingIdx].imageUrl,
           };
         } else {

@@ -8,7 +8,7 @@
 
 import { appStorage } from '../storage/keyValueStorage';
 import { apiClient } from '../api/apiClient';
-import { recordAccumulatedStarDates } from '../sky/skyService';
+import { extractStarDateKey } from '../sky/skyService';
 
 export type DateInvitationStatus = 'pending' | 'accepted' | 'declined' | 'completed';
 
@@ -31,6 +31,7 @@ export interface DateInvitation {
   createdAt: string;
   respondedAt?: string;
   completedAt?: string;
+  dateKey?: string;
   photoUrl?: string;
   momentId?: string;
   read: boolean;
@@ -51,27 +52,54 @@ function notifyListeners(invitation: DateInvitation | null) {
 }
 
 /**
- * Returns recorded calendar days with completed dates (photo preserved).
+ * Returns recorded calendar days with completed dates (photo preserved), scoped by pairId.
  * Rule: NO star before photo! Only dates that have confirmed completed status with photo.
  */
-export function getRecordedDateDays(): string[] {
+export function getRecordedDateDays(pairId?: string): string[] {
   try {
-    const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
-    const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
+    const keys = new Set<string>();
+    const cleanPairId = pairId?.trim();
+
     const currentInv = dateInvitationService.getInvitation();
+    const matchesPair =
+      !cleanPairId || !currentInv?.pairId || currentInv.pairId.trim() === cleanPairId;
+
     // STRICT RULE: Only award date star if the date is fully completed with a photo!
-    if (currentInv && currentInv.status === 'completed' && currentInv.photoUrl) {
+    if (currentInv && matchesPair && currentInv.status === 'completed' && currentInv.photoUrl) {
       const dateStr = currentInv.completedAt || currentInv.respondedAt || currentInv.createdAt;
-      if (dateStr) {
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime())) {
-          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          if (!list.includes(key)) list.push(key);
-        }
+      const key = extractStarDateKey(currentInv.dateKey, dateStr);
+      if (key) {
+        keys.add(key);
       }
     }
-    // Strictly return only real, confirmed date days (never inject fake dates)
-    return list.filter((k) => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k));
+
+    if (cleanPairId) {
+      try {
+        const rawLocalDates = appStorage.getItem(`ours_local_date_moments_${cleanPairId}`);
+        if (typeof rawLocalDates === 'string' && rawLocalDates) {
+          const localMoments = JSON.parse(rawLocalDates);
+          if (Array.isArray(localMoments)) {
+            for (const lm of localMoments) {
+              const hasPhoto = Boolean(
+                lm &&
+                  (lm.imageUrl ||
+                    lm.userPhoto ||
+                    lm.partnerPhoto ||
+                    (Array.isArray(lm.photos) && lm.photos.length > 0))
+              );
+              if (hasPhoto) {
+                const k = extractStarDateKey(lm.dateKey, lm.completedAt || lm.createdAt);
+                if (k) keys.add(k);
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return Array.from(keys).sort();
   } catch {
     return [];
   }
@@ -81,12 +109,10 @@ export const dateInvitationService = {
   /**
    * Get recorded calendar days with accepted/completed dates
    */
-  getCompletedDateDays(): string[] {
-    return getRecordedDateDays();
+  getCompletedDateDays(pairId?: string): string[] {
+    return getRecordedDateDays(pairId);
   },
 
-  /**
-   * Get currently active date invitation from storage.
   /**
    * Get currently active date invitation from storage.
    * Returns null if no date invitation has been created yet.
@@ -187,6 +213,20 @@ export const dateInvitationService = {
 
     // Determine if THIS device is the creator (sender) or the recipient
     const localInv = this.getInvitation();
+
+    // Prevent stale server poll from overwriting a brand-new local invitation created < 30s ago
+    if (localInv && localInv.id !== serverInv.id && localInv.senderId === 'user') {
+      const localCreatedMs = new Date(localInv.createdAt).getTime();
+      const serverCreatedMs = serverInv.createdAt ? new Date(serverInv.createdAt).getTime() : 0;
+      if (
+        !isNaN(localCreatedMs) &&
+        Date.now() - localCreatedMs < 30000 &&
+        (!serverCreatedMs || localCreatedMs > serverCreatedMs)
+      ) {
+        return localInv;
+      }
+    }
+
     let isSender = false;
 
     if (localInv && localInv.id === serverInv.id && localInv.senderId === 'user') {
@@ -213,37 +253,69 @@ export const dateInvitationService = {
       }
     }
 
+    const isSameLocalCompleted =
+      Boolean(localInv && localInv.id === serverInv.id && localInv.status === 'completed' && localInv.photoUrl);
+
+    const resolvedStatus: DateInvitationStatus =
+      serverInv.status === 'completed' || isSameLocalCompleted
+        ? 'completed'
+        : serverInv.status || 'pending';
+
+    const resolvedPhotoUrl =
+      serverInv.photoUrl ||
+      serverInv.photo_url ||
+      (isSameLocalCompleted ? localInv?.photoUrl : undefined);
+
+    const resolvedCompletedAt =
+      serverInv.completedAt ||
+      serverInv.completed_at ||
+      (isSameLocalCompleted ? localInv?.completedAt : undefined);
+
+    const resolvedMomentId =
+      serverInv.momentId ||
+      serverInv.moment_id ||
+      (isSameLocalCompleted ? localInv?.momentId : undefined);
+
+    const resolvedDateKey =
+      extractStarDateKey(
+        serverInv.dateKey || serverInv.date_key || (isSameLocalCompleted ? localInv?.dateKey : undefined),
+        resolvedCompletedAt || serverInv.respondedAt || serverInv.createdAt
+      ) || undefined;
+
     const formatted: DateInvitation = {
       id: serverInv.id,
-      pairId: serverInv.pairId,
-      senderUserId: serverInv.senderUserId,
+      pairId: serverInv.pairId || serverInv.pair_id || localInv?.pairId,
+      senderUserId: serverInv.senderUserId || serverInv.creator_user_id,
       senderId: isSender ? 'user' : 'partner',
-      senderName: serverInv.senderName || (isSender ? (currentUserName || 'Ты') : 'Партнёр'),
-      recipientName: serverInv.recipientName || (isSender ? 'Партнёр' : (currentUserName || 'Ты')),
+      senderName: serverInv.senderName || serverInv.sender_name || (isSender ? (currentUserName || 'Ты') : 'Партнёр'),
+      recipientName: serverInv.recipientName || serverInv.recipient_name || (isSender ? 'Партнёр' : (currentUserName || 'Ты')),
       idea: serverInv.idea,
-      status: serverInv.status || 'pending',
-      createdAt: serverInv.createdAt || new Date().toISOString(),
-      respondedAt: serverInv.respondedAt,
+      status: resolvedStatus,
+      createdAt: serverInv.createdAt || serverInv.created_at || new Date().toISOString(),
+      respondedAt: serverInv.respondedAt || serverInv.responded_at || (isSameLocalCompleted ? localInv?.respondedAt : undefined),
+      completedAt: resolvedCompletedAt,
+      dateKey: resolvedDateKey,
+      photoUrl: resolvedPhotoUrl,
+      momentId: resolvedMomentId,
       // Sender always has read = true.
       // Recipient has read = true if server or local says it was read.
-      read: isSender ? true : Boolean(serverInv.readByRecipient || (localInv?.id === serverInv.id && localInv?.read)),
+      read: isSender ? true : Boolean(serverInv.readByRecipient || serverInv.read_by_recipient || (localInv?.id === serverInv.id && localInv?.read)),
     };
 
     try {
       appStorage.setItem(STORAGE_KEY, JSON.stringify(formatted));
 
       if (formatted.status === 'completed' && formatted.photoUrl) {
-        const dateStr = formatted.completedAt || formatted.respondedAt || formatted.createdAt;
-        if (dateStr) {
-          const d = new Date(dateStr);
-          if (!isNaN(d.getTime())) {
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
-            const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
-            if (!list.includes(key)) {
-              list.push(key);
-              appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
-            }
+        const key = extractStarDateKey(
+          formatted.dateKey,
+          formatted.completedAt || formatted.respondedAt || formatted.createdAt
+        );
+        if (key) {
+          const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
+          const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
+          if (!list.includes(key)) {
+            list.push(key);
+            appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
           }
         }
       }
@@ -388,6 +460,7 @@ export const dateInvitationService = {
       }
 
       const nowIso = new Date().toISOString();
+      const resolvedDateKey = extractStarDateKey(parsed?.dateKey, nowIso) || undefined;
       const updated: DateInvitation = {
         id: parsed?.id || id || `inv-${Date.now()}`,
         pairId: pairId || parsed?.pairId,
@@ -404,6 +477,7 @@ export const dateInvitationService = {
         status: 'completed',
         photoUrl,
         momentId,
+        dateKey: resolvedDateKey,
         createdAt: parsed?.createdAt || nowIso,
         respondedAt: parsed?.respondedAt || nowIso,
         completedAt: nowIso,
@@ -414,13 +488,13 @@ export const dateInvitationService = {
 
       // Record accepted calendar day key into history ONLY AFTER confirmed photo
       try {
-        const d = new Date(nowIso);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
-        const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
-        if (!list.includes(key)) {
-          list.push(key);
-          appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
+        if (resolvedDateKey) {
+          const raw = appStorage.getItem(ACCEPTED_DATES_KEY);
+          const list: string[] = typeof raw === 'string' && raw ? JSON.parse(raw) : [];
+          if (!list.includes(resolvedDateKey)) {
+            list.push(resolvedDateKey);
+            appStorage.setItem(ACCEPTED_DATES_KEY, JSON.stringify(list));
+          }
         }
       } catch {}
 

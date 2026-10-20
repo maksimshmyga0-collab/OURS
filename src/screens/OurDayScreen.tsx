@@ -19,6 +19,9 @@ interface OurDayScreenProps {
 
 function getPhotoDateKey(photo: OurDayPhoto): string {
   if (!photo) return '';
+  if (photo.dateKey && /^\d{4}-\d{2}-\d{2}$/.test(photo.dateKey.trim())) {
+    return photo.dateKey.trim();
+  }
   if (photo.createdAt) {
     try {
       const d = new Date(photo.createdAt);
@@ -35,6 +38,20 @@ function getPhotoDateKey(photo: OurDayPhoto): string {
     if (/^\d{4}-\d{2}-\d{2}$/.test(sub)) return sub;
   }
   return getLocalDateKey();
+}
+
+function isCurrentUserOurDayPhoto(photo: OurDayPhoto, couple: CoupleState): boolean {
+  const currentUserId = (couple.user?.id || '').trim();
+  const photoAuthorId = (photo.authorId || '').trim();
+  if (currentUserId && photoAuthorId && photoAuthorId !== 'user_1' && photoAuthorId !== 'local_user') {
+    return photoAuthorId === currentUserId;
+  }
+  if (photoAuthorId === 'user_1' || photoAuthorId === 'local_user') {
+    return true;
+  }
+  const currentUserName = (couple.user?.name || '').trim();
+  const photoAuthorName = (photo.authorName || '').trim();
+  return Boolean(currentUserName && photoAuthorName && photoAuthorName === currentUserName);
 }
 
 export const OurDayScreen: React.FC<OurDayScreenProps> = ({
@@ -54,21 +71,19 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
 
   // Filter photos for today only
   const todayPhotos = photos.filter((p) => {
-    if (!p || !p.imageUrl) return false;
+    if (!p || !p.imageUrl || p.imageUrl.startsWith('blob:')) return false;
     return getPhotoDateKey(p) === todayKey;
   });
 
-  const userPhotoToday = todayPhotos.find(
-    (p) => p.authorId === couple.user.id || p.authorName === couple.user.name
-  );
-
-  const partnerPhotoToday = todayPhotos.find(
-    (p) => p.authorId !== couple.user.id && p.authorName !== couple.user.name
-  );
+  const userPhotoToday = todayPhotos.find((p) => isCurrentUserOurDayPhoto(p, couple));
+  const partnerPhotoToday = todayPhotos.find((p) => !isCurrentUserOurDayPhoto(p, couple));
 
   const hasUserPhoto = Boolean(userPhotoToday);
   const hasPartnerPhoto = Boolean(partnerPhotoToday);
-  const totalTodayCount = todayPhotos.length;
+  const activeTodayPhotos = [userPhotoToday, partnerPhotoToday].filter(
+    (p): p is OurDayPhoto => Boolean(p)
+  );
+  const totalTodayCount = activeTodayPhotos.length;
 
   const handleOpenPhoto = (url: string, title: string) => {
     triggerHaptic(hapticEnabled);
@@ -216,11 +231,11 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
           )}
 
           {/* CASE 1: Exactly 1 photo uploaded today */}
-          {totalTodayCount === 1 && (
+          {totalTodayCount === 1 && activeTodayPhotos[0] && (
             <div
               onClick={() =>
                 handleOpenPhoto(
-                  todayPhotos[0].imageUrl,
+                  activeTodayPhotos[0].imageUrl,
                   `Фото от ${hasUserPhoto ? 'тебя' : couple.partner.name || 'Партнёра'}`
                 )
               }
@@ -229,7 +244,7 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
               tabIndex={0}
             >
               <img
-                src={todayPhotos[0].imageUrl}
+                src={activeTodayPhotos[0].imageUrl}
                 alt="Фото сегодняшнего дня"
                 loading="eager"
                 decoding="async"

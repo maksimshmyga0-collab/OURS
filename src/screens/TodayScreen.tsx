@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Moment, CoupleState, ReactionEmoji, HistoryDay } from '../types';
+import { Moment, CoupleState, ReactionEmoji, HistoryDay, OurDayPhoto } from '../types';
 import { PastelCard, PastelCardColor } from '../components/PastelCard';
 import { PhotoSlot } from '../components/PhotoSlot';
 import { ReactionPicker } from '../components/ReactionPicker';
@@ -28,6 +28,7 @@ interface TodayScreenProps {
   couple: CoupleState;
   moments: Moment[];
   history?: HistoryDay[];
+  ourDayPhotos?: OurDayPhoto[];
   pairSeed?: string;
   activeMomentId: string;
   onSelectActiveMoment: (momentId: string) => void;
@@ -44,6 +45,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   couple,
   moments,
   history = [],
+  ourDayPhotos = [],
   pairSeed,
   activeMomentId,
   onSelectActiveMoment,
@@ -532,6 +534,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             couple={couple}
             todayMoments={moments}
             history={history}
+            ourDayPhotos={ourDayPhotos}
             pairSeed={pairSeed}
             streakInfo={streakInfo}
             soundEnabled={soundEnabled}

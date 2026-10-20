@@ -88,7 +88,30 @@ export function getInitialAppState(): AppState {
               }))
           : [];
 
-        const cleanOurDayPhotos: OurDayPhoto[] = [];
+        const cleanOurDayPhotos: OurDayPhoto[] = Array.isArray(parsed.ourDayPhotos)
+          ? parsed.ourDayPhotos
+              .filter(
+                (p: any) =>
+                  p &&
+                  typeof p === 'object' &&
+                  typeof p.imageUrl === 'string' &&
+                  p.imageUrl.trim().length > 0 &&
+                  !p.imageUrl.startsWith('blob:')
+              )
+              .map((p: any) => ({
+                id: String(
+                  p.id ||
+                    `ourday-${cleanCouple.id || 'pair'}-${p.authorId || 'user'}-${p.createdAt || Date.now()}`
+                ),
+                pairId: String(p.pairId || cleanCouple.id || ''),
+                authorId: String(p.authorId || ''),
+                authorName: String(p.authorName || 'Партнёр'),
+                imageUrl: p.imageUrl,
+                createdAt: String(p.createdAt || new Date().toISOString()),
+                dateKey: typeof p.dateKey === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.dateKey) ? p.dateKey : undefined,
+                caption: p.caption || null,
+              }))
+          : [];
 
         const cleanSettings: AppSettings = {
           notifications: parsed.settings?.notifications ?? true,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Sparkles, Download, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { OursLogo } from './OursLogo';
 import { CoupleSkyView } from './CoupleSkyView';
@@ -15,7 +15,7 @@ import { dateInvitationService } from '../services/dates/dateInvitationService';
 import { exportSkyPolaroid } from '../services/sky/exportSkyPolaroid';
 import { pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
-import { Moment, HistoryDay, CoupleState } from '../types';
+import { Moment, HistoryDay, CoupleState, OurDayPhoto } from '../types';
 
 /**
  * Custom small glowing star icon (Касание / Match)
@@ -71,6 +71,7 @@ export interface OurSkyModalProps {
   pairSeed: string;
   todayMoments?: Moment[];
   history?: HistoryDay[];
+  ourDayPhotos?: OurDayPhoto[];
   matchedDates?: string[];
   partnerAName: string;
   partnerBName: string;
@@ -85,6 +86,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   pairSeed,
   todayMoments = [],
   history = [],
+  ourDayPhotos = [],
   matchedDates: passedMatchedDates,
   onOpenPremium,
   onOpenLovely,
@@ -92,6 +94,13 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [showSkyPaywall, setShowSkyPaywall] = useState(false);
+  const [dateSyncVersion, setDateSyncVersion] = useState(0);
+
+  useEffect(() => {
+    return dateInvitationService.subscribe(() => {
+      setDateSyncVersion((v) => v + 1);
+    });
+  }, []);
 
   const handleOpenPaywall = onOpenPremium || onOpenLovely || (() => {});
   const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
@@ -107,13 +116,13 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
 
   // Retrieve calendar days with completed/conducted dates (real, confirmed dates only)
   const completedDateDays = useMemo(() => {
-    return dateInvitationService.getCompletedDateDays();
-  }, [isOpen]);
+    return dateInvitationService.getCompletedDateDays(couple.id);
+  }, [couple.id, isOpen, todayMoments, history, dateSyncVersion]);
 
   // All authoritative star events with exact type (Match ⭐ vs Date ✨) directly linked to memories
   const allStarEvents = useMemo(() => {
-    return getCoupleStarEvents(couple, todayMoments, history, completedDateDays, now);
-  }, [couple, todayMoments, history, completedDateDays, now]);
+    return getCoupleStarEvents(couple, todayMoments, history, completedDateDays, now, ourDayPhotos);
+  }, [couple, todayMoments, history, completedDateDays, now, ourDayPhotos]);
 
   const allSkyDates = useMemo(() => {
     return allStarEvents.map((e) => e.dateKey);
