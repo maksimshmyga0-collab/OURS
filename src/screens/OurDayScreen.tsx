@@ -7,6 +7,8 @@ import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { getLocalDateKey } from '../services/moments/momentTiming';
 
+import { apiClient } from '../services/api/apiClient';
+
 interface OurDayScreenProps {
   photos: OurDayPhoto[];
   couple: CoupleState;
@@ -16,6 +18,10 @@ interface OurDayScreenProps {
   soundEnabled?: boolean;
   hapticEnabled?: boolean;
 }
+
+const isValidUuid = (id: any): boolean =>
+  typeof id === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id.trim());
 
 function getPhotoDateKey(photo: OurDayPhoto): string {
   if (!photo) return '';
@@ -41,17 +47,45 @@ function getPhotoDateKey(photo: OurDayPhoto): string {
 }
 
 function isCurrentUserOurDayPhoto(photo: OurDayPhoto, couple: CoupleState): boolean {
-  const currentUserId = (couple.user?.id || '').trim();
+  const currentUserId = (couple.user?.id || apiClient.getCurrentUserId() || '').trim();
+  const partnerUserId = (couple.partner?.id || '').trim();
   const photoAuthorId = (photo.authorId || '').trim();
-  if (currentUserId && photoAuthorId && photoAuthorId !== 'user_1' && photoAuthorId !== 'local_user') {
-    return photoAuthorId === currentUserId;
+
+  // 1. Authoritative check: if photo author matches partner ID, it is definitely partner's photo
+  if (partnerUserId && photoAuthorId && photoAuthorId === partnerUserId) {
+    return false;
   }
+
+  // 2. Authoritative check: if photo author matches current user ID, it is definitely user's photo
+  if (currentUserId && photoAuthorId && photoAuthorId === currentUserId) {
+    return true;
+  }
+
+  // 3. Fallback for legacy local/anonymous IDs
   if (photoAuthorId === 'user_1' || photoAuthorId === 'local_user') {
     return true;
   }
-  const currentUserName = (couple.user?.name || '').trim();
-  const photoAuthorName = (photo.authorName || '').trim();
-  return Boolean(currentUserName && photoAuthorName && photoAuthorName === currentUserName);
+
+  // 4. If authorId is a valid UUID that did not match currentUserId, it belongs to the other partner
+  if (isValidUuid(photoAuthorId)) {
+    if (currentUserId && isValidUuid(currentUserId) && photoAuthorId !== currentUserId) {
+      return false;
+    }
+  }
+
+  // 5. Fallback by name only if authorId is not a UUID
+  const currentUserName = (couple.user?.name || '').trim().toLowerCase();
+  const partnerName = (couple.partner?.name || '').trim().toLowerCase();
+  const photoAuthorName = (photo.authorName || '').trim().toLowerCase();
+
+  if (photoAuthorName && partnerName && photoAuthorName === partnerName) {
+    return false;
+  }
+  if (photoAuthorName && currentUserName && photoAuthorName === currentUserName) {
+    return true;
+  }
+
+  return false;
 }
 
 export const OurDayScreen: React.FC<OurDayScreenProps> = ({
@@ -75,8 +109,43 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
     return getPhotoDateKey(p) === todayKey;
   });
 
-  const userPhotoToday = todayPhotos.find((p) => isCurrentUserOurDayPhoto(p, couple));
-  const partnerPhotoToday = todayPhotos.find((p) => !isCurrentUserOurDayPhoto(p, couple));
+  let userPhotoToday: OurDayPhoto | undefined;
+  let partnerPhotoToday: OurDayPhoto | undefined;
+
+  if (todayPhotos.length === 1) {
+    const single = todayPhotos[0];
+    if (isCurrentUserOurDayPhoto(single, couple)) {
+      userPhotoToday = single;
+    } else {
+      partnerPhotoToday = single;
+    }
+  } else if (todayPhotos.length >= 2) {
+    const primaryUser = todayPhotos.find((p) => isCurrentUserOurDayPhoto(p, couple));
+    const primaryPartner = todayPhotos.find((p) => !isCurrentUserOurDayPhoto(p, couple));
+
+    if (primaryUser && primaryPartner && primaryUser.id !== primaryPartner.id) {
+      userPhotoToday = primaryUser;
+      partnerPhotoToday = primaryPartner;
+    } else {
+      // Classification collision safeguard: guarantees BOTH photos are displayed and neither is dropped
+      const currentUid = (couple.user?.id || apiClient.getCurrentUserId() || '').trim();
+      const partnerUid = (couple.partner?.id || '').trim();
+
+      if (currentUid && todayPhotos[0].authorId === currentUid) {
+        userPhotoToday = todayPhotos[0];
+        partnerPhotoToday = todayPhotos[1];
+      } else if (partnerUid && todayPhotos[0].authorId === partnerUid) {
+        partnerPhotoToday = todayPhotos[0];
+        userPhotoToday = todayPhotos[1];
+      } else if (primaryUser) {
+        userPhotoToday = primaryUser;
+        partnerPhotoToday = todayPhotos.find((p) => p.id !== primaryUser.id) || todayPhotos[1];
+      } else {
+        userPhotoToday = todayPhotos[0];
+        partnerPhotoToday = todayPhotos[1];
+      }
+    }
+  }
 
   const hasUserPhoto = Boolean(userPhotoToday);
   const hasPartnerPhoto = Boolean(partnerPhotoToday);
@@ -109,6 +178,13 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
     setErrorMessage(null);
     setUploadProgress('Обработка кадра...');
 
+    let uploadTimer: any = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      uploadTimer = setTimeout(() => {
+        reject(new Error('Время ожидания загрузки истекло. Пожалуйста, попробуйте снова.'));
+      }, 25000);
+    });
+
     try {
       const file = files[0];
       let dataUrl = '';
@@ -134,14 +210,17 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
 
       if (dataUrl) {
         setUploadProgress('Сохранение кадра...');
-        await onAddPhotos([dataUrl]);
+        await Promise.race([onAddPhotos([dataUrl]), timeoutPromise]);
         triggerHaptic(hapticEnabled);
         playSoftChime('match', soundEnabled);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[OurDayScreen] Upload error:', err);
-      setErrorMessage('Не удалось сохранить новое фото. Ваше прежнее фото сохранено.');
+      setErrorMessage(err?.message || 'Не удалось сохранить новое фото. Ваше прежнее фото сохранено.');
     } finally {
+      if (uploadTimer) {
+        clearTimeout(uploadTimer);
+      }
       setIsUploading(false);
       setUploadProgress(null);
     }

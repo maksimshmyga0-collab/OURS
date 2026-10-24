@@ -232,26 +232,41 @@ class OurDayService {
           .maybeSingle();
 
         if (insertErr) {
-          // Fallback: try upsert on (moment_id, user_id)
-          const { data: upsertedRow, error: upsertErr } = await supabase
-            .from('photos')
-            .upsert(
-              {
-                moment_id: primaryContainerId,
-                user_id: resolvedUserId,
-                storage_path: storageUrl,
-                created_at: nowIso,
-              },
-              { onConflict: 'moment_id,user_id' }
-            )
-            .select('id, created_at')
-            .maybeSingle();
+          // Fallback: check if row was created concurrently or already exists, then update
+          try {
+            const { data: fallbackRow } = await supabase
+              .from('photos')
+              .select('id, created_at')
+              .eq('moment_id', primaryContainerId)
+              .eq('user_id', resolvedUserId)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
 
-          if (upsertErr) {
-            throw new Error(upsertErr.message || insertErr.message || 'Failed to save Our Day photo row');
+            if (fallbackRow?.id) {
+              const { data: updatedFallback, error: fallbackUpErr } = await supabase
+                .from('photos')
+                .update({
+                  storage_path: storageUrl,
+                  created_at: nowIso,
+                })
+                .eq('id', fallbackRow.id)
+                .select('id, created_at')
+                .maybeSingle();
+
+              if (!fallbackUpErr && updatedFallback?.id) {
+                savedPhotoId = updatedFallback.id;
+                savedCreatedAt = updatedFallback.created_at || nowIso;
+              } else {
+                savedPhotoId = fallbackRow.id;
+                savedCreatedAt = fallbackRow.created_at || nowIso;
+              }
+            } else {
+              throw new Error(insertErr.message || 'Failed to save Our Day photo row');
+            }
+          } catch (fbErr: any) {
+            throw new Error(fbErr?.message || insertErr.message || 'Failed to save Our Day photo row');
           }
-          savedPhotoId = upsertedRow?.id || null;
-          savedCreatedAt = upsertedRow?.created_at || nowIso;
         } else {
           savedPhotoId = insertedRow?.id || null;
           savedCreatedAt = insertedRow?.created_at || nowIso;
@@ -368,13 +383,22 @@ class OurDayService {
         return [];
       }
 
-      const { data: photoRows, error: photosErr } = await supabase
-        .from('photos')
-        .select('id, moment_id, user_id, storage_path, created_at')
-        .in('moment_id', containerIds)
-        .order('created_at', { ascending: false });
+      const photoRows: any[] = [];
+      const CHUNK_SIZE = 30;
+      for (let i = 0; i < containerIds.length; i += CHUNK_SIZE) {
+        const chunk = containerIds.slice(i, i + CHUNK_SIZE);
+        const { data: chunkRows, error: chunkErr } = await supabase
+          .from('photos')
+          .select('id, moment_id, user_id, storage_path, created_at')
+          .in('moment_id', chunk)
+          .order('created_at', { ascending: false });
 
-      if (photosErr || !Array.isArray(photoRows) || photoRows.length === 0) {
+        if (!chunkErr && Array.isArray(chunkRows)) {
+          photoRows.push(...chunkRows);
+        }
+      }
+
+      if (photoRows.length === 0) {
         return [];
       }
 

@@ -445,11 +445,13 @@ export default function App() {
             ourDayService.fetchRemotePhotos(activePairId).then((remotePhotos) => {
               if (!isMounted || !Array.isArray(remotePhotos)) return;
               setAppState((prev) => {
+                const currentUid = prev.couple?.user?.id || apiClient.getCurrentUserId() || '';
+                const currentUName = prev.couple?.user?.name || '';
                 const merged = mergeOurDayPhotos(
                   remotePhotos,
                   prev.ourDayPhotos || [],
-                  prev.couple?.user?.id,
-                  prev.couple?.user?.name
+                  currentUid,
+                  currentUName
                 );
                 if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
                   return prev;
@@ -665,11 +667,13 @@ export default function App() {
         ourDayService.fetchRemotePhotos(pairId).then((remotePhotos) => {
           if (Array.isArray(remotePhotos)) {
             setAppState((prev) => {
+              const currentUid = prev.couple?.user?.id || apiClient.getCurrentUserId() || '';
+              const currentUName = prev.couple?.user?.name || '';
               const merged = mergeOurDayPhotos(
                 remotePhotos,
                 prev.ourDayPhotos || [],
-                prev.couple?.user?.id,
-                prev.couple?.user?.name
+                currentUid,
+                currentUName
               );
               if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
                 return prev;
@@ -803,11 +807,13 @@ export default function App() {
       ourDayService.fetchRemotePhotos(appState.couple.id).then((remotePhotos) => {
         if (Array.isArray(remotePhotos)) {
           setAppState((prev) => {
+            const currentUid = prev.couple?.user?.id || apiClient.getCurrentUserId() || '';
+            const currentUName = prev.couple?.user?.name || '';
             const merged = mergeOurDayPhotos(
               remotePhotos,
               prev.ourDayPhotos || [],
-              prev.couple?.user?.id,
-              prev.couple?.user?.name
+              currentUid,
+              currentUName
             );
             if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
               return prev;
@@ -988,11 +994,13 @@ export default function App() {
           ourDayService.fetchRemotePhotos(res.pair.id).then((remotePhotos) => {
             if (Array.isArray(remotePhotos)) {
               setAppState((prev) => {
+                const currentUid = prev.couple?.user?.id || apiClient.getCurrentUserId() || '';
+                const currentUName = prev.couple?.user?.name || '';
                 const merged = mergeOurDayPhotos(
                   remotePhotos,
                   prev.ourDayPhotos || [],
-                  prev.couple?.user?.id,
-                  prev.couple?.user?.name
+                  currentUid,
+                  currentUName
                 );
                 if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
                   return prev;
@@ -1093,7 +1101,7 @@ export default function App() {
     );
 
     setAppState((prev) => {
-      const currentUserId = prev.couple?.user?.id || savedPhoto.authorId;
+      const currentUserId = prev.couple?.user?.id || savedPhoto.authorId || apiClient.getCurrentUserId() || '';
       const currentUserName = prev.couple?.user?.name || authorName;
       const merged = mergeOurDayPhotos(
         [savedPhoto],
@@ -1103,6 +1111,13 @@ export default function App() {
       );
       const updated = {
         ...prev,
+        couple: {
+          ...prev.couple,
+          user: {
+            ...prev.couple.user,
+            id: prev.couple.user.id || savedPhoto.authorId,
+          },
+        },
         ourDayPhotos: merged,
       };
       saveAppState(updated);
@@ -1114,11 +1129,13 @@ export default function App() {
       ourDayService.fetchRemotePhotos(pairId).then((remotePhotos) => {
         if (Array.isArray(remotePhotos) && remotePhotos.length > 0) {
           setAppState((prev) => {
+            const currentUid = prev.couple?.user?.id || savedPhoto.authorId || apiClient.getCurrentUserId() || '';
+            const currentUName = prev.couple?.user?.name || authorName;
             const merged = mergeOurDayPhotos(
               remotePhotos,
               prev.ourDayPhotos || [],
-              prev.couple?.user?.id || savedPhoto.authorId,
-              prev.couple?.user?.name || authorName
+              currentUid,
+              currentUName
             );
             if (areOurDayPhotosEqual(merged, prev.ourDayPhotos || [])) {
               return prev;

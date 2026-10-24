@@ -112,6 +112,7 @@ export class AppStorageService implements IStorageService {
         const srvResp = await fetch('/api/storage/upload-photo', {
           method: 'POST',
           headers,
+          signal: typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(12000) : undefined,
           body: JSON.stringify({
             pairId,
             momentId,
@@ -151,29 +152,41 @@ export class AppStorageService implements IStorageService {
       const filePath = `${safePairId}/${safeMomentId}/${safeUserId}_${Date.now()}.${ext}`;
 
       try {
-        let uploadRes = await supabase.storage
-          .from(this.bucketName)
-          .upload(filePath, blob, {
-            contentType: blob.type || 'image/jpeg',
-            upsert: true,
-          });
-
-        if (uploadRes.error && this.bucketName !== 'moments') {
-          uploadRes = await supabase.storage
-            .from('moments')
-            .upload(filePath, blob, {
-              contentType: blob.type || 'image/jpeg',
+        const uploadDirect = async (): Promise<string | null> => {
+          let uploadRes = await supabase.storage
+            .from(this.bucketName)
+            .upload(filePath, blob!, {
+              contentType: blob!.type || 'image/jpeg',
               upsert: true,
             });
+
+          if (uploadRes.error && this.bucketName !== 'moments') {
+            uploadRes = await supabase.storage
+              .from('moments')
+              .upload(filePath, blob!, {
+                contentType: blob!.type || 'image/jpeg',
+                upsert: true,
+              });
+            if (!uploadRes.error) {
+              const { data } = supabase.storage.from('moments').getPublicUrl(filePath);
+              return data.publicUrl;
+            }
+          }
+
           if (!uploadRes.error) {
-            const { data } = supabase.storage.from('moments').getPublicUrl(filePath);
+            const { data } = supabase.storage.from(this.bucketName).getPublicUrl(filePath);
             return data.publicUrl;
           }
-        }
+          return null;
+        };
 
-        if (!uploadRes.error) {
-          const { data } = supabase.storage.from(this.bucketName).getPublicUrl(filePath);
-          return data.publicUrl;
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error('Storage upload timeout')), 15000);
+        });
+
+        const publicUrlResult = await Promise.race([uploadDirect(), timeoutPromise]);
+        if (publicUrlResult) {
+          return publicUrlResult;
         }
       } catch (err) {
         console.warn('[OURS Storage] Client direct storage upload exception:', err);
