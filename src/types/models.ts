@@ -160,4 +160,4 @@ export interface OurDayPhoto {
   caption?: string | null;
 }
 
-export type NavigationTab = 'date' | 'today' | 'our_day' | 'history' | 'profile';
+export type NavigationTab = 'sky' | 'date' | 'today' | 'our_day' | 'history' | 'profile';

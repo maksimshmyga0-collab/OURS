@@ -17,6 +17,7 @@ interface OurDayScreenProps {
   onClearAllPhotos?: () => Promise<void> | void;
   soundEnabled?: boolean;
   hapticEnabled?: boolean;
+  isEmbedded?: boolean;
 }
 
 const isValidUuid = (id: any): boolean =>
@@ -94,6 +95,7 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
   onAddPhotos,
   soundEnabled = true,
   hapticEnabled = true,
+  isEmbedded = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -227,7 +229,13 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
   };
 
   return (
-    <div className="flex-1 h-full w-full flex flex-col space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
+    <div
+      className={
+        isEmbedded
+          ? 'w-full flex flex-col space-y-3'
+          : 'flex-1 h-full w-full flex flex-col space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1'
+      }
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -236,12 +244,12 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
         className="hidden"
       />
 
-      {/* Screen Header */}
+      {/* Screen / Section Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white">
+          <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white">
             Наш день
-          </h1>
+          </h2>
           <p className="text-[11px] sm:text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
             Совместный момент вашей повседневности
           </p>

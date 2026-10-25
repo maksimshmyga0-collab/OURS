@@ -8,7 +8,7 @@ import { ProgressDots } from '../components/ProgressDots';
 import { MatchAnimation } from '../components/MatchAnimation';
 import { PhotoPickerModal } from '../components/PhotoPickerModal';
 import { FullscreenPhotoViewer } from '../components/FullscreenPhotoViewer';
-import { OurSkyPreview } from '../components/OurSkyPreview';
+import { OurDayScreen } from './OurDayScreen';
 import { MatchButton } from '../components/MatchButton';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
 import { WaitingCloudGlow } from '../components/WaitingCloudGlow';
@@ -39,6 +39,9 @@ interface TodayScreenProps {
   onOpenStreak?: () => void;
   onOpenSky?: () => void;
   isActive?: boolean;
+  onAddOurDayPhotos?: (imageUrls: string[]) => Promise<void>;
+  onDeleteOurDayPhoto?: (photoId: string) => Promise<void>;
+  onClearAllOurDayPhotos?: () => Promise<void> | void;
 }
 
 export const TodayScreen: React.FC<TodayScreenProps> = ({
@@ -56,6 +59,9 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
   onOpenStreak,
   onOpenSky,
   isActive = true,
+  onAddOurDayPhotos,
+  onDeleteOurDayPhoto,
+  onClearAllOurDayPhotos,
 }) => {
   const [isPhotoPickerOpen, setIsPhotoPickerOpen] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
@@ -527,22 +533,19 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         </PastelCard>
       </div>
 
-      {/* «Наше небо» — Живое интерактивное окно в общее небо пары */}
-      {(onOpenStreak || onOpenSky) && (
-        <div className="mt-0.5 sm:mt-1 relative z-10">
-          <OurSkyPreview
-            couple={couple}
-            todayMoments={moments}
-            history={history}
-            ourDayPhotos={ourDayPhotos}
-            pairSeed={pairSeed}
-            streakInfo={streakInfo}
-            soundEnabled={soundEnabled}
-            hapticEnabled={hapticEnabled}
-            onOpenSky={onOpenStreak || onOpenSky || (() => {})}
-          />
-        </div>
-      )}
+      {/* 2. Интерфейс «Наш день» — расположен непосредственно под блоком «Касание» */}
+      <div className="relative z-10 w-full">
+        <OurDayScreen
+          isEmbedded={true}
+          photos={ourDayPhotos}
+          couple={couple}
+          onAddPhotos={onAddOurDayPhotos || (async () => {})}
+          onDeletePhoto={onDeleteOurDayPhoto}
+          onClearAllPhotos={onClearAllOurDayPhotos}
+          soundEnabled={soundEnabled}
+          hapticEnabled={hapticEnabled}
+        />
+      </div>
 
 
       {/* Photo Picker Modal */}

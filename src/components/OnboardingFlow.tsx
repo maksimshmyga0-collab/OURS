@@ -22,6 +22,7 @@ import {
 import { playSoftChime, triggerHaptic } from '../services/feedback';
 import { copyToClipboard } from '../services/device/clipboard';
 import { OursLogo } from './OursLogo';
+import { SHOW_DATE_FEATURE } from '../config/features';
 
 export interface OnboardingCompleteResult {
   success: boolean;
@@ -47,7 +48,9 @@ interface OnboardingFlowProps {
 
 type OnboardingView = 'slide-1' | 'slide-2' | 'slide-3' | 'slide-4' | 'hub' | 'create' | 'join' | 'restore' | 'created-code';
 
-const ONBOARDING_SLIDES: OnboardingView[] = ['slide-1', 'slide-2', 'slide-3', 'slide-4'];
+const ONBOARDING_SLIDES: OnboardingView[] = SHOW_DATE_FEATURE
+  ? ['slide-1', 'slide-2', 'slide-3', 'slide-4']
+  : ['slide-2', 'slide-3', 'slide-4'];
 
 export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onComplete,
@@ -55,7 +58,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   onClose,
   isPreview = false,
 }) => {
-  const [view, setView] = useState<OnboardingView>('slide-1');
+  const [view, setView] = useState<OnboardingView>(() =>
+    SHOW_DATE_FEATURE ? 'slide-1' : 'slide-2'
+  );
   const [userName, setUserName] = useState<string>('');
   const [joinName, setJoinName] = useState<string>('');
   const [joinCode, setJoinCode] = useState<string>('');
@@ -370,21 +375,35 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           <div className="flex-1 flex flex-col justify-between animate-in fade-in slide-in-from-bottom-3 duration-300">
             {/* Top Bar: Back on left, Skip on right */}
             <div className="flex items-center justify-between h-10">
-              <button
-                type="button"
-                onClick={() => handleBack('slide-1')}
-                className="w-9 h-9 rounded-full bg-white dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#343033] dark:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
-                title="Назад"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white px-2 py-1 rounded-full transition-colors cursor-pointer"
-              >
-                Пропустить
-              </button>
+              {SHOW_DATE_FEATURE ? (
+                <button
+                  type="button"
+                  onClick={() => handleBack('slide-1')}
+                  className="w-9 h-9 rounded-full bg-white dark:bg-[#1E1C1E] border border-[#EBE3E5] dark:border-[#242024] flex items-center justify-center text-[#343033] dark:text-white transition-all active:scale-95 cursor-pointer shadow-2xs"
+                  title="Назад"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+              ) : (
+                <div className="w-9 h-9" />
+              )}
+              {isPreview && onClose ? (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-xs font-semibold px-3.5 py-1.5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC] dark:border-[#382329] hover:bg-[#F6E2E6] dark:hover:bg-[#2A181E] transition-all cursor-pointer active:scale-95 shadow-2xs"
+                >
+                  Закрыть
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSkip}
+                  className="text-xs font-medium text-[#777277] dark:text-[#B8B2B5] hover:text-[#343033] dark:hover:text-white px-2 py-1 rounded-full transition-colors cursor-pointer"
+                >
+                  Пропустить
+                </button>
+              )}
             </div>
 
             {/* Center Motif: «Касание» Diptych Photo Slots */}
@@ -453,9 +472,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
             {/* Bottom Progress & CTA */}
             <div className="pb-4 pt-6 space-y-6">
-              {/* 4 Indicators */}
+              {/* Indicators */}
               <div className="flex items-center justify-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
+                {SHOW_DATE_FEATURE && (
+                  <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
+                )}
                 <span className="w-7 h-2 rounded-full bg-[#E98787] dark:bg-[#F0B9C6] transition-all duration-300" />
                 <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
                 <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
@@ -551,9 +572,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
             {/* Bottom Progress & CTA */}
             <div className="pb-4 pt-6 space-y-6">
-              {/* 4 Indicators */}
+              {/* Indicators */}
               <div className="flex items-center justify-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
+                {SHOW_DATE_FEATURE && (
+                  <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
+                )}
                 <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
                 <span className="w-7 h-2 rounded-full bg-[#E98787] dark:bg-[#F0B9C6] transition-all duration-300" />
                 <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
@@ -662,9 +685,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 
             {/* Bottom Progress & CTA */}
             <div className="pb-4 pt-6 space-y-6">
-              {/* 4 Indicators */}
+              {/* Indicators */}
               <div className="flex items-center justify-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
+                {SHOW_DATE_FEATURE && (
+                  <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
+                )}
                 <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
                 <span className="w-2 h-2 rounded-full bg-[#F0E6E8] dark:bg-[#2A2428] transition-all duration-300" />
                 <span className="w-7 h-2 rounded-full bg-[#E98787] dark:bg-[#F0B9C6] transition-all duration-300" />

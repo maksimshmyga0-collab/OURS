@@ -6,6 +6,7 @@ import {
   resetToOnboarding,
 } from './services/storage/appStateStorage';
 import { NavigationTab, Moment, AppSettings, UserProfile, ThemeMode, MomentStatus, OurDayPhoto } from './types';
+import { SHOW_DATE_FEATURE } from './config/features';
 import { apiClient } from './services/api/apiClient';
 import { ThemeProvider } from './services/theme/ThemeContext';
 import { CoupleHeader } from './components/CoupleHeader';
@@ -36,13 +37,13 @@ import { dateInvitationService } from './services/dates/dateInvitationService';
 import { photoSyncQueue } from './services/storage/photoSyncQueue';
 import { bootDiagnostics } from './services/device/bootDiagnostics';
 import { AppBootFallback } from './components/AppBootFallback';
-import { OurDayScreen } from './screens/OurDayScreen';
 import { ourDayService } from './services/ourDay/ourDayService';
 
 // Code-split non-critical screens and modals for fast budget-device startup
 const HistoryScreen = React.lazy(() => import('./screens/HistoryScreen').then(m => ({ default: m.HistoryScreen })));
 const ProfileScreen = React.lazy(() => import('./screens/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
 const DateScreen = React.lazy(() => import('./screens/DateScreen').then(m => ({ default: m.DateScreen })));
+const SkyScreen = React.lazy(() => import('./screens/SkyScreen').then(m => ({ default: m.SkyScreen })));
 const LegalScreen = React.lazy(() => import('./screens/LegalScreen').then(m => ({ default: m.LegalScreen })));
 const LovelyModal = React.lazy(() => import('./components/LovelyModal').then(m => ({ default: m.LovelyModal })));
 const OurSkyModal = React.lazy(() => import('./components/OurSkyModal').then(m => ({ default: m.OurSkyModal })));
@@ -307,6 +308,13 @@ export default function App() {
   );
   const [dateSyncVersion, setDateSyncVersion] = useState<number>(0);
   const [isInitialSessionReady, setIsInitialSessionReady] = useState(false);
+
+  // Normalize active tab if Date feature is disabled or our_day is requested
+  useEffect(() => {
+    if ((!SHOW_DATE_FEATURE && activeTab === 'date') || activeTab === 'our_day') {
+      setActiveTab('today');
+    }
+  }, [activeTab]);
 
   // Subscribe to date invitation updates for bottom tab badge & star calculations
   useEffect(() => {
@@ -801,9 +809,9 @@ export default function App() {
     };
   }, [isInitialSessionReady, appState.couple.id]);
 
-  // Ensure History and Our Day photos are fresh when History/Our Day tab or Our Sky modal is opened
+  // Ensure History and Our Day photos are fresh when History/Today/Sky tab or Our Sky modal is opened
   useEffect(() => {
-    if ((activeTab === 'history' || activeTab === 'our_day' || isStreakModalOpen) && appState.couple.id) {
+    if ((activeTab === 'history' || activeTab === 'today' || activeTab === 'sky' || isStreakModalOpen) && appState.couple.id) {
       ourDayService.fetchRemotePhotos(appState.couple.id).then((remotePhotos) => {
         if (Array.isArray(remotePhotos)) {
           setAppState((prev) => {
@@ -1469,8 +1477,10 @@ export default function App() {
   }, [activeTab]);
 
   const handleOpenStreakModal = useCallback(() => {
-    setIsStreakModalOpen(true);
-  }, []);
+    setActiveTab('sky');
+    triggerHaptic(appState.settings.haptic);
+    playSoftChime('tap', appState.settings.sounds);
+  }, [appState.settings.haptic, appState.settings.sounds]);
 
   const handleOpenLovelyModal = useCallback(() => {
     setIsLovelyModalOpen(true);
@@ -1493,12 +1503,32 @@ export default function App() {
   }, []);
 
   const handleTabChange = useCallback((tab: NavigationTab) => {
+    if ((!SHOW_DATE_FEATURE && tab === 'date') || tab === 'our_day') {
+      setActiveTab('today');
+      return;
+    }
     setActiveTab(tab);
     playSoftChime('tap', appState.settings.sounds);
     triggerHaptic(appState.settings.haptic);
   }, [appState.settings.sounds, appState.settings.haptic]);
 
   const tabViewsChildren = useMemo(() => ({
+    sky: () => (
+      <React.Suspense fallback={<TabLoadingFallback />}>
+        <SkyScreen
+          couple={appState.couple}
+          pairSeed={pairSeed}
+          todayMoments={appState.todayMoments}
+          history={appState.history}
+          ourDayPhotos={appState.ourDayPhotos || []}
+          partnerAName={appState.couple.user.name}
+          partnerBName={appState.couple.partner.name}
+          onOpenLovely={handleOpenLovelyModal}
+          onOpenPremium={handleOpenLovelyModal}
+          isActive={activeTab === 'sky'}
+        />
+      </React.Suspense>
+    ),
     date: () => (
       <React.Suspense fallback={<TabLoadingFallback />}>
         <DateScreen
@@ -1524,17 +1554,9 @@ export default function App() {
         streakInfo={streakInfo}
         onOpenStreak={handleOpenStreakModal}
         isActive={activeTab === 'today'}
-      />
-    ),
-    our_day: (
-      <OurDayScreen
-        photos={appState.ourDayPhotos || []}
-        couple={appState.couple}
-        onAddPhotos={handleAddOurDayPhotos}
-        onDeletePhoto={handleDeleteOurDayPhoto}
-        onClearAllPhotos={handleClearAllOurDayPhotos}
-        soundEnabled={appState.settings.sounds}
-        hapticEnabled={appState.settings.haptic}
+        onAddOurDayPhotos={handleAddOurDayPhotos}
+        onDeleteOurDayPhoto={handleDeleteOurDayPhoto}
+        onClearAllOurDayPhotos={handleClearAllOurDayPhotos}
       />
     ),
     history: () => (
@@ -1643,7 +1665,7 @@ export default function App() {
             <BottomTabBar
               activeTab={activeTab}
               onTabChange={handleTabChange}
-              hasDateNotification={hasUnreadDateInvitation}
+              hasDateNotification={SHOW_DATE_FEATURE ? hasUnreadDateInvitation : false}
             />
 
             {/* LOVELY One-Time Purchase Modal for the Couple */}

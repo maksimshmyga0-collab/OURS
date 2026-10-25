@@ -1,5 +1,4 @@
 import React from 'react';
-import { OursLogo } from './OursLogo';
 import { Avatar } from './Avatar';
 import { CoupleState } from '../types';
 import { Sparkles } from 'lucide-react';
@@ -43,19 +42,19 @@ export const CoupleHeader: React.FC<CoupleHeaderProps> = React.memo(({
           </button>
         </div>
 
-        {/* 2. Center Zone: Brand logo & wordmark lockup (Visually optical centered, shifted 10px left) */}
-        <div className="flex items-center justify-center shrink-0 px-1 sm:px-2 select-none -translate-x-[10px]">
-          <OursLogo size={isLovely ? 46 : 52} className="shrink-0 -mr-2.5" />
-          <div className="flex flex-col items-start justify-center shrink-0">
-            <span className="font-display font-semibold tracking-wide text-base sm:text-lg text-[#343033] dark:text-white leading-none shrink-0">
-              OURS
+        {/* 2. Center Zone: Clean wordmark, perfectly centered */}
+        <div className="flex flex-col items-center justify-center shrink-0 px-2 select-none">
+          <span
+            className="font-display font-bold tracking-[0.05em] text-[20px] sm:text-[22px] text-[#343033] dark:text-white leading-none shrink-0 inline-block origin-center will-change-transform"
+            style={{ transform: 'scaleX(1.15)' }}
+          >
+            OURS
+          </span>
+          {isLovely && (
+            <span className="text-[8px] font-bold tracking-[0.14em] text-[#E98787] dark:text-[#F0B9C6] uppercase leading-none mt-1 shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#251720] border border-[#EED7DC]/80 dark:border-[#382329]">
+              <span className="text-[7px] leading-none">♡</span> LOVELY
             </span>
-            {isLovely && (
-              <span className="text-[8px] font-bold tracking-[0.14em] text-[#E98787] dark:text-[#F0B9C6] uppercase leading-none mt-1 shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#FAF0F2] dark:bg-[#251720] border border-[#EED7DC]/80 dark:border-[#382329]">
-                <span className="text-[7px] leading-none">♡</span> LOVELY
-              </span>
-            )}
-          </div>
+          )}
         </div>
 
         {/* 3. Right Zone: Two Paired Avatars only (No text, 1:1 container matching left star pill) */}

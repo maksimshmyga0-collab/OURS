@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock3, HeartHandshake, Mail, UserRound, Images } from 'lucide-react';
+import { Clock3, HeartHandshake, Sparkles } from 'lucide-react';
 import { NavigationTab } from '../types';
 
 interface BottomTabBarProps {
@@ -11,23 +11,17 @@ interface BottomTabBarProps {
 export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
   activeTab,
   onTabChange,
-  hasDateNotification = false,
 }) => {
   const tabs = [
     {
-      id: 'date' as NavigationTab,
-      label: 'Свидание',
-      icon: Mail,
+      id: 'sky' as NavigationTab,
+      label: 'Звёздное небо',
+      icon: Sparkles,
     },
     {
       id: 'today' as NavigationTab,
       label: 'Касание',
       icon: HeartHandshake,
-    },
-    {
-      id: 'our_day' as NavigationTab,
-      label: 'Наш день',
-      icon: Images,
     },
     {
       id: 'history' as NavigationTab,
@@ -44,7 +38,7 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
       }}
       aria-label="Нижняя навигация"
     >
-      <div className="max-w-md mx-auto grid grid-cols-4 gap-1 sm:gap-2">
+      <div className="max-w-md mx-auto grid grid-cols-3 gap-1 sm:gap-2">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -64,12 +58,6 @@ export const BottomTabBar: React.FC<BottomTabBarProps> = React.memo(({
                     isActive ? 'text-[#E98787]' : 'text-[#8A8488] dark:text-[#B8B2B5]'
                   }`}
                 />
-                {tab.id === 'date' && hasDateNotification && (
-                  <span
-                    className="absolute -top-0.5 -right-1 w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-[#F0B9C6] to-[#E98787] ring-2 ring-[#FFF9FA] dark:ring-black animate-pulse shadow-xs"
-                    aria-label="Новое приглашение"
-                  />
-                )}
               </div>
               <span
                 className={`text-[10px] sm:text-[11px] tracking-tight leading-none whitespace-nowrap transition-colors duration-200 ease-out ${

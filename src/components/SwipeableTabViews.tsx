@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { NavigationTab } from '../types';
 import { playSoftChime, triggerHaptic } from '../services/feedback';
+import { SHOW_DATE_FEATURE } from '../config/features';
 
-const TABS: NavigationTab[] = ['date', 'today', 'our_day', 'history', 'profile'];
-const LAST_SWIPEABLE_INDEX = 3; // 'history' — 'profile' (index 4) opens only via header button
+const TABS: NavigationTab[] = ['sky', 'today', 'history', 'profile'];
+const LAST_SWIPEABLE_INDEX = 2; // 'history' (index 2) — 'profile' (index 3) opens only via header button
 
 export type TabContentNode = React.ReactNode | (() => React.ReactNode);
 
@@ -14,11 +15,12 @@ interface SwipeableTabViewsProps {
   hapticEnabled?: boolean;
   disabled?: boolean;
   children: {
-    date: TabContentNode;
+    sky: TabContentNode;
     today: TabContentNode;
-    our_day: TabContentNode;
     history: TabContentNode;
     profile: TabContentNode;
+    date?: TabContentNode;
+    our_day?: TabContentNode;
   };
 }
 
@@ -515,45 +517,22 @@ export const SwipeableTabViews: React.FC<SwipeableTabViewsProps> = ({
           alignItems: 'stretch',
         }}
       >
-        {/* Slide 0: Date */}
-        <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-2 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(0)}`}
-          aria-hidden={currentIndex !== 0}
-        >
-          {mountedTabs.has(0) ? renderTabContent(children.date) : null}
-        </div>
+        {TABS.map((tabId, idx) => {
+          let paddingClass = 'px-4 pt-4 pb-2';
+          if (tabId === 'sky' || tabId === 'today') {
+            paddingClass = 'px-3 sm:px-4 pt-1.5 sm:pt-2.5 pb-1';
+          }
 
-        {/* Slide 1: Today */}
-        <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2.5 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(1)}`}
-          aria-hidden={currentIndex !== 1}
-        >
-          {mountedTabs.has(1) ? renderTabContent(children.today) : null}
-        </div>
-
-        {/* Slide 2: Our Day */}
-        <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-3 sm:px-4 pt-1.5 sm:pt-2 pb-1 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(2)}`}
-          aria-hidden={currentIndex !== 2}
-        >
-          {mountedTabs.has(2) ? renderTabContent(children.our_day) : null}
-        </div>
-
-        {/* Slide 3: History */}
-        <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(3)}`}
-          aria-hidden={currentIndex !== 3}
-        >
-          {mountedTabs.has(3) ? renderTabContent(children.history) : null}
-        </div>
-
-        {/* Slide 4: Profile */}
-        <div
-          className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border px-4 pt-4 pb-2 flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(4)}`}
-          aria-hidden={currentIndex !== 4}
-        >
-          {mountedTabs.has(4) ? renderTabContent(children.profile) : null}
-        </div>
+          return (
+            <div
+              key={tabId}
+              className={`w-full min-w-full max-w-full shrink-0 grow-0 box-border ${paddingClass} flex flex-col h-full min-h-0 overflow-hidden ${getTabClass(idx)}`}
+              aria-hidden={currentIndex !== idx}
+            >
+              {mountedTabs.has(idx) ? renderTabContent(children[tabId]) : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
