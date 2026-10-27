@@ -3,7 +3,7 @@ import { UserProfile, CoupleStreakInfo } from '../types';
 import { Avatar } from './Avatar';
 import { PrimaryButton } from './PrimaryButton';
 import { X, Camera, RotateCcw, Check, ChevronRight, Sparkles } from 'lucide-react';
-import { getCoupleLevel, pluralizeWord } from '../services/gamification';
+import { pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { optimizePhotoForUpload } from '../services/storage/imageOptimizer';
 
@@ -107,7 +107,6 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   };
 
   const isFormDirty = name.trim() !== user.name || isPhotoChanged;
-  const coupleLevel = getCoupleLevel(streakInfo.totalMoments);
 
   return (
     <div
@@ -312,58 +311,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
           )}
 
-          {/* SECTION 3: «Уровень нашей истории» — Emotional Gamification */}
-          <div className="bg-white dark:bg-[#161416] rounded-[24px] p-4.5 border border-[#EBE3E5] dark:border-[#242024] shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-bold text-[#777277] dark:text-[#B8B2B5] uppercase tracking-wider block">
-                  Уровень нашей истории
-                </span>
-                <h4 className="font-display text-base font-bold text-[#343033] dark:text-white flex items-center gap-2 mt-0.5">
-                  <span
-                    className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC]/80 dark:border-[#382329] shrink-0"
-                    aria-hidden="true"
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="w-3.5 h-3.5"
-                    >
-                      <path
-                        d="M10 2.5C10 6.64 6.64 10 2.5 10C6.64 10 10 13.36 10 17.5C10 13.36 13.36 10 17.5 10C13.36 10 10 6.64 10 2.5Z"
-                        opacity={coupleLevel.progressPercent > 0 ? 0.95 : 0.8}
-                      />
-                      <circle cx="10" cy="10" r="1.2" fill="#FFFFFF" opacity="0.9" />
-                    </svg>
-                  </span>
-                  <span>{coupleLevel.levelTitle}</span>
-                </h4>
-              </div>
 
-              <span className="text-xs font-bold text-[#343033] dark:text-white px-2.5 py-1 rounded-full bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#352126]">
-                {coupleLevel.progressText}
-              </span>
-            </div>
-
-            {/* Smooth Progress Bar */}
-            <div className="w-full h-2.5 rounded-full bg-[#F2ECEE] dark:bg-[#242024] overflow-hidden p-0.5">
-              <div
-                className="h-full rounded-full bg-[#E98787] transition-all duration-500 ease-out"
-                style={{ width: `${coupleLevel.progressPercent}%` }}
-              />
-            </div>
-
-            <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5]">
-              {coupleLevel.nextLevelThreshold
-                ? `Ещё ${coupleLevel.remainingToNext} ${pluralizeWord(
-                    coupleLevel.remainingToNext,
-                    'момент',
-                    'момента',
-                    'моментов'
-                  )} до следующего уровня`
-                : 'Вы достигли максимального уровня совместной истории! ✨'}
-            </p>
-          </div>
         </div>
 
         {/* Footer Action - Pinned at bottom */}

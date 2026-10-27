@@ -4,7 +4,6 @@ import { CoupleState, CoupleStreakInfo, AppSettings, Moment, HistoryDay, OurDayP
 import { PastelCard } from '../components/PastelCard';
 import { Avatar } from '../components/Avatar';
 import { AtmosphericGlow } from '../components/AtmosphericGlow';
-import { OurSkyPreview } from '../components/OurSkyPreview';
 import {
   Bell,
   Volume2,
@@ -25,7 +24,7 @@ import {
   Link as LinkIcon,
   Settings,
 } from 'lucide-react';
-import { getCoupleLevel, pluralizeWord } from '../services/gamification';
+import { pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { copyToClipboard } from '../services/device/clipboard';
 import { OursLogo } from '../components/OursLogo';
@@ -88,7 +87,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const isLovely = Boolean(couple.isLovely || couple.subscription === 'premium');
   const handleOpenLovely = onOpenLovely || onOpenPremium;
-  const handleOpenSky = onOpenSky || onOpenFingerprint || onOpenThread;
 
   // Escape key support to close open screens cleanly
   useEffect(() => {
@@ -179,11 +177,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     triggerHaptic(nextState);
   };
 
-  const coupleLevel = useMemo(
-    () => getCoupleLevel(streakInfo.totalMoments),
-    [streakInfo.totalMoments]
-  );
-
   return (
     <div className="flex-1 h-full w-full flex flex-col space-y-6 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
       {/* Top Back Navigation Button */}
@@ -270,107 +263,32 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           )}
         </div>
 
-        {/* Dynamic «Наша история» statistics: 3 real metrics */}
-        <div className="relative z-10 w-full grid grid-cols-3 gap-2 pt-2">
-          {/* 1. Moments count */}
-          <div className="rounded-[18px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#242024] p-3 text-center">
-            <span className="font-display text-base font-bold text-[#343033] dark:text-white">
-              {streakInfo.totalMoments}
+        {/* Dynamic «Наша история» statistics: 2 equal-width tiles */}
+        <div className="relative z-10 w-full grid grid-cols-2 gap-3 pt-2">
+          {/* Tile 1: Дней вместе */}
+          <div className="rounded-[22px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#2E1E24] p-3.5 sm:p-4 text-center flex flex-col items-center justify-center shadow-2xs">
+            <span className="font-display text-2xl sm:text-3xl font-bold text-[#343033] dark:text-white tracking-tight leading-none">
+              {couple.daysTogether || 1}
             </span>
-            <p className="text-[10px] font-medium text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-tight">
-              {pluralizeWord(streakInfo.totalMoments, 'момент', 'момента', 'моментов')}
+            <p className="text-[11px] sm:text-xs font-medium text-[#777277] dark:text-[#A9A1B8] mt-1.5 leading-tight">
+              {pluralizeWord(couple.daysTogether || 1, 'день вместе', 'дня вместе', 'дней вместе')}
             </p>
           </div>
 
-          {/* 2. Days streak */}
-          <div className="rounded-[18px] bg-[#FAF2E8] dark:bg-[#1F1714] border border-[#F2DECF] dark:border-[#242024] p-3 text-center">
-            <span className="font-display text-base font-bold text-[#343033] dark:text-white">
-              {streakInfo.currentStreak}
+          {/* Tile 2: Общих моментов */}
+          <div className="rounded-[22px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#2E1E24] p-3.5 sm:p-4 text-center flex flex-col items-center justify-center shadow-2xs">
+            <span className="font-display text-2xl sm:text-3xl font-bold text-[#343033] dark:text-white tracking-tight leading-none">
+              {streakInfo.totalMoments || 0}
             </span>
-            <p className="text-[10px] font-medium text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-tight">
-              {pluralizeWord(streakInfo.currentStreak, 'день подряд', 'дня подряд', 'дней подряд')}
+            <p className="text-[11px] sm:text-xs font-medium text-[#777277] dark:text-[#A9A1B8] mt-1.5 leading-tight">
+              {pluralizeWord(streakInfo.totalMoments || 0, 'общий момент', 'общих момента', 'общих моментов')}
             </p>
           </div>
-
-          {/* 3. Days together */}
-          <div className="rounded-[18px] bg-[#F4E8C9]/70 dark:bg-[#1C1A14] border border-[#E9DBB4]/80 dark:border-[#242024] p-3 text-center">
-            <span className="font-display text-base font-bold text-[#343033] dark:text-white">
-              {couple.daysTogether}
-            </span>
-            <p className="text-[10px] font-medium text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-tight">
-              {pluralizeWord(couple.daysTogether, 'день вместе', 'дня вместе', 'дней вместе')}
-            </p>
-          </div>
-        </div>
-
-        {/* «Уровень нашей истории» Card */}
-        <div className="w-full rounded-[18px] bg-[#FFF9FA] dark:bg-[#121212] border border-[#EBE3E5] dark:border-[#242024] p-3 text-left space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] border border-[#EED7DC]/80 dark:border-[#382329] shrink-0"
-                aria-hidden="true"
-              >
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="w-3.5 h-3.5"
-                >
-                  <path
-                    d="M10 2.5C10 6.64 6.64 10 2.5 10C6.64 10 10 13.36 10 17.5C10 13.36 13.36 10 17.5 10C13.36 10 10 6.64 10 2.5Z"
-                    opacity={coupleLevel.progressPercent > 0 ? 0.95 : 0.8}
-                  />
-                  <circle cx="10" cy="10" r="1.2" fill="#FFFFFF" opacity="0.9" />
-                </svg>
-              </span>
-              <span className="font-display text-xs font-bold text-[#343033] dark:text-white">
-                {coupleLevel.levelTitle}
-              </span>
-            </div>
-            <span className="text-[11px] font-bold text-[#777277] dark:text-[#B8B2B5]">
-              {coupleLevel.progressText}
-            </span>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full h-2 rounded-full bg-[#EFE8EA] dark:bg-[#242024] overflow-hidden">
-            <div
-              className="h-full rounded-full bg-[#E98787] transition-all duration-500 ease-out"
-              style={{ width: `${coupleLevel.progressPercent}%` }}
-            />
-          </div>
-
-          <p className="text-[10px] text-[#777277] dark:text-[#B8B2B5]">
-            {coupleLevel.nextLevelThreshold
-              ? `До следующего уровня: ${coupleLevel.remainingToNext} ${pluralizeWord(
-                  coupleLevel.remainingToNext,
-                  'момент',
-                  'момента',
-                  'моментов'
-                )}`
-              : 'Максимальный уровень пары! ✨'}
-          </p>
         </div>
       </div>
 
-      {/* Paired Highlights Section: «Наше небо» & «LOVELY» */}
+      {/* Paired Highlights Section: «LOVELY» */}
       <div className="space-y-3">
-        {/* Card 1: «Наше небо» — Живое интерактивное окно в общее небо пары */}
-        {handleOpenSky && (
-          <OurSkyPreview
-            couple={couple}
-            todayMoments={todayMoments}
-            history={history}
-            ourDayPhotos={ourDayPhotos}
-            pairSeed={pairSeed}
-            streakInfo={streakInfo}
-            soundEnabled={settings.sounds}
-            hapticEnabled={settings.haptic}
-            variant="compact"
-            onOpenSky={handleOpenSky}
-          />
-        )}
-
         {/* Card 2: «LOVELY» — Тёплое окно в общую подписку пары */}
         {handleOpenLovely && (
           <div

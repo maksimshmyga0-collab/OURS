@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Sparkles, Download, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import { OursLogo } from './OursLogo';
 import { CoupleSkyView } from './CoupleSkyView';
 import { InteractiveSkyMap } from './InteractiveSkyMap';
@@ -13,7 +13,6 @@ import {
 } from '../services/sky/skyService';
 import { buildCelestialMomentsWithCoordinates } from '../services/sky/skyMomentsService';
 import { dateInvitationService } from '../services/dates/dateInvitationService';
-import { exportSkyPolaroid } from '../services/sky/exportSkyPolaroid';
 import { pluralizeWord } from '../services/gamification';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { Moment, HistoryDay, CoupleState, OurDayPhoto } from '../types';
@@ -96,8 +95,6 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
   variant = 'modal',
   isActive = true,
 }) => {
-  const [isExporting, setIsExporting] = useState(false);
-  const [downloaded, setDownloaded] = useState(false);
   const [dateSyncVersion, setDateSyncVersion] = useState(0);
 
   useEffect(() => {
@@ -160,49 +157,6 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
     return celestialData.lines;
   }, [celestialData.lines]);
 
-  // Deterministic sky representation for Polaroid card download
-  const sky = useMemo(() => {
-    return getSkyForMonth(
-      stablePairSeed,
-      currentYear,
-      currentMonth,
-      activeMoments.length,
-      true,
-      activeMoments.map((m) => m.dateKey),
-      completedDateDays,
-      validStarEvents
-    );
-  }, [
-    stablePairSeed,
-    currentYear,
-    currentMonth,
-    activeMoments,
-    completedDateDays,
-    validStarEvents,
-  ]);
-
-  // Download Polaroid Card
-  const handleDownloadCard = async () => {
-    if (isExporting) return;
-    setIsExporting(true);
-    triggerHaptic(true);
-    playSoftChime('tap', true);
-
-    try {
-      const success = await exportSkyPolaroid(sky);
-      if (success) {
-        setDownloaded(true);
-        triggerHaptic(true);
-        playSoftChime('success', true);
-        setTimeout(() => setDownloaded(false), 2600);
-      }
-    } catch (err) {
-      console.error('[OURS] Export error:', err);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   if (!isOpen && variant !== 'screen') return null;
 
   const isScreen = variant === 'screen';
@@ -223,32 +177,7 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
               </span>
             </div>
 
-            {/* Compact Quick Download Button */}
-            <button
-              type="button"
-              onClick={handleDownloadCard}
-              disabled={isExporting}
-              className="h-7 px-3 rounded-full bg-[#FAF0F2] dark:bg-[#1E162B] border border-[#EED7DC] dark:border-[#382D50] flex items-center gap-1.5 text-[11px] font-semibold text-[#343033] dark:text-white hover:border-[#E98787]/50 active:scale-95 transition-all cursor-pointer shadow-2xs disabled:opacity-60"
-              title="Скачать карточку неба"
-              aria-label="Скачать карточку неба"
-            >
-              {downloaded ? (
-                <>
-                  <Check size={13} className="text-[#649A6E]" />
-                  <span className="text-[10px]">Скачано</span>
-                </>
-              ) : isExporting ? (
-                <>
-                  <Sparkles size={13} className="text-[#E98787] animate-spin" />
-                  <span className="text-[10px]">Экспорт...</span>
-                </>
-              ) : (
-                <>
-                  <Download size={13} className="text-[#E98787]" />
-                  <span className="text-[10px]">Карточка</span>
-                </>
-              )}
-            </button>
+
           </div>
 
           {/* Interactive Celestial Memory Map Filling Maximum Available Screen Space */}
@@ -289,21 +218,6 @@ export const OurSkyModal: React.FC<OurSkyModalProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleDownloadCard}
-                disabled={isExporting}
-                className="h-7 px-2.5 rounded-full bg-[#FAF0F2] dark:bg-[#1E162B] border border-[#EED7DC] dark:border-[#382D50] flex items-center gap-1 text-[11px] font-semibold text-[#343033] dark:text-white hover:border-[#E98787]/50 active:scale-95 transition-all cursor-pointer shadow-2xs disabled:opacity-60"
-                title="Скачать карточку"
-              >
-                {downloaded ? (
-                  <Check size={13} className="text-[#649A6E]" />
-                ) : (
-                  <Download size={13} className="text-[#E98787]" />
-                )}
-                <span className="text-[10px]">Карточка</span>
-              </button>
-
               <button
                 type="button"
                 onClick={onClose}

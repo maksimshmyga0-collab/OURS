@@ -232,8 +232,8 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
     <div
       className={
         isEmbedded
-          ? 'w-full flex flex-col space-y-3'
-          : 'flex-1 h-full w-full flex flex-col space-y-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1'
+          ? 'w-full flex flex-col space-y-1.5'
+          : 'flex-1 h-full w-full flex flex-col space-y-2 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1'
       }
     >
       <input
@@ -247,20 +247,17 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
       {/* Screen / Section Header */}
       <div className="flex items-center justify-between px-1">
         <div>
-          <h2 className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white">
+          <h2 className="font-display text-base sm:text-lg font-bold text-[#343033] dark:text-white">
             Наш день
           </h2>
-          <p className="text-[11px] sm:text-xs text-[#777277] dark:text-[#B8B2B5] mt-0.5">
-            Совместный момент вашей повседневности
-          </p>
         </div>
       </div>
 
       {/* Uploading Status Banner */}
       {isUploading && uploadProgress && (
-        <div className="rounded-[20px] bg-white/90 dark:bg-[#1A1518]/90 border border-[#F0D5DC] dark:border-[#382329] p-3.5 text-center space-y-1 shadow-2xs animate-in fade-in duration-200">
-          <div className="flex items-center justify-center gap-2 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
-            <Loader2 size={15} className="animate-spin" />
+        <div className="rounded-[18px] bg-white/90 dark:bg-[#1A1518]/90 border border-[#F0D5DC] dark:border-[#382329] p-2 text-center space-y-0.5 shadow-2xs animate-in fade-in duration-200">
+          <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-[#E98787] dark:text-[#F0B9C6]">
+            <Loader2 size={14} className="animate-spin" />
             <span>{uploadProgress}</span>
           </div>
         </div>
@@ -268,15 +265,15 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
 
       {/* Error Message Banner */}
       {errorMessage && (
-        <div className="rounded-[20px] bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-3.5 flex items-center justify-between gap-2 shadow-2xs animate-in fade-in duration-200">
-          <div className="flex items-center gap-2 text-xs font-medium text-rose-700 dark:text-rose-300">
-            <AlertCircle size={16} className="shrink-0" />
+        <div className="rounded-[18px] bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-2 flex items-center justify-between gap-2 shadow-2xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-rose-700 dark:text-rose-300">
+            <AlertCircle size={15} className="shrink-0" />
             <span>{errorMessage}</span>
           </div>
           <button
             type="button"
             onClick={handleSelectFilesClick}
-            className="px-2.5 py-1 rounded-full bg-rose-600 text-white text-[11px] font-semibold shrink-0 cursor-pointer"
+            className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-semibold shrink-0 cursor-pointer"
           >
             Повторить
           </button>
@@ -284,34 +281,29 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
       )}
 
       {/* Main Frosted Matte Card - Fixed Independent Geometry Container with Atmospheric Backlight Glow */}
-      <div className="relative overflow-visible w-full max-w-md mx-auto my-1">
-        <AtmosphericGlow variant="card" insetClassName="-inset-3 sm:-inset-4" roundedClassName="rounded-[32px]" />
-        <div className="relative w-full overflow-hidden rounded-[28px] bg-white/80 dark:bg-[#121013]/80 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] p-4 sm:p-5 shadow-xs transition-all duration-300 flex flex-col space-y-3.5">
+      <div className="relative overflow-visible w-full max-w-md mx-auto my-0.5">
+        <AtmosphericGlow variant="card" insetClassName="-inset-3 sm:-inset-4" roundedClassName="rounded-[28px]" />
+        <div className="relative w-full overflow-hidden rounded-[22px] sm:rounded-[26px] bg-white/80 dark:bg-[#121013]/80 backdrop-blur-md border border-[#EBE3E5] dark:border-[#242024] p-2 sm:p-2.5 shadow-xs transition-all duration-300 flex flex-col space-y-1.5">
         
         {/* Fixed Aspect Canvas Area Controlling Image Display */}
-        <div className="relative w-full aspect-[4/3] xs:aspect-[16/11] sm:aspect-[16/10] rounded-[22px] overflow-hidden bg-[#FAF1F3]/80 dark:bg-[#181215]/80 border border-[#F0D5DC] dark:border-[#3D252E] shadow-2xs shrink-0">
+        <div className="relative w-full aspect-[16/10] min-h-[150px] xs:min-h-[170px] sm:min-h-[190px] rounded-[18px] sm:rounded-[20px] overflow-hidden bg-[#FAF1F3]/80 dark:bg-[#181215]/80 border border-[#F0D5DC] dark:border-[#3D252E] shadow-2xs shrink-0">
           
           {/* CASE 0: No photos uploaded for today */}
           {totalTodayCount === 0 && !isUploading && (
-            <div className="w-full h-full flex flex-col items-center justify-center text-center p-4 space-y-3 select-none">
-              <div className="w-12 h-12 rounded-2xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] flex items-center justify-center border border-[#EED7DC] dark:border-[#382329] shadow-2xs">
-                <ImageIcon size={24} strokeWidth={1.8} />
+            <div className="w-full h-full flex flex-col items-center justify-center text-center p-2 space-y-1 select-none">
+              <div className="w-8 h-8 rounded-xl bg-[#FAF0F2] dark:bg-[#201518] text-[#E98787] dark:text-[#F0B9C6] flex items-center justify-center border border-[#EED7DC] dark:border-[#382329] shadow-2xs">
+                <ImageIcon size={16} strokeWidth={1.8} />
               </div>
-              <div className="space-y-1 max-w-xs">
-                <h2 className="font-display text-sm sm:text-base font-bold text-[#343033] dark:text-white">
-                  Кадр сегодняшнего дня
-                </h2>
-                <p className="text-[11px] sm:text-xs text-[#777277] dark:text-[#B8B2B5] leading-relaxed">
-                  Поделитесь одним кадром вашей жизни. Фото сохранится в общей истории.
-                </p>
-              </div>
+              <h2 className="font-display text-xs sm:text-sm font-bold text-[#343033] dark:text-white">
+                Кадр сегодняшнего дня
+              </h2>
               <button
                 type="button"
                 onClick={handleSelectFilesClick}
                 disabled={isUploading}
-                className="inline-flex items-center gap-2 h-9 px-5 rounded-full bg-gradient-to-r from-[#E98787] to-[#F0B9C6] dark:from-[#382329] dark:to-[#2A1B22] border border-[#F0D5DC] dark:border-[#422632] text-white dark:text-[#F0B9C6] font-display font-semibold text-xs tracking-wide shadow-xs active:scale-[0.97] transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 h-6.5 px-3.5 rounded-full bg-gradient-to-r from-[#E98787] to-[#F0B9C6] dark:from-[#382329] dark:to-[#2A1B22] border border-[#F0D5DC] dark:border-[#422632] text-white dark:text-[#F0B9C6] font-display font-semibold text-[11px] tracking-wide shadow-xs active:scale-[0.97] transition-all cursor-pointer"
               >
-                <Camera size={15} />
+                <Camera size={12} />
                 <span>Загрузить фото</span>
               </button>
             </div>
@@ -428,30 +420,18 @@ export const OurDayScreen: React.FC<OurDayScreenProps> = ({
           )}
         </div>
 
-        {/* Stable Action Bar Below Photo Canvas Area */}
-        {totalTodayCount > 0 && (
+        {/* Stable Action Bar Below Photo Canvas Area (Only shown when user hasn't added photo yet) */}
+        {!hasUserPhoto && totalTodayCount > 0 && (
           <div className="pt-0.5 flex items-center justify-center shrink-0">
-            {hasUserPhoto ? (
-              <button
-                type="button"
-                onClick={handleSelectFilesClick}
-                disabled={isUploading}
-                className="inline-flex items-center gap-2 h-9 px-5 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/15 border border-black/10 dark:border-white/10 text-xs font-semibold text-[#343033] dark:text-white transition-all duration-150 active:scale-[0.97] cursor-pointer"
-              >
-                <RefreshCw size={14} className={isUploading ? 'animate-spin' : ''} />
-                <span>{isUploading ? 'Загрузка...' : 'Заменить своё фото'}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSelectFilesClick}
-                disabled={isUploading}
-                className="inline-flex items-center gap-2 h-9 px-5 rounded-full bg-gradient-to-r from-[#E98787] to-[#F0B9C6] dark:from-[#382329] dark:to-[#2A1B22] border border-[#F0D5DC] dark:border-[#422632] text-white dark:text-[#F0B9C6] text-xs font-semibold tracking-wide shadow-xs active:scale-[0.97] transition-all cursor-pointer"
-              >
-                <Camera size={15} />
-                <span>{isUploading ? 'Загрузка...' : 'Добавить своё фото'}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSelectFilesClick}
+              disabled={isUploading}
+              className="inline-flex items-center gap-1.5 h-7 px-4 rounded-full bg-gradient-to-r from-[#E98787] to-[#F0B9C6] dark:from-[#382329] dark:to-[#2A1B22] border border-[#F0D5DC] dark:border-[#422632] text-white dark:text-[#F0B9C6] text-[11px] font-semibold tracking-wide shadow-xs active:scale-[0.97] transition-all cursor-pointer"
+            >
+              <Camera size={13} />
+              <span>{isUploading ? 'Загрузка...' : 'Добавить своё фото'}</span>
+            </button>
           </div>
         )}
       </div>
