@@ -70,6 +70,7 @@ export function getInitialAppState(): AppState {
           isLovely: Boolean(parsed.couple?.isLovely || parsed.couple?.subscription === 'premium'),
           lovelyPurchasedAt: parsed.couple?.lovelyPurchasedAt,
           subscription: parsed.couple?.subscription || 'free',
+          createdAt: parsed.couple?.createdAt,
         };
 
         const cleanMoments: Moment[] = Array.isArray(parsed.todayMoments)

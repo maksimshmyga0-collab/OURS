@@ -11,6 +11,28 @@ export function formatDateKey(date: Date): string {
 }
 
 /**
+ * Calculate calendar days together from pair creation date.
+ * Calendar calculation: creation day is day 1 together.
+ */
+export function calculateDaysTogether(startDateOrCreatedAt: string | Date | undefined, fallback: number = 1): number {
+  if (!startDateOrCreatedAt) return Math.max(1, fallback);
+  try {
+    const createdDate = new Date(startDateOrCreatedAt);
+    if (isNaN(createdDate.getTime())) return Math.max(1, fallback);
+    const now = new Date();
+
+    const startMidnight = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const diffMs = todayMidnight.getTime() - startMidnight.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays + 1);
+  } catch {
+    return Math.max(1, fallback);
+  }
+}
+
+/**
  * Subtract N days from date
  */
 function subDays(date: Date, days: number): Date {

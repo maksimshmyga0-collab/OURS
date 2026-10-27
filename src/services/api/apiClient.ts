@@ -474,13 +474,17 @@ export class ApiClient {
     const lovelyPurchasedAt = pairRow?.lovely_purchased_at || pairRow?.lovelyPurchasedAt || undefined;
     const createdAt = pairRow?.created_at || new Date().toISOString();
 
-    // Calculate days together
+    // Calculate calendar days together (creation day is day 1 together)
     let daysTogether = 1;
     try {
-      const diff = Math.floor(
-        (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
-      );
-      daysTogether = Math.max(1, diff + 1);
+      const createdDate = new Date(createdAt);
+      if (!isNaN(createdDate.getTime())) {
+        const now = new Date();
+        const startMidnight = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
+        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const diffDays = Math.round((todayMidnight.getTime() - startMidnight.getTime()) / (1000 * 60 * 60 * 24));
+        daysTogether = Math.max(1, diffDays + 1);
+      }
     } catch {
       daysTogether = 1;
     }
@@ -636,6 +640,7 @@ export class ApiClient {
       connected: isConnected,
       startDate: formatRussianDate(todayKey),
       daysTogether,
+      createdAt,
       isLovely,
       lovelyPurchasedAt,
       subscription,

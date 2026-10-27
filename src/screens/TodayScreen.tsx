@@ -289,10 +289,10 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
         <PastelCard
           key={activeMoment.id}
           color={getThemeCardColor(activeMoment)}
-          className="p-2 sm:p-2.5 rounded-[22px] sm:rounded-[26px] relative overflow-hidden transition-all duration-300 ease-out animate-card-enter shadow-xs border border-[#E8DFE1] dark:border-[#242024]"
+          className="p-3 sm:p-4 rounded-[24px] sm:rounded-[28px] relative overflow-hidden transition-all duration-300 ease-out animate-card-enter shadow-xs border border-[#E8DFE1] dark:border-[#242024]"
         >
           {/* 1. Header Row: Title & Status Badge */}
-          <div className="flex items-center justify-between gap-2 px-0.5 mb-0.5 relative z-20">
+          <div className="flex items-center justify-between gap-2 px-0.5 mb-1 relative z-20">
             <h2 className="font-display text-lg sm:text-xl font-bold text-[#343033] dark:text-white leading-none tracking-tight">
               Касание
             </h2>
@@ -332,7 +332,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           </div>
 
           {/* 2. Contextual Status Subtitle */}
-          <div className="px-0.5 mb-1 flex items-center relative z-20">
+          <div className="px-0.5 mb-1.5 flex items-center relative z-20">
             <p className="text-[11px] text-[#777277] dark:text-[#B8B2B5] leading-tight">
               {isCurrentMomentWaiting ? (
                 <span className="font-semibold text-[#E2765A] dark:text-[#F2967F]">
@@ -353,14 +353,14 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
           </div>
 
           {/* 3. Photo Diptych Area */}
-          <div className="relative w-full my-1 overflow-visible select-none z-10">
+          <div className="relative w-full my-1.5 overflow-visible select-none z-10">
             {/* Atmospheric Backlight */}
             <AtmosphericGlow />
 
             {/* Central Seam Medallion — Strictly vertically and horizontally centered over the photo grid */}
             {isMomentRevealed && activeMoment.userPhoto && activeMoment.partnerPhoto && (
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-300">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-[#F2DEE3] dark:border-[#382730] shadow-[0_4px_16px_rgba(215,85,105,0.32)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F]">
+                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full bg-white/95 dark:bg-[#1E1C1E]/95 backdrop-blur-md border border-[#F2DEE3] dark:border-[#382730] shadow-[0_4px_16px_rgba(215,85,105,0.32)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F]">
                   <Heart size={14} fill="currentColor" />
                 </div>
               </div>
@@ -368,7 +368,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
 
             {activeMoment.status === 'BOTH_UPLOADED' && !isMomentRevealed && (
               <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center justify-center animate-in zoom-in-75 fade-in duration-300">
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-rose-100 to-amber-100 dark:from-rose-900/80 dark:to-amber-900/80 backdrop-blur-md border border-rose-200/90 dark:border-rose-700/60 shadow-[0_4px_16px_rgba(215,85,105,0.38)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] animate-pulse">
+                <div className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-rose-100 to-amber-100 dark:from-rose-900/80 dark:to-amber-900/80 backdrop-blur-md border border-rose-200/90 dark:border-rose-700/60 shadow-[0_4px_16px_rgba(215,85,105,0.38)] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] animate-pulse">
                   <Sparkles size={14} />
                 </div>
               </div>
@@ -383,7 +383,7 @@ export const TodayScreen: React.FC<TodayScreenProps> = ({
             )}
 
             {/* Grid Stage */}
-            <div className="relative grid grid-cols-2 gap-2 sm:gap-2.5 items-stretch w-full">
+            <div className="relative grid grid-cols-2 gap-2.5 sm:gap-3.5 items-stretch w-full">
               {isCurrentMomentWaiting ? (
                 <div className="col-span-2 w-full relative overflow-visible my-1">
                   <WaitingCloudGlow />

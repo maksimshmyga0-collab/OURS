@@ -120,7 +120,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
           {/* Photo Frame Container */}
           <div
             onClick={() => handleOpenViewer(photoUrl, 'Твоё фото')}
-            className="group relative w-full aspect-[4/4.5] sm:aspect-[4/4.7] min-h-[175px] xs:min-h-[195px] sm:min-h-[235px] rounded-[26px] sm:rounded-[28px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_8px_22px_-6px_rgba(215,130,145,0.18),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.7)] cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] hover:shadow-[0_12px_28px_-6px_rgba(215,130,145,0.28)] select-none"
+            className="group relative w-full aspect-[3/4.2] sm:aspect-[3/4] min-h-[220px] xs:min-h-[245px] sm:min-h-[295px] rounded-[26px] sm:rounded-[30px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_8px_22px_-6px_rgba(215,130,145,0.18),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.7)] cursor-pointer transition-all duration-100 ease-out active:scale-[0.98] hover:shadow-[0_12px_28px_-6px_rgba(215,130,145,0.28)] select-none"
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
@@ -214,24 +214,24 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
         <button
           type="button"
           onClick={handleSlotClick}
-          className={`group relative w-full aspect-[4/4.5] sm:aspect-[4/4.7] min-h-[175px] xs:min-h-[195px] sm:min-h-[235px] rounded-[24px] sm:rounded-[28px] bg-gradient-to-b from-[#FFFFFF] via-[#FFF8F9] to-[#FDF4F6] dark:from-[#1A1417] dark:via-[#161114] dark:to-[#130E11] border-2 border-dashed ${
+          className={`group relative w-full aspect-[3/4.2] sm:aspect-[3/4] min-h-[220px] xs:min-h-[245px] sm:min-h-[295px] rounded-[26px] sm:rounded-[30px] bg-gradient-to-b from-[#FFFFFF] via-[#FFF8F9] to-[#FDF4F6] dark:from-[#1A1417] dark:via-[#161114] dark:to-[#130E11] border-2 border-dashed ${
             isPartnerUploaded
               ? 'border-[#E98787] shadow-[0_6px_22px_-2px_rgba(233,135,135,0.32)] animate-pulse'
               : 'border-[#F0D5DC] dark:border-[#3D252E] hover:border-[#E98787] dark:hover:border-[#E98787] shadow-[0_4px_16px_-4px_rgba(233,135,135,0.12)] hover:shadow-[0_8px_24px_-4px_rgba(233,135,135,0.22)]'
-          } flex flex-col items-center justify-center p-2.5 text-center transition-all duration-100 ease-out active:scale-[0.98] cursor-pointer select-none`}
+          } flex flex-col items-center justify-center p-3 text-center transition-all duration-100 ease-out active:scale-[0.98] cursor-pointer select-none`}
         >
           {/* Subtle inner ambient glow */}
-          <div className="absolute inset-0 rounded-[24px] sm:rounded-[26px] bg-radial from-[#FFF0F3]/50 to-transparent dark:from-[#2A161E]/30 pointer-events-none" />
+          <div className="absolute inset-0 rounded-[26px] sm:rounded-[30px] bg-radial from-[#FFF0F3]/50 to-transparent dark:from-[#2A161E]/30 pointer-events-none" />
 
           {/* Central Camera Medallion */}
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#FFF0F3] to-[#FCE6EB] dark:from-[#2A1820] dark:to-[#201217] border border-[#F5D8DF] dark:border-[#422632] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] mb-1.5 shadow-xs transition-transform duration-250 ease-out group-hover:scale-108 group-active:scale-95">
-            <Camera size={20} strokeWidth={2.1} />
+          <div className="w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#FFF0F3] to-[#FCE6EB] dark:from-[#2A1820] dark:to-[#201217] border border-[#F5D8DF] dark:border-[#422632] flex items-center justify-center text-[#E17282] dark:text-[#F2967F] mb-2 shadow-xs transition-transform duration-250 ease-out group-hover:scale-108 group-active:scale-95">
+            <Camera size={24} strokeWidth={2.1} />
           </div>
 
-          <span className="font-display font-semibold text-xs text-[#343033] dark:text-white tracking-tight">
+          <span className="font-display font-semibold text-xs sm:text-sm text-[#343033] dark:text-white tracking-tight">
             {isPartnerUploaded ? 'Ответить своим кадром' : 'Добавить фото'}
           </span>
-          <span className="text-[10px] text-[#A69FA3] dark:text-[#8A8186] mt-0.5 font-medium">
+          <span className="text-[10.5px] sm:text-[11px] text-[#A69FA3] dark:text-[#8A8186] mt-1 font-medium">
             {isPartnerUploaded ? 'Партнёр уже ждёт тебя ♡' : 'Поделись моментом'}
           </span>
         </button>
@@ -258,7 +258,7 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
         {/* Photo Card Container */}
         <div
           onClick={!isBlurred ? () => handleOpenViewer(photoUrl, title) : undefined}
-          className={`group relative w-full aspect-[4/4.5] sm:aspect-[4/4.7] min-h-[175px] xs:min-h-[195px] sm:min-h-[235px] rounded-[24px] sm:rounded-[28px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_8px_22px_-6px_rgba(215,130,145,0.18),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.7)] select-none ${
+          className={`group relative w-full aspect-[3/4.2] sm:aspect-[3/4] min-h-[220px] xs:min-h-[245px] sm:min-h-[295px] rounded-[26px] sm:rounded-[30px] overflow-hidden bg-[#FAF1F3] dark:bg-[#181215] border border-[#F0D5DC] dark:border-[#3D252E] shadow-[0_8px_22px_-6px_rgba(215,130,145,0.18),0_2px_8px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_28px_-6px_rgba(0,0,0,0.7)] select-none ${
             !isBlurred
               ? 'cursor-pointer active:scale-[0.98] transition-all duration-100 ease-out hover:shadow-[0_12px_28px_-6px_rgba(215,130,145,0.28)]'
               : 'pointer-events-none'
@@ -360,36 +360,36 @@ export const PhotoSlot: React.FC<PhotoSlotProps> = React.memo(({
   return (
     <div className={`w-full flex-1 flex flex-col items-center select-none ${className} pointer-events-none`}>
       <div
-        className={`relative w-full aspect-[4/4.5] sm:aspect-[4/4.7] min-h-[175px] xs:min-h-[195px] sm:min-h-[235px] rounded-[24px] sm:rounded-[28px] ${
+        className={`relative w-full aspect-[3/4.2] sm:aspect-[3/4] min-h-[220px] xs:min-h-[245px] sm:min-h-[295px] rounded-[26px] sm:rounded-[30px] ${
           isUserUploaded
             ? 'bg-gradient-to-b from-[#FFFDFE] via-[#FAF1F4] to-[#F6E6ED] dark:from-[#1D1418] dark:via-[#191115] dark:to-[#140D11] border border-dashed border-[#E8CCD5] dark:border-[#3D252E] shadow-[0_4px_16px_rgba(215,85,105,0.08)]'
             : 'bg-gradient-to-b from-[#FDF9FA] via-[#FAF3F5] to-[#F7EEF1] dark:from-[#171316] dark:via-[#151114] dark:to-[#120E11] border border-dashed border-[#ECD9DE] dark:border-[#35252C] shadow-[0_2px_10px_rgba(0,0,0,0.02)]'
-        } flex flex-col items-center justify-center p-2.5 text-center select-none overflow-hidden transition-all duration-300`}
+        } flex flex-col items-center justify-center p-3 text-center select-none overflow-hidden transition-all duration-300`}
       >
         {/* Soft breathing aura when user is waiting for partner */}
         {isUserUploaded && (
-          <div className="absolute inset-0 rounded-[24px] sm:rounded-[26px] bg-radial from-rose-200/30 to-transparent dark:from-rose-900/20 animate-pulse pointer-events-none" />
+          <div className="absolute inset-0 rounded-[26px] sm:rounded-[30px] bg-radial from-rose-200/30 to-transparent dark:from-rose-900/20 animate-pulse pointer-events-none" />
         )}
 
         {/* Soft centered icon */}
         <div
-          className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl ${
+          className={`w-12 h-12 sm:w-13 sm:h-13 rounded-2xl ${
             isUserUploaded
               ? 'bg-white/95 dark:bg-[#28181F] border border-[#F2D6DD] dark:border-[#422530] text-[#E17282] dark:text-[#F2967F] shadow-xs'
               : 'bg-white/80 dark:bg-white/5 border border-[#F2DEE3] dark:border-[#2F1F26] text-[#C0A8AF] dark:text-[#7A6B72] shadow-xs'
-          } flex items-center justify-center mb-1.5 transition-all duration-300`}
+          } flex items-center justify-center mb-2 transition-all duration-300`}
         >
           {isUserUploaded ? (
-            <Heart size={18} className="animate-pulse fill-rose-100 dark:fill-rose-950/40 text-[#E17282] dark:text-[#F2967F]" />
+            <Heart size={20} className="animate-pulse fill-rose-100 dark:fill-rose-950/40 text-[#E17282] dark:text-[#F2967F]" />
           ) : (
-            <Sparkles size={18} strokeWidth={1.8} className="opacity-70" />
+            <Sparkles size={20} strokeWidth={1.8} className="opacity-70" />
           )}
         </div>
 
-        <span className="font-display font-semibold text-xs text-[#5A5458] dark:text-[#D4CBD0] tracking-tight">
+        <span className="font-display font-semibold text-xs sm:text-sm text-[#5A5458] dark:text-[#D4CBD0] tracking-tight">
           Взгляд {title}
         </span>
-        <span className="text-[10px] text-[#A89FA3] dark:text-[#7D757A] mt-0.5 font-medium">
+        <span className="text-[10.5px] sm:text-[11px] text-[#A89FA3] dark:text-[#7D757A] mt-1 font-medium">
           {isUserUploaded ? `Ждём кадр от ${title} ♡` : `Ждём ${title}`}
         </span>
       </div>

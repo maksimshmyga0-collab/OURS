@@ -22,5 +22,6 @@ export interface CoupleState {
   lovelyPurchasedAt?: string;
   subscription?: 'free' | 'premium';
   subscriptionTariff?: 'month' | 'year';
+  createdAt?: string;
 }
 

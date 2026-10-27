@@ -25,6 +25,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { pluralizeWord } from '../services/gamification';
+import { calculateDaysTogether } from '../services/streak/streakService';
 import { triggerHaptic, playSoftChime } from '../services/feedback';
 import { copyToClipboard } from '../services/device/clipboard';
 import { OursLogo } from '../components/OursLogo';
@@ -177,6 +178,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     triggerHaptic(nextState);
   };
 
+  const daysTogether = useMemo(
+    () => calculateDaysTogether(couple.createdAt, couple.daysTogether),
+    [couple.createdAt, couple.daysTogether]
+  );
+
   return (
     <div className="flex-1 h-full w-full flex flex-col space-y-6 pb-12 overflow-y-auto overscroll-y-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden px-1">
       {/* Top Back Navigation Button */}
@@ -263,25 +269,25 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           )}
         </div>
 
-        {/* Dynamic «Наша история» statistics: 2 equal-width tiles */}
-        <div className="relative z-10 w-full grid grid-cols-2 gap-3 pt-2">
+        {/* Dynamic «Наша история» statistics: 2 tiles in 1 row */}
+        <div className="relative z-10 w-full grid grid-cols-2 gap-2.5 pt-2">
           {/* Tile 1: Дней вместе */}
-          <div className="rounded-[22px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#2E1E24] p-3.5 sm:p-4 text-center flex flex-col items-center justify-center shadow-2xs">
-            <span className="font-display text-2xl sm:text-3xl font-bold text-[#343033] dark:text-white tracking-tight leading-none">
-              {couple.daysTogether || 1}
+          <div className="rounded-[20px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#282024] p-3.5 text-center shadow-2xs">
+            <span className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white block tracking-tight">
+              {daysTogether}
             </span>
-            <p className="text-[11px] sm:text-xs font-medium text-[#777277] dark:text-[#A9A1B8] mt-1.5 leading-tight">
-              {pluralizeWord(couple.daysTogether || 1, 'день вместе', 'дня вместе', 'дней вместе')}
+            <p className="text-[11px] font-medium text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-tight">
+              {pluralizeWord(daysTogether, 'день вместе', 'дня вместе', 'дней вместе')}
             </p>
           </div>
 
           {/* Tile 2: Общих моментов */}
-          <div className="rounded-[22px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#2E1E24] p-3.5 sm:p-4 text-center flex flex-col items-center justify-center shadow-2xs">
-            <span className="font-display text-2xl sm:text-3xl font-bold text-[#343033] dark:text-white tracking-tight leading-none">
-              {streakInfo.totalMoments || 0}
+          <div className="rounded-[20px] bg-[#FAF0F2] dark:bg-[#1E1417] border border-[#EED7DC] dark:border-[#282024] p-3.5 text-center shadow-2xs">
+            <span className="font-display text-xl sm:text-2xl font-bold text-[#343033] dark:text-white block tracking-tight">
+              {streakInfo.totalMoments}
             </span>
-            <p className="text-[11px] sm:text-xs font-medium text-[#777277] dark:text-[#A9A1B8] mt-1.5 leading-tight">
-              {pluralizeWord(streakInfo.totalMoments || 0, 'общий момент', 'общих момента', 'общих моментов')}
+            <p className="text-[11px] font-medium text-[#777277] dark:text-[#B8B2B5] mt-0.5 leading-tight">
+              {pluralizeWord(streakInfo.totalMoments, 'общий момент', 'общих момента', 'общих моментов')}
             </p>
           </div>
         </div>
